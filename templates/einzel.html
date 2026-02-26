@@ -1,65 +1,113 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
-<h3>Schnelleintrag</h3>
-<form method="POST" enctype="multipart/form-data">
-    <div class="mb-3">
-        <select name="schueler_id" class="form-control">
-            <option disabled selected>Schüler wählen...</option>
-            {% for s in schueler %}
-            <option value="{{ s.id }}">{{ s.vorname }} {{ s.nachname }}</option>
-            {% endfor %}
-        </select>
+<style>
+    .quick-entry-shell {
+        max-width: 860px;
+        margin: 0 auto;
+    }
+    .rating-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .6rem;
+    }
+    .rating-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 86px;
+        border-radius: 12px !important;
+    }
+    .rating-card small {
+        display: block;
+        margin-top: .15rem;
+        font-size: .7rem;
+        opacity: .8;
+    }
+    @media (max-width: 575px) {
+        .rating-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+</style>
+
+<div class="quick-entry-shell">
+    <div class="surface-panel p-4 p-md-4 fade-in">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row">
+            <div>
+                <span class="section-label">Beobachtung</span>
+                <h2 class="mt-2 mb-1">Schnelleintrag</h2>
+                <p class="text-muted mb-0">Kurznotiz mit Bewertung, Kommentar und optionalem Foto.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <span class="badge bg-warning px-3 py-2 d-inline-flex align-items-center gap-1">{{ bi('lightning-charge', 'bi-icon-sm') }} Schnellmodus</span>
+            </div>
+        </div>
+
+        <hr class="soft-divider">
+
+        <form method="POST" enctype="multipart/form-data">
+            {{ csrf_input() }}
+            {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Schüler auswählen</label>
+                    {% set student_select_id = 'einzel_schueler_id' %}
+                    {% set student_select_name = 'schueler_id' %}
+                    {% set student_select_required = true %}
+                    {% set student_select_placeholder = 'Schüler wählen...' %}
+                    {% set student_search_placeholder = 'Kind suchen...' %}
+                    {% include 'includes/student_select_field.html' %}
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Kompetenz auswählen</label>
+                    <select name="item_id" class="form-select" required>
+                        <option disabled selected value="">Kompetenz wählen...</option>
+                        {% for b in boegen %}
+                        <optgroup label="{{ b.titel }}">
+                            {% for item in b.items %}
+                            <option value="{{ item.id }}">{{ item.text }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-4">
+                <label class="form-label">Bewertung</label>
+                {% set rating_name = 'wert' %}
+                {% set rating_id_prefix = 'opt' %}
+                {% set rating_layout_class = 'rating-grid' %}
+                {% set rating_label_extra_class = 'rating-card' %}
+                {% set rating_value_class = 'h3 d-block fw-bold mb-0' %}
+                {% set rating_required = true %}
+                {% set rating_show_hints = true %}
+                {% set rating_hint_1 = 'reicht noch nicht' %}
+                {% set rating_hint_2 = 'wechselhaft' %}
+                {% include 'includes/rating_scale_symbol.html' %}
+            </div>
+
+            <div class="row g-3 mt-2">
+                <div class="col-12">
+                    <label class="form-label">Kommentar</label>
+                    <textarea name="kommentar" class="form-control" rows="4" placeholder="Kommentar (optional)"></textarea>
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">Foto (optional)</label>
+                    <input type="file" name="foto" class="form-control" accept="image/*" capture="environment">
+                </div>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mt-4">
+                <button type="submit" class="btn btn-success btn-lg icon-btn">{{ bi('floppy', 'bi-icon') }} <span>Speichern</span></button>
+                <a href="{{ next_url if next_url else url_for('system.index') }}" class="btn btn-outline-secondary btn-lg icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
+            </div>
+        </form>
     </div>
-    
-    <div class="mb-3">
-        <select name="item_id" class="form-control">
-            <option disabled selected>Kompetenz wählen...</option>
-            {% for b in boegen %}
-                <optgroup label="{{ b.titel }}">
-                {% for item in b.items %}
-                    <option value="{{ item.id }}">{{ item.text }}</option>
-                {% endfor %}
-                </optgroup>
-            {% endfor %}
-        </select>
-    </div>
-
-    <div class="mb-3">
-        <label>Bewertung:</label>
-        <div class="btn-group w-100 mb-4" role="group">
-
-    <input type="radio" class="btn-check" name="wert" id="opt1" value="1" required>
-    <label class="btn btn-outline-danger py-3" for="opt1">
-        <span class="h3 d-block fw-bold">-</span>
-    </label>
-
-    <input type="radio" class="btn-check" name="wert" id="opt2" value="2">
-    <label class="btn btn-outline-warning py-3" for="opt2">
-        <span class="h3 d-block fw-bold">o</span>
-    </label>
-
-    <input type="radio" class="btn-check" name="wert" id="opt3" value="3">
-    <label class="btn btn-outline-success py-3" for="opt3">
-        <span class="h3 d-block fw-bold">+</span>
-    </label>
-
-    <input type="radio" class="btn-check" name="wert" id="opt4" value="4">
-    <label class="btn btn-outline-success py-3" for="opt4">
-        <span class="h3 d-block fw-bold">++</span>
-    </label>
-
 </div>
-    </div>
-
-    <div class="mb-3">
-        <textarea name="kommentar" class="form-control" placeholder="Kommentar (optional)"></textarea>
-    </div>
-
-    <div class="mb-3">
-        <label>Foto (optional):</label>
-        <input type="file" name="foto" class="form-control" accept="image/*" capture="environment">
-    </div>
-
-    <button type="submit" class="btn btn-success btn-lg w-100">Speichern</button>
-</form>
 {% endblock %}

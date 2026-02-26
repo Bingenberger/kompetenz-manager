@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .accordion-item {
+        border-radius: 12px !important;
+        overflow: hidden;
+        border: 1px solid rgba(87,117,144,0.12);
+        margin-bottom: .75rem;
+    }
+    .accordion-button {
+        font-weight: 700;
+    }
+    .accordion-button:not(.collapsed) {
+        background: rgba(39,125,161,0.08);
+        color: inherit;
+        box-shadow: inset 0 -1px 0 rgba(87,117,144,0.08);
+    }
+    .eval-ref-grid {
+        background: rgba(77,144,142,0.04);
+        border: 1px solid rgba(87,117,144,0.08);
+        border-radius: 10px;
+        padding: .8rem;
+    }
+</style>
+<div class="mb-4 page-title-row">
+    <span class="section-label">Förderplanung</span>
+    <h2 class="mt-2 mb-1">Förderplan evaluieren</h2>
+    <h4 class="text-muted mb-0">{{ plan.titel }} - {{ plan.schueler.vorname }} {{ plan.schueler.nachname }}</h4>
+</div>
+
+<form method="POST">
+
+    {{ csrf_input() }}
+    {% if concurrency_token is defined %}
+    <input type="hidden" name="concurrency_token" value="{{ concurrency_token }}">
+    {% endif %}
+    {% if next_url %}
+    <input type="hidden" name="next" value="{{ next_url }}">
+    {% endif %}
+    <div class="accordion mb-4" id="evalAccordion">
+        {% for item in plan.inhalte %}
+        <div class="accordion-item">
+            <h2 class="accordion-header">
+                <button class="accordion-button {% if loop.index > 1 %}collapsed{% endif %}" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#collapse{{item.id}}">
+                    {{ item.foerderziel }}
+                </button>
+            </h2>
+            <div id="collapse{{item.id}}" class="accordion-collapse collapse {% if loop.index == 1 %}show{% endif %}"
+                data-bs-parent="#evalAccordion">
+                <div class="accordion-body">
+                    <!-- Alte Daten als Referenz -->
+                    <div class="row mb-3 opacity-75 small eval-ref-grid">
+                        <div class="col-4"><strong>IST:</strong> {{ item.ist_zustand }}</div>
+                        <div class="col-4"><strong>SOLL:</strong> {{ item.soll_zustand }}</div>
+                        <div class="col-4"><strong>MASSNAHME:</strong> {{ item.massnahmen }}</div>
+                    </div>
+
+                    <hr class="soft-divider">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Ergebnis / Evaluationstext</label>
+                        <textarea name="eval_{{ item.id }}" class="form-control"
+                            rows="3">{{ item.evaluation_text or '' }}</textarea>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Status des Ziels</label>
+                        <select name="status_{{ item.id }}" class="form-select">
+                            <option value="0" {% if item.status_id==0 %}selected{% endif %}>Offen / In Arbeit</option>
+                            <option value="1" {% if item.status_id==1 %}selected{% endif %}>Ziel erreicht</option>
+                            <option value="2" {% if item.status_id==2 %}selected{% endif %}>Nicht erreicht /
+                                Weiterführen</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class="surface-panel p-4 mb-5">
+        <div class="card-body">
+            <label class="form-label">Gesamtstatus des Plans</label>
+            <select name="plan_status" class="form-select mb-3">
+                <option value="aktiv" {% if plan.status=='aktiv' %}selected{% endif %}>Aktiv (Laufend)</option>
+                <option value="geschlossen" {% if plan.status=='geschlossen' %}selected{% endif %}>Geschlossen
+                    (Archiviert)</option>
+            </select>
+
+            <button type="submit" class="btn btn-success btn-lg w-100 icon-btn justify-content-center">{{ bi('floppy', 'bi-icon') }} <span>Auswertung speichern</span></button>
+            <a href="{{ next_url if next_url else url_for('foerderplan.foerderplan_list') }}" class="btn btn-outline-secondary w-100 mt-2 icon-btn justify-content-center">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
+        </div>
+    </div>
+</form>
+{% endblock %}

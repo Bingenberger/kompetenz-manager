@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-6">
@@ -8,6 +9,8 @@
             </div>
             <div class="card-body">
                 <form method="POST">
+                    {{ csrf_input() }}
+                    {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
                     <!-- Versteckter Hinweis auf Bogen -->
                     <div class="mb-3">
                         <label class="form-label small text-muted">Gehört zu Bogen:</label>
@@ -27,8 +30,8 @@
                     </div>
 
                     <div class="d-grid gap-2">
-                        <button type="submit" class="btn btn-primary">Speichern</button>
-                        <a href="/admin/bogen/{{ bogen.id }}/items" class="btn btn-outline-secondary">Abbrechen</a>
+                        <button type="submit" class="btn btn-primary icon-btn justify-content-center">{{ bi('floppy', 'bi-icon') }} <span>Speichern</span></button>
+                        <a href="{{ next_url if next_url else url_for('admin.admin_items', b_id=bogen.id) }}" class="btn btn-outline-secondary icon-btn justify-content-center">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
                     </div>
                 </form>
             </div>

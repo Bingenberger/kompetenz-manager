@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 no-print page-title-row">
+    <div>
+        <span class="section-label">Ansicht</span>
+        <h2 class="mt-2 mb-1">{{ plan.titel }}</h2>
+        <p class="text-muted mb-0">{{ plan.schueler.vorname }} {{ plan.schueler.nachname }} ({{ plan.schueler.klasse }})</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        {% if can_manage %}
+        <a href="{{ url_for('foerderplan.foerderplan_edit', p_id=plan.id, next=next_url) if next_url else url_for('foerderplan.foerderplan_edit', p_id=plan.id) }}" class="btn btn-secondary icon-btn">{{ bi('pencil-square', 'bi-icon') }} <span>Bearbeiten</span></a>
+        {% endif %}
+        <div class="dropdown">
+            <button class="btn btn-outline-dark icon-btn dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                {{ bi('download', 'bi-icon') }} <span>Export Förderplan</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                <li><h6 class="dropdown-header">Ohne Grundlagenblatt</h6></li>
+                <li><a class="dropdown-item" href="{{ url_for('foerderplan.foerderplan_export_odt', p_id=plan.id, next=next_url) if next_url else url_for('foerderplan.foerderplan_export_odt', p_id=plan.id) }}">{{ bi('file-earmark-word', 'bi-icon-sm') }} <span class="ms-1">ODT exportieren</span></a></li>
+                <li><a class="dropdown-item" href="{{ url_for('foerderplan.foerderplan_export_pdf', p_id=plan.id, next=next_url) if next_url else url_for('foerderplan.foerderplan_export_pdf', p_id=plan.id) }}">{{ bi('file-earmark-pdf', 'bi-icon-sm') }} <span class="ms-1">PDF exportieren</span></a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><h6 class="dropdown-header">Mit Grundlagenblatt</h6></li>
+                {% if grundlage %}
+                <li><a class="dropdown-item" href="{{ url_for('foerderplan.foerderplan_export_odt', p_id=plan.id, mit_grundlagenblatt=1, next=next_url) if next_url else url_for('foerderplan.foerderplan_export_odt', p_id=plan.id, mit_grundlagenblatt=1) }}">{{ bi('file-earmark-word', 'bi-icon-sm') }} <span class="ms-1">ODT mit Grundlagenblatt</span></a></li>
+                <li><a class="dropdown-item" href="{{ url_for('foerderplan.foerderplan_export_pdf', p_id=plan.id, mit_grundlagenblatt=1, next=next_url) if next_url else url_for('foerderplan.foerderplan_export_pdf', p_id=plan.id, mit_grundlagenblatt=1) }}">{{ bi('file-earmark-pdf', 'bi-icon-sm') }} <span class="ms-1">PDF mit Grundlagenblatt</span></a></li>
+                {% else %}
+                <li><span class="dropdown-item-text text-muted">Nicht verfügbar (kein Grundlagenblatt)</span></li>
+                {% endif %}
+            </ul>
+        </div>
+        {% if plan.status != 'geschlossen' %}
+        <a href="{{ url_for('foerderplan.foerderplan_evaluate', p_id=plan.id, next=next_url) if next_url else url_for('foerderplan.foerderplan_evaluate', p_id=plan.id) }}" class="btn btn-warning icon-btn">{{ bi('journal-text', 'bi-icon') }} <span>Evaluieren</span></a>
+        {% endif %}
+        {% if can_manage %}
+        <form method="POST" action="{{ url_for('foerderplan.foerderplan_delete', p_id=plan.id) }}" onsubmit="return confirm('Förderplan wirklich löschen?')" class="d-inline">
+            {{ csrf_input() }}
+            {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+            <button type="submit" class="btn btn-outline-danger icon-btn">{{ bi('trash', 'bi-icon') }} <span>Löschen</span></button>
+        </form>
+        {% endif %}
+        <a href="{{ next_url if next_url else url_for('foerderplan.foerderplan_list') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+    </div>
+</div>
+
+{% if grundlage %}
+<div class="surface-panel p-4 mb-4">
+    <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+        <div>
+            <span class="section-label">Grundlagenblatt</span>
+            <h3 class="h5 mt-2 mb-0">Grundlegende Angaben zum Kind</h3>
+        </div>
+        {% if can_manage %}
+        <a href="{{ url_for('foerderplan.foerdergrundlage_edit', s_id=plan.schueler.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">
+            {{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span>
+        </a>
+        {% endif %}
+        <a href="{{ url_for('foerderplan.foerdergrundlage_export_odt', s_id=plan.schueler.id) }}" class="btn btn-sm btn-outline-primary icon-btn">
+            {{ bi('file-earmark-word', 'bi-icon-sm') }} <span>ODT</span>
+        </a>
+        <a href="{{ url_for('foerderplan.foerdergrundlage_export_pdf', s_id=plan.schueler.id) }}" class="btn btn-sm btn-outline-danger icon-btn">
+            {{ bi('file-earmark-pdf', 'bi-icon-sm') }} <span>PDF</span>
+        </a>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="small text-muted mb-1">Besondere Stärken</div>
+            <div>{{ grundlage.besondere_staerken or '-' }}</div>
+        </div>
+        <div class="col-md-6">
+            <div class="small text-muted mb-1">Vorrangiger Förderbedarf</div>
+            <div>{{ grundlage.vorrangiger_foerderbedarf or '-' }}</div>
+        </div>
+        <div class="col-md-6">
+            <div class="small text-muted mb-1">Besonderheiten in der Entwicklung</div>
+            <div>{{ grundlage.besonderheiten_entwicklung or '-' }}</div>
+        </div>
+        <div class="col-md-6">
+            <div class="small text-muted mb-1">Wichtige Informationen</div>
+            <div>{{ grundlage.wichtige_informationen or '-' }}</div>
+        </div>
+        <div class="col-12">
+            <div class="small text-muted mb-1">Grundlegende Absprachen mit Eltern</div>
+            <div>{{ grundlage.absprachen_mit_eltern or '-' }}</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- DRUCK HEADER -->
+<div class="row mb-4 surface-panel p-4">
+    <div class="col-6">
+        <h1>Förderplan</h1>
+        <h4 class="text-muted">{{ plan.schueler.vorname }} {{ plan.schueler.nachname }} ({{ plan.schueler.klasse }})
+        </h4>
+    </div>
+    <div class="col-6 text-end">
+        <p>
+            <strong>Erstellt am:</strong> {{ plan.datum_erstellung.strftime('%d.%m.%Y') }}<br>
+            <strong>Status:</strong> {{ plan.status|capitalize }}
+            {% if plan.datum_evaluation %}
+            <br><strong>Evaluiert am:</strong> {{ plan.datum_evaluation.strftime('%d.%m.%Y') }}
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+{% for item in plan.inhalte %}
+<div class="card mb-4 shadow-sm border-0" style="break-inside: avoid;">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">{{ item.foerderziel }}</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-4 border-end">
+                <h6 class="text-muted text-uppercase small">Ist-Zustand</h6>
+                <p>{{ item.ist_zustand }}</p>
+            </div>
+            <div class="col-md-4 border-end">
+                <h6 class="text-muted text-uppercase small">Soll-Zustand</h6>
+                <p class="fw-bold">{{ item.soll_zustand }}</p>
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-muted text-uppercase small">Maßnahmen</h6>
+                <p>{{ item.massnahmen }}</p>
+            </div>
+        </div>
+
+        {% if item.evaluation_text or item.status_id > 0 %}
+        <div class="mt-3 pt-3 border-top p-3 rounded" style="background: rgba(77,144,142,0.05);">
+            <h6 class="fw-bold">Evaluation:</h6>
+            <p>{{ item.evaluation_text or 'Keine Bemerkung.' }}</p>
+            <span
+                class="badge {% if item.status_id==1 %}bg-success{% elif item.status_id==2 %}bg-warning{% else %}bg-secondary{% endif %}">
+                {% if item.status_id == 1 %}Ziel erreicht{% elif item.status_id == 2 %}Ziel nicht erreicht /
+                Weiterführen{% else %}Offen{% endif %}
+            </span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+
+<style>
+    @media print {
+        body {
+            background: white;
+        }
+
+        .no-print,
+        nav,
+        .btn {
+            display: none !important;
+        }
+
+        .card {
+            border: 1px solid #ddd !important;
+            box-shadow: none !important;
+            background: #fff !important;
+        }
+
+        .bg-primary {
+            background-color: #eee !important;
+            color: black !important;
+            font-weight: bold;
+            border-bottom: 2px solid black;
+        }
+    }
+</style>
+{% endblock %}

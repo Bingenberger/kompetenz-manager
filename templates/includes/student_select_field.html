@@ -1,0 +1,56 @@
+{% set _field_id = student_select_id %}
+{% set _name = student_select_name %}
+{% set _selected = student_select_selected if student_select_selected is defined else '' %}
+{% set _required = student_select_required if student_select_required is defined else false %}
+{% set _placeholder = student_select_placeholder if student_select_placeholder is defined else 'Bitte auswählen...' %}
+{% set _select_class = student_select_class if student_select_class is defined else 'form-select' %}
+{% set _search_placeholder = student_search_placeholder if student_search_placeholder is defined else 'Suchen...' %}
+
+<div class="student-select-widget" data-student-select-widget>
+    {% if schueler_groups and schueler_groups|length > 1 %}
+    <div class="student-select-legend mb-2">
+        <span class="student-select-legend-title">Gruppierung:</span>
+        {% for group in schueler_groups %}
+        <span class="student-select-legend-chip {{ 'is-' ~ group.key }}">
+            {{ group.label }}
+        </span>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="student-select-combo mb-2" data-student-select-combo>
+    <div class="student-select-search-wrap">
+        <input
+            type="search"
+            class="form-control form-control-sm student-select-search"
+            placeholder="{{ _search_placeholder }}"
+            data-student-select-filter="{{ _field_id }}">
+        <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary student-select-clear d-none"
+            data-student-select-clear="{{ _field_id }}"
+            aria-label="Suche zurücksetzen">
+            ×
+        </button>
+    </div>
+    <select id="{{ _field_id }}" name="{{ _name }}" class="{{ _select_class }} student-select-combo-select" {% if _required %}required{% endif %}>
+        {% if student_select_include_empty | default(true) %}
+        <option value="" {% if not _selected %}selected{% endif %}>{{ _placeholder }}</option>
+        {% endif %}
+
+        {% for group in schueler_groups %}
+        <optgroup label="{{ group.label }}">
+            {% for s in group.students %}
+            <option
+                value="{{ s.id }}"
+                {% if _selected and _selected|string == s.id|string %}selected{% endif %}
+                data-search="{{ (s.nachname ~ ' ' ~ s.vorname ~ ' ' ~ (s.klasse or ''))|lower }}">
+                {{ s.nachname }}, {{ s.vorname }}{% if s.klasse %} ({{ s.klasse }}){% endif %}
+            </option>
+            {% endfor %}
+        </optgroup>
+        {% endfor %}
+    </select>
+    </div>
+    <div class="student-select-status small text-muted" data-student-select-status="{{ _field_id }}" aria-live="polite"></div>
+</div>

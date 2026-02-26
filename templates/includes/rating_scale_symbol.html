@@ -1,0 +1,25 @@
+<div class="{{ rating_layout_class | default('btn-group w-100') }}" role="group" aria-label="{{ rating_aria_label | default('Bewertung') }}">
+    <input type="radio" class="btn-check" name="{{ rating_name }}" id="{{ rating_id_prefix }}_1" value="1" {% if rating_required | default(false) %}required{% endif %}>
+    <label class="btn btn-outline-danger {{ rating_label_extra_class | default('') }}" for="{{ rating_id_prefix }}_1">
+        <span class="{{ rating_value_class | default('h3 d-block fw-bold mb-0') }}">-</span>
+        {% if rating_show_hints | default(false) %}<small>{{ rating_hint_1 | default('noch nicht') }}</small>{% endif %}
+    </label>
+
+    <input type="radio" class="btn-check" name="{{ rating_name }}" id="{{ rating_id_prefix }}_2" value="2">
+    <label class="btn btn-outline-warning {{ rating_label_extra_class | default('') }}" for="{{ rating_id_prefix }}_2">
+        <span class="{{ rating_value_class | default('h3 d-block fw-bold mb-0') }}">o</span>
+        {% if rating_show_hints | default(false) %}<small>{{ rating_hint_2 | default('teilweise') }}</small>{% endif %}
+    </label>
+
+    <input type="radio" class="btn-check" name="{{ rating_name }}" id="{{ rating_id_prefix }}_3" value="3">
+    <label class="btn btn-outline-success {{ rating_label_extra_class | default('') }}" for="{{ rating_id_prefix }}_3">
+        <span class="{{ rating_value_class | default('h3 d-block fw-bold mb-0') }}">+</span>
+        {% if rating_show_hints | default(false) %}<small>{{ rating_hint_3 | default('gut') }}</small>{% endif %}
+    </label>
+
+    <input type="radio" class="btn-check" name="{{ rating_name }}" id="{{ rating_id_prefix }}_4" value="4">
+    <label class="btn btn-outline-success {{ rating_label_extra_class | default('') }}" for="{{ rating_id_prefix }}_4">
+        <span class="{{ rating_value_class | default('h3 d-block fw-bold mb-0') }}">++</span>
+        {% if rating_show_hints | default(false) %}<small>{{ rating_hint_4 | default('sehr gut') }}</small>{% endif %}
+    </label>
+</div>

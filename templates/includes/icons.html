@@ -1,0 +1,8 @@
+{% macro bi(name, cls='bi-icon', label=None) -%}
+<svg class="bi {{ cls }}"
+     fill="currentColor"
+     {% if label %}role="img" aria-label="{{ label }}"{% else %}aria-hidden="true"{% endif %}
+     focusable="false">
+    <use href="{{ url_for('static', filename='vendor/bootstrap-icons/bootstrap-icons.svg') }}#{{ name }}"></use>
+</svg>
+{%- endmacro %}

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-10">
+        <div class="surface-panel p-4 p-md-5 fade-in">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+                <div>
+                    <span class="section-label">Förderplanung</span>
+                    <h2 class="mt-2 mb-1">
+                        {% if is_edit_mode %}Grundlagenblatt bearbeiten{% else %}Grundlagenblatt anlegen{% endif %}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {{ schueler.vorname }} {{ schueler.nachname }}{% if schueler.klasse %} ({{ schueler.klasse }}){% endif %}
+                    </p>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    {% if grundlage %}
+                    <a href="{{ url_for('foerderplan.foerdergrundlage_export_odt', s_id=schueler.id) }}" class="btn btn-outline-primary icon-btn">
+                        {{ bi('file-earmark-word', 'bi-icon') }} <span>ODT</span>
+                    </a>
+                    <a href="{{ url_for('foerderplan.foerdergrundlage_export_pdf', s_id=schueler.id) }}" class="btn btn-outline-danger icon-btn">
+                        {{ bi('file-earmark-pdf', 'bi-icon') }} <span>PDF</span>
+                    </a>
+                    {% endif %}
+                    <a href="{{ next_url if next_url else url_for('foerderplan.foerderplan_list', schueler_id=schueler.id) }}" class="btn btn-outline-secondary icon-btn">
+                        {{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                Dieses Grundlagenblatt wird einmalig angelegt und später nur bei wichtigen Veränderungen angepasst.
+            </div>
+
+            <form method="POST" class="row g-3">
+                {{ csrf_input() }}
+                {% if next_url %}
+                <input type="hidden" name="next" value="{{ next_url }}">
+                {% endif %}
+
+                <div class="col-12">
+                    <label class="form-label">Besondere Stärken des Kindes</label>
+                    <textarea name="besondere_staerken" class="form-control" rows="3">{{ form_values.besondere_staerken }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Vorrangiger Förderbedarf</label>
+                    <textarea name="vorrangiger_foerderbedarf" class="form-control" rows="3">{{ form_values.vorrangiger_foerderbedarf }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Besonderheiten in der Entwicklung</label>
+                    <textarea name="besonderheiten_entwicklung" class="form-control" rows="4">{{ form_values.besonderheiten_entwicklung }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Wichtige Informationen (z. B. medizinische Auffälligkeiten)</label>
+                    <textarea name="wichtige_informationen" class="form-control" rows="4">{{ form_values.wichtige_informationen }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Grundlegende Absprachen mit Eltern</label>
+                    <textarea name="absprachen_mit_eltern" class="form-control" rows="4">{{ form_values.absprachen_mit_eltern }}</textarea>
+                </div>
+
+                <div class="col-12 d-flex flex-wrap gap-2 mt-2">
+                    <button type="submit" class="btn btn-primary icon-btn">
+                        {{ bi('floppy', 'bi-icon') }} <span>Grundlagenblatt speichern</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

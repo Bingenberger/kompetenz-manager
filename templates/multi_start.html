@@ -1,69 +1,98 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
-<h3>Multi-Item Auswahl</h3>
-<form method="POST" action="/erfassen/multi/start">
+<style>
+    .multi-sticky-action {
+        position: sticky;
+        bottom: 0;
+        z-index: 10;
+        padding-top: .75rem;
+        background: linear-gradient(180deg, rgba(248,250,252,0), rgba(248,250,252,0.96) 30%);
+    }
+</style>
 
-    <div class="row mb-3">
-        <div class="col">
-            <label class="form-label">Titel / Anlass</label>
-            <input type="text" name="anlass" class="form-control" placeholder="z.B. Stationenlauf" required>
-        </div>
-        <div class="col">
-            <label class="form-label">Datum</label>
-            <input type="date" name="datum" class="form-control" required>
-        </div>
+<div class="surface-panel p-4 p-md-5 fade-in">
+    <div class="mb-4">
+        <span class="section-label">Multi-Erfassung</span>
+        <h2 class="mt-2 mb-1">Multi-Item Auswahl</h2>
+        <p class="text-muted mb-0">Mehrere Kompetenzen auswählen und anschließend pro Kind in einem Durchlauf bewerten.</p>
     </div>
 
-    <div class="alert alert-info py-2 small">
-        Klicken Sie auf einen Bogen, um die Items zu sehen.
-    </div>
+    <form method="POST" action="{{ url_for('erfassung.multi_start') }}">
+        {{ csrf_input() }}
+        {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
 
-    <div class="accordion mb-4" id="accordionBoegen">
-        {% for bogen in boegen %}
-        <div class="accordion-item">
-            <h2 class="accordion-header">
-                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c_{{ bogen.id }}">
-                    <span class="fw-bold">{{ bogen.titel }}</span>
-                </button>
-            </h2>
-            <div id="c_{{ bogen.id }}" class="accordion-collapse collapse" data-bs-parent="#accordionBoegen">
-                <div class="accordion-body">
-
-                    <div class="mb-3 border-bottom pb-2">
-                        <input class="form-check-input" type="checkbox" id="select_all_{{ bogen.id }}" onchange="toggleBogen(this, '{{ bogen.id }}')">
-                        <label class="form-check-label text-muted" for="select_all_{{ bogen.id }}">
-                            <em>Alle Items in "{{ bogen.titel }}" auswählen</em>
-                        </label>
-                    </div>
-
-                    {% for item in bogen.items %}
-                    <div class="form-check py-1">
-                        <input class="form-check-input item-checkbox-{{ bogen.id }}" type="checkbox" name="item_ids" value="{{ item.id }}" id="chk_{{ item.id }}" style="transform: scale(1.2);">
-                        <label class="form-check-label w-100 ms-2" for="chk_{{ item.id }}">
-                            <span class="badge bg-light text-dark border">{{ item.bereich }}</span> {{ item.text }}
-                        </label>
-                    </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <label class="form-label">Klasse</label>
+                <select name="klasse" class="form-select" required>
+                    <option value="" disabled {% if not default_klasse %}selected{% endif %}>Bitte wählen...</option>
+                    {% for klasse in klassen %}
+                    <option value="{{ klasse }}" {% if default_klasse == klasse %}selected{% endif %}>{{ klasse }}</option>
                     {% endfor %}
-
-                </div>
+                </select>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Titel / Anlass</label>
+                <input type="text" name="anlass" class="form-control" placeholder="z.B. Stationenlauf" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Datum</label>
+                <input type="date" name="datum" class="form-control" required>
             </div>
         </div>
-        {% endfor %}
-    </div>
 
-    <button type="submit" class="btn btn-primary btn-lg w-100 sticky-bottom shadow">Auswahl starten</button>
-</form>
+        <div class="alert alert-info py-2">
+            Klicken Sie auf einen Bogen, um die Items zu sehen. Mit der ersten Checkbox können Sie alle Items eines Bogens markieren.
+        </div>
+
+        <div class="accordion mb-3" id="accordionBoegen">
+            {% for bogen in boegen %}
+            <div class="accordion-item mb-2 border rounded-3 overflow-hidden">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c_{{ bogen.id }}">
+                        <span class="fw-bold">{{ bogen.titel }}</span>
+                    </button>
+                </h2>
+                <div id="c_{{ bogen.id }}" class="accordion-collapse collapse" data-bs-parent="#accordionBoegen">
+                    <div class="accordion-body">
+                        <div class="mb-3 border-bottom pb-2">
+                            <input class="form-check-input" type="checkbox" id="select_all_{{ bogen.id }}" onchange="toggleBogen(this, '{{ bogen.id }}')">
+                            <label class="form-check-label text-muted" for="select_all_{{ bogen.id }}">
+                                <em>Alle Items in "{{ bogen.titel }}" auswählen</em>
+                            </label>
+                        </div>
+
+                        {% for item in bogen.items %}
+                        <div class="form-check py-1">
+                            <input class="form-check-input item-checkbox-{{ bogen.id }}" type="checkbox" name="item_ids" value="{{ item.id }}" id="chk_{{ item.id }}">
+                            <label class="form-check-label w-100 ms-1" for="chk_{{ item.id }}">
+                                <span class="badge bg-light text-dark border">{{ item.bereich }}</span>
+                                {{ item.text }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div class="multi-sticky-action">
+            <button type="submit" class="btn btn-primary btn-lg w-100 shadow icon-btn justify-content-center">{{ bi('play-circle', 'bi-icon') }} <span>Auswahl starten</span></button>
+            <a href="{{ next_url if next_url else url_for('system.index') }}" class="btn btn-outline-secondary w-100 mt-2 icon-btn justify-content-center">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+        </div>
+    </form>
+</div>
 
 <script>
-    // Datum auf heute setzen
-    document.querySelector('input[type="date"]').valueAsDate = new Date();
+document.querySelector('input[type="date"]').valueAsDate = new Date();
 
-    // Funktion um alle Checkboxen eines Bogens zu steuern
-    function toggleBogen(source, bogenId) {
-        checkboxes = document.getElementsByClassName('item-checkbox-' + bogenId);
-        for(var i=0, n=checkboxes.length;i<n;i++) {
+function toggleBogen(source, bogenId) {
+    const checkboxes = document.getElementsByClassName('item-checkbox-' + bogenId);
+    for (let i = 0, n = checkboxes.length; i < n; i++) {
             checkboxes[i].checked = source.checked;
-        }
     }
+}
 </script>
 {% endblock %}

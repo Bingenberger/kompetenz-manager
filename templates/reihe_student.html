@@ -1,63 +1,83 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <span class="badge bg-secondary">{{ anlass }}</span>
-    <span class="badge bg-dark">{{ progress }}</span>
-</div>
+<style>
+    .rating-grid-4 {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .6rem;
+    }
+    .rating-grid-4 .btn {
+        min-height: 82px;
+        border-radius: 12px !important;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+    }
+    @media (max-width: 575px) {
+        .rating-grid-4 {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+</style>
 
-<div class="card shadow-sm">
-    <div class="card-header bg-primary text-white">
-        <h4 class="mb-0">{{ schueler.vorname }} {{ schueler.nachname }}</h4>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+    <div class="d-flex flex-wrap gap-2">
+        <span class="badge bg-secondary px-3 py-2">{{ anlass }}</span>
+        {% if klasse %}
+        <span class="badge bg-info px-3 py-2">Klasse {{ klasse }}</span>
+        {% endif %}
     </div>
-    <div class="card-body">
-        <p class="lead">{{ item.text }}</p>
-
-        <form method="POST" action="/erfassen/reihe/next" enctype="multipart/form-data">
-
-            <label class="form-label fw-bold">Einschätzung:</label>
-            <div class="btn-group w-100 mb-4" role="group">
-
-    <input type="radio" class="btn-check" name="wert" id="opt1" value="1" required>
-    <label class="btn btn-outline-danger py-3" for="opt1">
-        <span class="h3 d-block fw-bold">-</span>
-    </label>
-
-    <input type="radio" class="btn-check" name="wert" id="opt2" value="2">
-    <label class="btn btn-outline-warning py-3" for="opt2">
-        <span class="h3 d-block fw-bold">o</span>
-    </label>
-
-    <input type="radio" class="btn-check" name="wert" id="opt3" value="3">
-    <label class="btn btn-outline-success py-3" for="opt3">
-        <span class="h3 d-block fw-bold">+</span>
-    </label>
-
-    <input type="radio" class="btn-check" name="wert" id="opt4" value="4">
-    <label class="btn btn-outline-success py-3" for="opt4">
-        <span class="h3 d-block fw-bold">++</span>
-    </label>
-
+    <span class="badge bg-dark px-3 py-2">{{ progress }}</span>
 </div>
+
+<div class="surface-panel p-4 p-md-4 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-3 page-title-row">
+        <div>
+            <span class="section-label">Reihenerfassung</span>
+            <h2 class="mt-2 mb-1">{{ schueler.vorname }} {{ schueler.nachname }}</h2>
+            <p class="text-muted mb-0">Schnelle Einschätzung zur ausgewählten Kompetenz.</p>
+        </div>
+        <span class="badge bg-primary px-3 py-2">Schritt {{ progress }}</span>
+    </div>
+
+    <div class="card border-0 bg-light-subtle mb-4">
+        <div class="card-body py-3">
+            <div class="small text-muted mb-1">Kompetenz</div>
+            <div class="fw-semibold">{{ item.text }}</div>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('erfassung.reihe_next') }}" enctype="multipart/form-data">
+            {{ csrf_input() }}
+
+            <label class="form-label">Einschätzung</label>
+            {% set rating_name = 'wert' %}
+            {% set rating_id_prefix = 'opt' %}
+            {% set rating_layout_class = 'rating-grid-4 mb-4' %}
+            {% set rating_required = true %}
+            {% set rating_show_hints = true %}
+            {% include 'includes/rating_scale_symbol.html' %}
 
             <div class="mb-3">
-                <label class="form-label">Bemerkung (optional):</label>
-                <textarea name="kommentar" class="form-control" rows="2"></textarea>
+                <label class="form-label">Bemerkung (optional)</label>
+                <textarea name="kommentar" class="form-control" rows="3" placeholder="Kurze Notiz zur Beobachtung"></textarea>
             </div>
 
-            <div class="mb-3">
-                <label class="form-label">Foto (optional):</label>
+            <div class="mb-4">
+                <label class="form-label">Foto (optional)</label>
                 <input type="file" name="foto" class="form-control" accept="image/*" capture="environment">
             </div>
 
-            <div class="d-grid gap-2">
-                <button type="submit" name="action" value="speichern" class="btn btn-success btn-lg">
-                    Speichern & Weiter
+            <div class="d-flex flex-wrap gap-2">
+                <button type="submit" name="action" value="speichern" class="btn btn-success btn-lg icon-btn">
+                    {{ bi('check-circle', 'bi-icon') }} <span>Speichern & Weiter</span>
                 </button>
-                <button type="submit" name="action" value="skip" class="btn btn-outline-secondary" formnovalidate>
-                    Überspringen (Krank/Fehlt)
+                <button type="submit" name="action" value="skip" class="btn btn-outline-secondary btn-lg icon-btn" formnovalidate>
+                    {{ bi('skip-forward-circle', 'bi-icon') }} <span>Überspringen (Krank/Fehlt)</span>
                 </button>
             </div>
-        </form>
-    </div>
+    </form>
 </div>
 {% endblock %}

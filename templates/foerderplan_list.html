@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 page-title-row">
+    <div>
+        <span class="section-label">Förderplanung</span>
+        <h2 class="mt-2 mb-1 d-inline-flex align-items-center gap-2">{{ bi('folder2-open', 'bi-icon-md') }} <span>Förderpläne</span></h2>
+        <p class="text-muted mb-0">Vorhandene Pläne ansehen, öffnen und evaluieren.</p>
+    </div>
+    <a href="{{ url_for('foerderplan.foerderplan_select_student') }}" class="btn btn-primary icon-btn">{{ bi('plus-circle', 'bi-icon-sm') }} <span>Neuer Plan</span></a>
+</div>
+
+<div class="surface-panel p-3 mb-3">
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <span class="section-label mb-0">Anzeige</span>
+        {% if filter_info.is_admin %}
+        <span class="badge bg-primary">Admin-Ansicht</span>
+        <span class="text-muted small">Alle Förderpläne werden angezeigt.</span>
+        {% else %}
+        <span class="badge bg-info">Eigene Pläne</span>
+        {% if filter_info.klassenleitung %}
+        <span class="badge bg-success">Klassenleitung {{ filter_info.klassenleitung }}</span>
+        <span class="text-muted small">Es werden eigene Förderpläne sowie Förderpläne der Klassenleitungsklasse angezeigt.</span>
+        {% else %}
+        <span class="badge bg-secondary">Keine Klassenleitung zugeordnet</span>
+        <span class="text-muted small">Es werden nur selbst erstellte Förderpläne angezeigt.</span>
+        {% endif %}
+        {% endif %}
+        {% if filter_info.selected_schueler %}
+        <span class="badge bg-warning text-dark">
+            Schülerfilter: {{ filter_info.selected_schueler.nachname }}, {{ filter_info.selected_schueler.vorname }}
+        </span>
+        <a href="{{ url_for('foerderplan.foerdergrundlage_edit', s_id=filter_info.selected_schueler.id) }}" class="btn btn-sm btn-outline-primary icon-btn">
+            {{ bi('file-earmark-text', 'bi-icon-sm') }} <span>Grundlagenblatt</span>
+        </a>
+        <a href="{{ url_for('foerderplan.foerderplan_list') }}" class="btn btn-sm btn-outline-secondary icon-btn ms-1">
+            {{ bi('x-circle', 'bi-icon-sm') }} <span>Filter aufheben</span>
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="surface-panel p-2 p-md-3">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Schüler</th>
+                <th>Titel</th>
+                <th>Erstellt am</th>
+                <th>Status</th>
+                <th class="text-end">Aktionen</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in plaene %}
+            <tr>
+                <td class="fw-bold">{{ p.schueler.nachname }}, {{ p.schueler.vorname }}</td>
+                <td>{{ p.titel }}</td>
+                <td>{{ p.datum_erstellung.strftime('%d.%m.%Y') }}</td>
+                <td>
+                    {% if p.status == 'aktiv' %}
+                    <span class="badge bg-success">Aktiv</span>
+                    {% else %}
+                    <span class="badge bg-secondary">Geschlossen</span>
+                    {% endif %}
+                </td>
+                <td class="text-end">
+                    <a href="{{ url_for('foerderplan.foerderplan_view', p_id=p.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-info text-white me-1 icon-btn">{{ bi('eye', 'bi-icon-sm') }} <span>Ansehen</span></a>
+                    {% if p.status != 'geschlossen' %}
+                    <a href="{{ url_for('foerderplan.foerderplan_evaluate', p_id=p.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-warning icon-btn">{{ bi('journal-text', 'bi-icon-sm') }} <span>Evaluieren</span></a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not plaene %}
+            <tr>
+                <td colspan="5" class="text-center text-muted py-5">
+                    Noch keine Förderpläne vorhanden.
+                    <br>
+                    <a href="{{ url_for('foerderplan.foerderplan_select_student') }}" class="btn btn-link">Jetzt ersten Plan erstellen</a>
+                </td>
+            </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<div class="mt-4">
+    <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück zur Übersicht</span></a>
+</div>
+{% endblock %}

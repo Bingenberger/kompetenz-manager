@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+{% set values = form_values if form_values is defined and form_values else request.form %}
+<style>
+    .protocol-section {
+        border-radius: 12px;
+        border: 1px solid rgba(87,117,144,0.12);
+        background: rgba(255,255,255,0.82);
+        padding: .95rem;
+    }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-xl-10">
+        <div class="surface-panel p-4 p-md-5 fade-in">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+                <div>
+                    <span class="section-label">Elternkontakte</span>
+                    <h2 class="mt-2 mb-1">{% if is_edit_mode %}Protokoll Elterngespräch bearbeiten{% else %}Protokoll Elterngespräch{% endif %}</h2>
+                    <p class="text-muted mb-0">Strukturierte Erfassung nach der Schulvorlage (Felder können bei Bedarf erweitert werden).</p>
+                </div>
+                <a href="{{ next_url if next_url else url_for('erfassung.elternkontakte_start') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+            </div>
+
+            <form method="POST">
+                {{ csrf_input() }}
+                {% if is_edit_mode and concurrency_token is defined %}
+                <input type="hidden" name="concurrency_token" value="{{ concurrency_token }}">
+                {% endif %}
+                {% if next_url %}
+                <input type="hidden" name="next" value="{{ next_url }}">
+                {% endif %}
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-5">
+                        <label class="form-label">Kind</label>
+                        {% set student_select_id = 'eltern_protokoll_schueler_id' %}
+                        {% set student_select_name = 'schueler_id' %}
+                        {% set student_select_required = true %}
+                        {% set student_select_selected = selected_s_id %}
+                        {% set student_search_placeholder = 'Kind suchen...' %}
+                        {% include 'includes/student_select_field.html' %}
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Datum</label>
+                        <input type="date" name="datum" class="form-control" value="{{ values.get('datum', '') }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Kontaktform</label>
+                        <select name="kontaktform" class="form-select">
+                            {% for option in ['Elterngespräch', 'Telefonat', 'Videogespräch', 'Mail'] %}
+                            <option value="{{ option }}" {% if values.get('kontaktform', 'Elterngespräch') == option %}selected{% endif %}>{{ option }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Betreff / Thema</label>
+                        <input type="text" name="betreff" class="form-control" value="{{ values.get('betreff', '') }}" placeholder="z.B. Lernentwicklung, Verhalten, Beratungsgespräch">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Teilnehmende</label>
+                        <input type="text" name="teilnehmende" class="form-control" value="{{ values.get('teilnehmende', '') }}" placeholder="z.B. Mutter, Klassenleitung, OGS">
+                    </div>
+                </div>
+
+                <div class="protocol-section mb-3">
+                    <label class="form-label">Gesprächsanlass / Ausgangslage</label>
+                    <textarea name="gespraechsanlass" rows="3" class="form-control" placeholder="Warum fand das Gespräch statt?">{{ values.get('gespraechsanlass', '') }}</textarea>
+                </div>
+
+                <div class="protocol-section mb-3">
+                    <label class="form-label">Besprochenes / Verlauf</label>
+                    <textarea name="besprochenes" rows="6" class="form-control" placeholder="Wesentliche Gesprächsinhalte, Rückmeldungen, Fragen, Klärungen">{{ values.get('besprochenes', '') }}</textarea>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6">
+                        <div class="protocol-section h-100">
+                            <label class="form-label">Vereinbarungen Schule</label>
+                            <textarea name="vereinbarungen_schule" rows="5" class="form-control" placeholder="Was übernimmt die Schule / Lehrkraft?">{{ values.get('vereinbarungen_schule', '') }}</textarea>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="protocol-section h-100">
+                            <label class="form-label">Vereinbarungen Eltern</label>
+                            <textarea name="vereinbarungen_eltern" rows="5" class="form-control" placeholder="Was übernehmen die Eltern / Sorgeberechtigten?">{{ values.get('vereinbarungen_eltern', '') }}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label">Nächste Schritte / Nachverfolgung</label>
+                        <textarea name="naechste_schritte" rows="4" class="form-control" placeholder="Wie geht es weiter? Was wird überprüft?">{{ values.get('naechste_schritte', '') }}</textarea>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Nächster Termin (optional)</label>
+                        <input type="date" name="naechster_termin" class="form-control" value="{{ values.get('naechster_termin', '') }}">
+                        <label class="form-label mt-3">Kurzfassung (optional)</label>
+                        <textarea name="kurzfassung" rows="3" class="form-control" placeholder="Zusammenfassung für die Übersicht">{{ values.get('kurzfassung', '') }}</textarea>
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-4">
+                    <button type="submit" class="btn btn-warning btn-lg icon-btn">{{ bi('floppy', 'bi-icon') }} <span>{% if is_edit_mode %}Protokoll aktualisieren{% else %}Protokoll speichern{% endif %}</span></button>
+                    <a href="{{ next_url if next_url else (url_for('erfassung.elternkontakt_view', kontakt_id=kontakt.id) if is_edit_mode and kontakt is defined else url_for('erfassung.elternkontakte_start')) }}" class="btn btn-outline-secondary btn-lg icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+const protokollDateInput = document.querySelector('input[name="datum"]');
+if (protokollDateInput && !protokollDateInput.value) {
+    protokollDateInput.valueAsDate = new Date();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-xl-10">
+        <div class="surface-panel p-4 p-md-5 fade-in">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+                <div>
+                    <span class="section-label">Elternkontakte</span>
+                    <h2 class="mt-2 mb-1">
+                        {% if kontakt.eintrag_typ == 'protokoll' %}Protokoll Elterngespräch{% else %}Kleine Notiz{% endif %}
+                    </h2>
+                    <p class="text-muted mb-0">
+                        {{ kontakt.schueler.nachname }}, {{ kontakt.schueler.vorname }} • {{ kontakt.datum.strftime('%d.%m.%Y') }}
+                        {% if kontakt.kontaktform %}• {{ kontakt.kontaktform }}{% endif %}
+                    </p>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <a href="{{ next_url if next_url else url_for('erfassung.elternkontakte_start') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+                    {% if can_edit %}
+                    <a href="{{ url_for('erfassung.elternkontakt_edit', kontakt_id=kontakt.id, next=next_url) if next_url else url_for('erfassung.elternkontakt_edit', kontakt_id=kontakt.id) }}" class="btn btn-outline-primary icon-btn">{{ bi('pencil-square', 'bi-icon') }} <span>Bearbeiten</span></a>
+                    <form method="POST" action="{{ url_for('erfassung.elternkontakt_delete', kontakt_id=kontakt.id) }}" onsubmit="return confirm('Eintrag wirklich löschen?')" class="d-inline">
+                        {{ csrf_input() }}
+                        {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+                        <button type="submit" class="btn btn-outline-danger icon-btn">{{ bi('trash', 'bi-icon') }} <span>Löschen</span></button>
+                    </form>
+                    {% endif %}
+                    {% if kontakt.eintrag_typ == 'protokoll' %}
+                    <a href="{{ url_for('erfassung.elternkontakt_protokoll_export_odt', kontakt_id=kontakt.id, next=next_url) if next_url else url_for('erfassung.elternkontakt_protokoll_export_odt', kontakt_id=kontakt.id) }}" class="btn btn-outline-primary icon-btn">{{ bi('file-earmark-word', 'bi-icon') }} <span>ODT</span></a>
+                    <a href="{{ url_for('erfassung.elternkontakt_protokoll_export_pdf', kontakt_id=kontakt.id, next=next_url) if next_url else url_for('erfassung.elternkontakt_protokoll_export_pdf', kontakt_id=kontakt.id) }}" class="btn btn-outline-danger icon-btn">{{ bi('file-earmark-pdf', 'bi-icon') }} <span>PDF</span></a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="row g-3 mb-4">
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="small text-muted">Kind</div>
+                            <div class="fw-semibold">{{ kontakt.schueler.vorname }} {{ kontakt.schueler.nachname }}</div>
+                            <div class="small text-muted">Klasse {{ kontakt.schueler.klasse }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="small text-muted">Typ</div>
+                            <div class="fw-semibold">
+                                {% if kontakt.eintrag_typ == 'protokoll' %}Protokoll{% else %}Notiz{% endif %}
+                            </div>
+                            <div class="small text-muted">{{ kontakt.kontaktform or '-' }}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <div class="small text-muted">Erfasst von</div>
+                            <div class="fw-semibold">{{ kontakt.user.display_name if kontakt.user else 'Unbekannt' }}</div>
+                            <div class="small text-muted">{{ kontakt.datum.strftime('%d.%m.%Y') }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if kontakt.betreff %}
+            <div class="mb-4">
+                <label class="form-label">Betreff / Thema</label>
+                <div class="form-control" style="height:auto; min-height: 2.5rem;">{{ kontakt.betreff }}</div>
+            </div>
+            {% endif %}
+
+            {% if kontakt.eintrag_typ == 'notiz' %}
+            <div class="mb-3">
+                <label class="form-label">Mitteilung</label>
+                <div class="form-control" style="height:auto; min-height: 8rem; white-space: pre-wrap;">{{ kontakt.mitteilung or '' }}</div>
+            </div>
+            {% else %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Teilnehmende</label>
+                    <div class="form-control" style="height:auto; min-height: 2.5rem; white-space: pre-wrap;">{{ kontakt.teilnehmende or '' }}</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Nächster Termin</label>
+                    <div class="form-control" style="height:auto; min-height: 2.5rem;">{{ kontakt.naechster_termin.strftime('%d.%m.%Y') if kontakt.naechster_termin else '-' }}</div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Gesprächsanlass / Ausgangslage</label>
+                    <div class="form-control" style="height:auto; min-height: 6rem; white-space: pre-wrap;">{{ kontakt.gespraechsanlass or '' }}</div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Besprochenes / Verlauf</label>
+                    <div class="form-control" style="height:auto; min-height: 10rem; white-space: pre-wrap;">{{ kontakt.besprochenes or '' }}</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Vereinbarungen Schule</label>
+                    <div class="form-control" style="height:auto; min-height: 7rem; white-space: pre-wrap;">{{ kontakt.vereinbarungen_schule or '' }}</div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Vereinbarungen Eltern</label>
+                    <div class="form-control" style="height:auto; min-height: 7rem; white-space: pre-wrap;">{{ kontakt.vereinbarungen_eltern or '' }}</div>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Nächste Schritte / Nachverfolgung</label>
+                    <div class="form-control" style="height:auto; min-height: 6rem; white-space: pre-wrap;">{{ kontakt.naechste_schritte or '' }}</div>
+                </div>
+                {% if kontakt.mitteilung %}
+                <div class="col-12">
+                    <label class="form-label">Kurzfassung</label>
+                    <div class="form-control" style="height:auto; min-height: 4rem; white-space: pre-wrap;">{{ kontakt.mitteilung }}</div>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

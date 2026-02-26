@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .student-pick-card {
+        border-radius: 14px;
+        border: 1px solid rgba(87,117,144,0.12);
+        box-shadow: 0 10px 24px rgba(31,41,51,0.05);
+        background: rgba(255,255,255,0.92);
+    }
+    .student-pick-card .list-group-item {
+        border-left: 0;
+        border-right: 0;
+        border-color: rgba(87,117,144,0.08);
+        padding: .9rem 1rem;
+        transition: background-color 120ms ease;
+    }
+    .student-pick-card .list-group-item:hover {
+        background: rgba(39,125,161,0.05);
+    }
+</style>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="page-title-row">
+            <span class="section-label">Förderplanung</span>
+            <h2 class="mt-2 mb-1">Neuen Förderplan anlegen</h2>
+            <p class="text-muted mb-0">Bitte wählen Sie das Kind, für das ein neuer Plan erstellt werden soll.</p>
+        </div>
+
+        <div class="student-pick-card">
+            <div class="list-group list-group-flush">
+            {% for s in schueler %}
+            <a href="{{ url_for('foerderplan.foerderplan_neu', s_id=s.id) }}"
+                class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                <span><strong>{{ s.nachname }}</strong>, {{ s.vorname }}</span>
+                <span class="badge bg-light text-dark border">{{ s.klasse }}</span>
+            </a>
+            {% endfor %}
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
+        </div>
+    </div>
+</div>
+{% endblock %}

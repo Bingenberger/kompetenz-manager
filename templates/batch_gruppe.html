@@ -1,38 +1,68 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
 {% if step == 1 %}
-    <h3>Item wählen:</h3>
-    {% for bogen in boegen %}
-        <h5>{{ bogen.titel }}</h5>
-        <div class="list-group mb-3">
-        {% for item in bogen.items %}
-            <a href="?item_id={{ item.id }}" class="list-group-item list-group-item-action">{{ item.text }}</a>
-        {% endfor %}
+    <div class="surface-panel p-4 p-md-5 fade-in">
+        <div class="mb-4">
+            <span class="section-label">Gruppenerfassung</span>
+            <h2 class="mt-2 mb-1">Item wählen</h2>
+            <p class="text-muted mb-0">Wählen Sie eine Kompetenz, um anschließend mehrere Kinder nacheinander zu bewerten.</p>
         </div>
-    {% endfor %}
-{% else %}
-    <div class="card mb-3 sticky-top" style="z-index: 100;">
-        <div class="card-body bg-warning-subtle">
-            <h5 class="card-title">{{ item.text }}</h5>
-        </div>
-    </div>
-    <form method="POST">
-        {% for s in schueler_liste %}
-        <div class="card mb-2">
-            <div class="card-body py-2">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <strong>{{ s.vorname }} {{ s.nachname }}</strong>
-                </div>
-                <div class="btn-group w-100" role="group">
-                    {% for i in range(1, 5) %}
-                    <input type="radio" class="btn-check" name="wert_{{ s.id }}" id="btn_{{ s.id }}_{{ i }}" value="{{ i }}">
-                    <label class="btn btn-outline-primary" for="btn_{{ s.id }}_{{ i }}">{{ i }}</label>
-                    {% endfor %}
+        {% for bogen in boegen %}
+            <div class="mb-4">
+                <h5 class="mb-2">{{ bogen.titel }}</h5>
+                <div class="list-group">
+                {% for item in bogen.items %}
+                    <a href="?item_id={{ item.id }}" class="list-group-item list-group-item-action">{{ item.text }}</a>
+                {% endfor %}
                 </div>
             </div>
-        </div>
         {% endfor %}
-        <button type="submit" class="btn btn-success btn-lg w-100 mt-3">Speichern</button>
-    </form>
+    </div>
+{% else %}
+    <style>
+        .batch-sticky-item {
+            position: sticky;
+            top: 84px;
+            z-index: 9;
+        }
+        .batch-rating-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: .45rem;
+        }
+        @media (max-width: 575px) {
+            .batch-rating-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+    </style>
+    <div class="batch-sticky-item card mb-3 border-0 shadow-sm">
+        <div class="card-body bg-warning-subtle">
+            <div class="small text-muted mb-1">Ausgewählte Kompetenz</div>
+            <h5 class="card-title mb-0">{{ item.text }}</h5>
+        </div>
+    </div>
+    <div class="surface-panel p-3 p-md-4 fade-in">
+        <form method="POST">
+            {{ csrf_input() }}
+            {% for s in schueler_liste %}
+            <div class="card mb-2 border-0 shadow-sm">
+                <div class="card-body py-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <strong>{{ s.vorname }} {{ s.nachname }}</strong>
+                    </div>
+                    {% set rating_name = 'wert_' ~ s.id %}
+                    {% set rating_id_prefix = 'btn_' ~ s.id %}
+                    {% set rating_layout_class = 'batch-rating-grid' %}
+                    {% set rating_numeric_label_class = 'btn btn-outline-primary rating-chip' %}
+                    {% set rating_aria_label = 'Bewertung fuer ' ~ s.vorname ~ ' ' ~ s.nachname %}
+                    {% include 'includes/rating_scale_numeric.html' %}
+                </div>
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-success btn-lg w-100 mt-3 icon-btn justify-content-center">{{ bi('floppy', 'bi-icon') }} <span>Speichern</span></button>
+        </form>
+    </div>
 {% endif %}
 {% endblock %}

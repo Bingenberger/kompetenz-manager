@@ -1,25 +1,42 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
-<h3>Bericht abrufen</h3>
-<div class="card p-4">
-    <form method="GET" action="/report/schueler">
-        <div class="mb-3">
-            <label class="form-label">Schüler:</label>
-            <select name="schueler_id" class="form-select">
-                {% for s in schueler %}
-                <option value="{{ s.id }}">{{ s.vorname }} {{ s.nachname }}</option>
-                {% endfor %}
-            </select>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="surface-panel p-4 p-md-5 fade-in">
+            <div class="mb-4">
+                <span class="section-label">Berichte</span>
+                <h2 class="mt-2 mb-1">Bericht abrufen</h2>
+                <p class="text-muted mb-0">Kind und Kompetenzbogen auswählen, um den Verlauf anzuzeigen.</p>
+            </div>
+            <form method="GET" action="{{ url_for('report.report_schueler') }}">
+                {% if next_url %}
+                <input type="hidden" name="next" value="{{ next_url }}">
+                {% endif %}
+                <div class="mb-3">
+                    <label class="form-label">Schüler</label>
+                    {% set student_select_id = 'report_schueler_id' %}
+                    {% set student_select_name = 'schueler_id' %}
+                    {% set student_select_selected = selected_s_id if selected_s_id is defined else '' %}
+                    {% set student_select_required = true %}
+                    {% set student_search_placeholder = 'Kind suchen...' %}
+                    {% include 'includes/student_select_field.html' %}
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">Kompetenzbogen</label>
+                    <select name="bogen_id" class="form-select" required>
+                        <option value="" disabled {% if not (selected_b_id if selected_b_id is defined else '') %}selected{% endif %}>Bitte wählen...</option>
+                        {% for b in boegen %}
+                        <option value="{{ b.id }}" {% if (selected_b_id if selected_b_id is defined else '')|string == b.id|string %}selected{% endif %}>{{ b.titel }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary icon-btn">{{ bi('clipboard2-data', 'bi-icon') }} <span>Bericht anzeigen</span></button>
+                    <a href="{{ next_url if next_url else url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
+                </div>
+            </form>
         </div>
-        <div class="mb-3">
-            <label class="form-label">Kompetenzbogen:</label>
-            <select name="bogen_id" class="form-select">
-                {% for b in boegen %}
-                <option value="{{ b.id }}">{{ b.titel }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <button type="submit" class="btn btn-primary w-100">Bericht anzeigen</button>
-    </form>
+    </div>
 </div>
 {% endblock %}

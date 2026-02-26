@@ -1,57 +1,138 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
 {% if step == 1 %}
-<form method="GET">
-    <label>Schüler:</label>
-    <select name="schueler_id" class="form-control mb-3">
-        {% for s in schueler %}
-        <option value="{{ s.id }}">{{ s.vorname }} {{ s.nachname }}</option>
-        {% endfor %}
-    </select>
-    <label>Bogen:</label>
-    <select name="bogen_id" class="form-control mb-3">
-        {% for b in boegen %}
-        <option value="{{ b.id }}">{{ b.titel }}</option>
-        {% endfor %}
-    </select>
-    <button type="submit" class="btn btn-primary w-100">Starten</button>
-</form>
-{% else %}
-<h3>{{ schueler.vorname }} {{ schueler.nachname }}</h3>
-<form method="POST">
-    {% for item in items %}
-    <div class="card mb-3">
-        <div class="card-header">{{ item.bereich }}</div>
-        <div class="card-body">
-            <p>{{ item.text }}</p>
-            <div class="btn-group w-100 mb-4" role="group">
-
-                <input type="radio" class="btn-check" name="wert_{{ item.id }}" id="opt1_{{ item.id }}" value="1"
-                    required>
-                <label class="btn btn-outline-danger py-3" for="opt1_{{ item.id }}">
-                    <span class="h3 d-block fw-bold">-</span>
-                </label>
-
-                <input type="radio" class="btn-check" name="wert_{{ item.id }}" id="opt2_{{ item.id }}" value="2">
-                <label class="btn btn-outline-warning py-3" for="opt2_{{ item.id }}">
-                    <span class="h3 d-block fw-bold">o</span>
-                </label>
-
-                <input type="radio" class="btn-check" name="wert_{{ item.id }}" id="opt3_{{ item.id }}" value="3">
-                <label class="btn btn-outline-success py-3" for="opt3_{{ item.id }}">
-                    <span class="h3 d-block fw-bold">+</span>
-                </label>
-
-                <input type="radio" class="btn-check" name="wert_{{ item.id }}" id="opt4_{{ item.id }}" value="4">
-                <label class="btn btn-outline-success py-3" for="opt4_{{ item.id }}">
-                    <span class="h3 d-block fw-bold">++</span>
-                </label>
-
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="surface-panel p-4 p-md-5 fade-in">
+            <div class="mb-4">
+                <span class="section-label">Bogen-Erfassung</span>
+                <h2 class="mt-2 mb-1">Schüler und Bogen wählen</h2>
+                <p class="text-muted mb-0">Kompletten Bogen für ein Kind in einem Schritt erfassen.</p>
             </div>
+            <form method="GET">
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+                <label class="form-label">Schüler</label>
+                {% set student_select_id = 'batch_schueler_id' %}
+                {% set student_select_name = 'schueler_id' %}
+                {% set student_select_class = 'form-select mb-3' %}
+                {% set student_search_placeholder = 'Kind suchen...' %}
+                {% include 'includes/student_select_field.html' %}
+                <label class="form-label">Bogen</label>
+                <select name="bogen_id" class="form-select mb-4">
+                    {% for b in boegen %}
+                    <option value="{{ b.id }}">{{ b.titel }}</option>
+                    {% endfor %}
+                </select>
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary icon-btn">{{ bi('play-circle', 'bi-icon') }} <span>Starten</span></button>
+                    <a href="{{ next_url if next_url else url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+                </div>
+            </form>
         </div>
     </div>
-    {% endfor %}
-    <button type="submit" class="btn btn-success btn-lg w-100">Bogen Speichern</button>
-</form>
+</div>
+{% else %}
+<style>
+    .bogen-list {
+        display: grid;
+        gap: .5rem;
+    }
+    .bogen-list-row {
+        border: 1px solid rgba(87,117,144,0.14);
+        border-left: 4px solid var(--c-dark-cyan);
+        border-radius: 10px;
+        background: #fff;
+        padding: .55rem .65rem;
+    }
+    .bogen-row-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: .35rem .45rem;
+        margin-bottom: .45rem;
+        line-height: 1.2;
+    }
+    .bogen-row-text {
+        font-weight: 600;
+        color: #26323c;
+    }
+    .bogen-rating-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .4rem;
+    }
+    .bogen-rating-grid .btn {
+        min-height: 52px;
+        padding: .35rem .25rem;
+        border-radius: .55rem;
+        line-height: 1;
+    }
+    .bogen-rating-grid .btn span {
+        line-height: 1;
+    }
+    .bogen-list-row .badge {
+        font-size: .72rem;
+        padding: .25rem .4rem;
+    }
+    .bogen-actions {
+        position: sticky;
+        bottom: .5rem;
+        background: rgba(255,255,255,.92);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(87,117,144,0.12);
+        border-radius: 12px;
+        padding: .55rem;
+        box-shadow: 0 8px 20px rgba(31,41,51,0.06);
+    }
+    @media (max-width: 575px) {
+        .bogen-rating-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .bogen-list-row {
+            padding: .5rem .55rem;
+        }
+    }
+</style>
+
+<div class="surface-panel p-3 p-md-4 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4 page-title-row">
+        <div>
+            <span class="section-label">Bogen-Erfassung</span>
+            <h2 class="mt-2 mb-1">{{ schueler.vorname }} {{ schueler.nachname }}</h2>
+            <p class="text-muted mb-0">{{ items|length }} Kriterien im ausgewählten Bogen</p>
+        </div>
+        <span class="badge bg-info px-3 py-2">Komplettbogen</span>
+    </div>
+
+    <form method="POST">
+        {{ csrf_input() }}
+        {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+        <div class="bogen-list">
+            {% for item in items %}
+            <div class="bogen-list-row shadow-sm">
+                <div class="bogen-row-head">
+                    <span class="badge bg-light text-dark border">{{ item.bereich }}</span>
+                    <span class="bogen-row-text">{{ item.text }}</span>
+                </div>
+                {% set rating_name = 'wert_' ~ item.id %}
+                {% set rating_id_prefix = 'opt_' ~ item.id %}
+                {% set rating_layout_class = 'bogen-rating-grid' %}
+                {% set rating_label_extra_class = 'bogen-rating-btn' %}
+                {% set rating_value_class = 'h5 d-block fw-bold mb-0' %}
+                {% set rating_required = true %}
+                {% set rating_aria_label = 'Bewertung fuer ' ~ item.text %}
+                {% include 'includes/rating_scale_symbol.html' %}
+            </div>
+            {% endfor %}
+        </div>
+        <div class="bogen-actions mt-3">
+            <div class="d-flex flex-wrap gap-2">
+                <button type="submit" class="btn btn-success icon-btn">{{ bi('floppy', 'bi-icon') }} <span>Bogen speichern</span></button>
+                <a href="{{ next_url if next_url else url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
+            </div>
+        </div>
+    </form>
+</div>
 {% endif %}
 {% endblock %}

@@ -1,18 +1,42 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
-<h3>Import: {{ typ }}</h3>
-<form method="POST" enctype="multipart/form-data">
-    <div class="mb-3">
-        <label>Excel-Datei (.xlsx)</label>
-        <input type="file" name="file" class="form-control" required>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="surface-panel p-4 p-md-5 fade-in">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+                <div>
+                    <span class="section-label">Datenimport</span>
+                    <h2 class="mt-2 mb-1">Import: {{ typ|capitalize }}</h2>
+                    <p class="text-muted mb-0">Excel-Datei hochladen und Datensätze automatisiert übernehmen.</p>
+                </div>
+                <span class="badge bg-warning px-3 py-2">.xlsx</span>
+            </div>
+
+            <form method="POST" enctype="multipart/form-data">
+                {{ csrf_input() }}
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+                <div class="mb-3">
+                    <label class="form-label">Excel-Datei</label>
+                    <input type="file" name="file" class="form-control" accept=".xlsx" required>
+                </div>
+
+                <div class="alert alert-info">
+                    {% if typ == 'schueler' %}
+                    <strong>Benötigte Spalten:</strong> Vorname, Nachname, Klasse, Geburtsdatum
+                    <br><small>Geburtsdatum z. B. als <code>31.12.2017</code> oder Excel-Datumsspalte.</small>
+                    {% else %}
+                    <strong>Benötigte Spalten:</strong> Bogen, Bereich, Item
+                    {% endif %}
+                </div>
+
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary icon-btn">{{ bi('cloud-upload', 'bi-icon') }} <span>Hochladen</span></button>
+                    <a href="{{ next_url if next_url else url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
+                </div>
+            </form>
+        </div>
     </div>
-    <div class="alert alert-info small">
-        {% if typ == 'schueler' %}
-        Spalten benötigt: <strong>Vorname, Nachname, Klasse</strong>
-        {% else %}
-        Spalten benötigt: <strong>Bogen, Bereich, Item</strong>
-        {% endif %}
-    </div>
-    <button type="submit" class="btn btn-primary">Hochladen</button>
-</form>
+</div>
 {% endblock %}

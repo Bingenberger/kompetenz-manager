@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .fp-row-card {
+        border-left-width: 4px !important;
+        overflow: hidden;
+    }
+    .sticky-savebar {
+        position: sticky;
+        bottom: 12px;
+        z-index: 10;
+        border-radius: 14px;
+        background: rgba(255,255,255,0.92);
+        border: 1px solid rgba(87,117,144,0.12);
+        box-shadow: 0 14px 28px rgba(31,41,51,0.08);
+        backdrop-filter: blur(3px);
+        padding: .9rem;
+    }
+    .hint-panel {
+        background: linear-gradient(90deg, rgba(77,144,142,0.08), rgba(249,199,79,0.10));
+        border: 1px solid rgba(87,117,144,0.12);
+        border-radius: 12px;
+        padding: .75rem .9rem;
+    }
+</style>
+<div class="d-flex justify-content-between align-items-center mb-4 page-title-row">
+    <div>
+        <span class="section-label">Förderplanung</span>
+        <h2 class="mt-2 mb-1">
+            {% if is_edit_mode %}Förderplan bearbeiten: {% else %}Förderplan erstellen: {% endif %}
+            {{ schueler.vorname }} {{ schueler.nachname }}
+        </h2>
+        <p class="text-muted mb-0">
+            {% if is_edit_mode %}
+            Bestehende Inhalte können angepasst, ergänzt oder entfernt werden.
+            {% else %}
+            Vorschläge basieren auf Beobachtungen und können angepasst oder entfernt werden.
+            {% endif %}
+        </p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{{ url_for('foerderplan.foerdergrundlage_edit', s_id=schueler.id) }}" class="btn btn-outline-primary icon-btn">
+            {{ bi('file-earmark-text', 'bi-icon') }} <span>Grundlagenblatt {% if grundlage %}bearbeiten{% else %}anlegen{% endif %}</span>
+        </a>
+        <a href="{{ next_url if next_url else (url_for('foerderplan.foerderplan_view', p_id=plan.id) if is_edit_mode and plan is defined else url_for('system.index')) }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
+    </div>
+</div>
+
+<form method="POST">
+
+    {{ csrf_input() }}
+    {% if is_edit_mode and concurrency_token is defined %}
+    <input type="hidden" name="concurrency_token" value="{{ concurrency_token }}">
+    {% endif %}
+    {% if next_url %}
+    <input type="hidden" name="next" value="{{ next_url }}">
+    {% endif %}
+
+    <div class="surface-panel p-4 mb-4">
+        <div class="card-body p-0">
+            <label class="form-label fw-bold">Titel des Förderplans</label>
+            <input type="text" name="titel" class="form-control"
+                value="{% if is_edit_mode and plan is defined %}{{ plan.titel }}{% else %}Förderplan {{ schueler.vorname }} - {{ now.strftime('%m/%Y') }}{% endif %}" required>
+        </div>
+    </div>
+
+    <div class="hint-panel mb-3">
+        <small>{{ bi('info-circle', 'bi-icon-sm') }} Die folgenden Einträge basieren auf Ihren Beobachtungen (Bewertung "-" oder "o"). Passen Sie die Texte
+            an oder löschen Sie Zeilen, die nicht in den Plan sollen.</small>
+    </div>
+
+    {% if grundlage %}
+    <div class="surface-panel p-3 mb-3">
+        <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+            <strong>{{ bi('file-earmark-text', 'bi-icon-sm') }} Grundlagenblatt vorhanden</strong>
+            <a href="{{ url_for('foerderplan.foerdergrundlage_edit', s_id=schueler.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">
+                {{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span>
+            </a>
+        </div>
+        <div class="small text-muted">
+            {% if grundlage.vorrangiger_foerderbedarf %}<div><strong>Vorrangiger Förderbedarf:</strong> {{ grundlage.vorrangiger_foerderbedarf }}</div>{% endif %}
+            {% if grundlage.besondere_staerken %}<div><strong>Stärken:</strong> {{ grundlage.besondere_staerken }}</div>{% endif %}
+            {% if not grundlage.vorrangiger_foerderbedarf and not grundlage.besondere_staerken %}
+            Grundlagenblatt angelegt. Inhalte können bei Bedarf über „Grundlagenblatt bearbeiten“ aktualisiert werden.
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div id="plan-container">
+
+        {% for v in vorschlaege %}
+        <div class="card mb-3 shadow-sm border-start border-4 border-warning item-row fp-row-card">
+            <div class="card-header d-flex justify-content-between align-items-center bg-white">
+                <strong>Vorschlag aus Beobachtung: {{ v.bereich }}</strong>
+                <button type="button" class="btn btn-sm btn-outline-danger"
+                    onclick="this.closest('.item-row').remove()">{{ bi('trash', 'bi-icon-sm') }} Zeile löschen</button>
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="small text-muted">Förderziel / Bereich</label>
+                        <input type="text" name="foerderziel" class="form-control fw-bold" value="{{ v.bereich }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small text-muted">Ist-Zustand</label>
+                        <textarea name="ist_zustand" class="form-control" rows="4">{{ v.ist }}</textarea>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small text-muted">Soll-Zustand</label>
+                        <textarea name="soll_zustand" class="form-control" rows="4">{{ v.soll }}</textarea>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="small text-muted">Maßnahmen</label>
+                        <textarea name="massnahmen" class="form-control" rows="4"
+                            placeholder="Maßnahmen hier eintragen...">{{ v.massnahme }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+    </div>
+
+    <div class="sticky-savebar d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3 mt-4 mb-5">
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-outline-primary" onclick="addEmptyRow()">
+                {{ bi('plus-circle', 'bi-icon-sm') }} Leere Zeile hinzufügen
+            </button>
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#itemSelectModal">
+                {{ bi('list-check', 'bi-icon-sm') }} Zeile aus Item...
+            </button>
+        </div>
+
+        <button type="submit" class="btn btn-success btn-lg icon-btn">
+            {{ bi('floppy', 'bi-icon') }} <span>{% if is_edit_mode %}Förderplan aktualisieren{% else %}Förderplan speichern{% endif %}</span>
+        </button>
+    </div>
+</form>
+
+<!-- Modal zur Item-Auswahl -->
+<div class="modal fade" id="itemSelectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Ziel aus Item auswählen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <label class="form-label">Bogen wählen:</label>
+                <select id="modalBogenSelect" class="form-select mb-3" onchange="updateItemOptions()">
+                    <option value="">-- Bitte wählen --</option>
+                    {% for b in all_boegen %}
+                    <option value="{{ b.id }}">{{ b.titel }}</option>
+                    {% endfor %}
+                </select>
+
+                <label class="form-label">Item wählen:</label>
+                <select id="modalItemSelect" class="form-select mb-3" disabled>
+                    <option value="">-- Erst Bogen wählen --</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary icon-btn" data-bs-dismiss="modal">{{ bi('x-circle', 'bi-icon-sm') }} <span>Abbrechen</span></button>
+                <button type="button" class="btn btn-primary" onclick="addItemRow()">Hinzufügen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Datenstruktur: BogenID -> [ {text, bereich, full_title} ]
+    const bogenData = {
+        {% for b in all_boegen %}
+    "{{ b.id }}": [
+        {% for i in b.items %}
+    {
+        "text": "{{ i.text|replace('"', '\\"') }}",
+            "bereich": "{{ i.bereich|replace('"', '\\"') }}",
+                "full_title": "{{ b.titel|replace('"', '\\"') }} | {{ i.bereich|replace('"', '\\"') }} | {{ i.text|replace('"', '\\"') }}"
+    },
+    {% endfor %}
+        ],
+    {% endfor %}
+    };
+
+    function updateItemOptions() {
+        const bogenSelect = document.getElementById('modalBogenSelect');
+        const itemSelect = document.getElementById('modalItemSelect');
+        const bogenId = bogenSelect.value;
+
+        itemSelect.innerHTML = '<option value="">-- Bitte Item wählen --</option>';
+
+        if (bogenId && bogenData[bogenId]) {
+            itemSelect.disabled = false;
+            bogenData[bogenId].forEach((item, index) => {
+                const opt = document.createElement('option');
+                opt.value = index; // Wir nutzen den Index im Array
+                opt.text = item.full_title; // Anzeige im Dropdown
+                itemSelect.appendChild(opt);
+            });
+        } else {
+            itemSelect.disabled = true;
+        }
+    }
+
+    function addItemRow() {
+        const bogenId = document.getElementById('modalBogenSelect').value;
+        const itemIndex = document.getElementById('modalItemSelect').value;
+
+        if (!bogenId || itemIndex === "") return;
+
+        const item = bogenData[bogenId][itemIndex];
+
+        // Modal schließen
+        const modalEl = document.getElementById('itemSelectModal');
+        const modal = bootstrap.Modal.getInstance(modalEl);
+        modal.hide();
+
+        // Zeile einfügen
+        createRow(item.full_title, item.text); // Soll-Zustand = Item-Text
+    }
+
+    function addEmptyRow() {
+        createRow("", "");
+    }
+
+    function createRow(titel, sollText) {
+        const html = `
+    <div class="card mb-3 shadow-sm border-start border-4 border-primary item-row fp-row-card">
+        <div class="card-header d-flex justify-content-between align-items-center bg-white">
+            <strong>Neues Ziel (${titel ? 'Aus Item' : 'Manuell'})</strong>
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('.item-row').remove()">Loeschen</button>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="small text-muted">Förderziel / Bereich</label>
+                    <input type="text" name="foerderziel" class="form-control fw-bold" value="${titel}" placeholder="z.B. Arbeitsverhalten">
+                </div>
+                <div class="col-md-4">
+                    <label class="small text-muted">Ist-Zustand</label>
+                    <textarea name="ist_zustand" class="form-control" rows="4"></textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="small text-muted">Soll-Zustand</label>
+                    <textarea name="soll_zustand" class="form-control" rows="4"></textarea>
+                </div>
+                <div class="col-md-4">
+                    <label class="small text-muted">Maßnahmen</label>
+                    <textarea name="massnahmen" class="form-control" rows="4"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>`;
+        document.getElementById('plan-container').insertAdjacentHTML('beforeend', html);
+    }
+</script>
+{% endblock %}

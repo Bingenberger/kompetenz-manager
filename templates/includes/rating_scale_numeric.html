@@ -1,0 +1,6 @@
+<div class="{{ rating_layout_class | default('btn-group w-100') }}" role="group" aria-label="{{ rating_aria_label | default('Bewertung') }}">
+    {% for i in range(1, 5) %}
+    <input type="radio" class="btn-check" name="{{ rating_name }}" id="{{ rating_id_prefix }}_{{ i }}" value="{{ i }}" {% if i == 1 and rating_required | default(false) %}required{% endif %}>
+    <label class="{{ rating_numeric_label_class | default('btn btn-outline-primary') }}" for="{{ rating_id_prefix }}_{{ i }}">{{ i }}</label>
+    {% endfor %}
+</div>

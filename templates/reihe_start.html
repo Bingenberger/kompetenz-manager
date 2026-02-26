@@ -1,36 +1,62 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
-<h3>Neuer Klassendurchlauf</h3>
-<form method="POST" action="/erfassen/reihe/start">
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="surface-panel p-4 p-md-5 fade-in">
+            <div class="mb-4">
+                <span class="section-label">Reihenerfassung</span>
+                <h2 class="mt-2 mb-1">Neuer Klassendurchlauf</h2>
+                <p class="text-muted mb-0">Ein Item auswählen und dann die Kinder nacheinander bewerten.</p>
+            </div>
 
-    <div class="mb-3">
-        <label class="form-label">Kompetenz / Item</label>
-        <select name="item_id" class="form-select" required>
-            {% for bogen in boegen %}
-                <optgroup label="{{ bogen.titel }}">
-                {% for item in bogen.items %}
-                    <option value="{{ item.id }}">{{ item.text }}</option>
-                {% endfor %}
-                </optgroup>
-            {% endfor %}
-        </select>
+            <form method="POST" action="{{ url_for('erfassung.reihe_start') }}">
+                {{ csrf_input() }}
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+                <div class="mb-3">
+                    <label class="form-label">Klasse</label>
+                    <select name="klasse" class="form-select" required>
+                        <option value="" disabled {% if not default_klasse %}selected{% endif %}>Bitte Klasse wählen...</option>
+                        {% for klasse in klassen %}
+                        <option value="{{ klasse }}" {% if default_klasse == klasse %}selected{% endif %}>{{ klasse }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Kompetenz / Item</label>
+                    <select name="item_id" class="form-select" required>
+                        {% for bogen in boegen %}
+                        <optgroup label="{{ bogen.titel }}">
+                            {% for item in bogen.items %}
+                            <option value="{{ item.id }}">{{ item.text }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Titel / Anlass</label>
+                    <input type="text" name="anlass" class="form-control" placeholder="z.B. Diagnostiktest 1" required>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Datum der Beobachtung</label>
+                    <input type="date" name="datum" class="form-control" required>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg icon-btn">{{ bi('play-circle', 'bi-icon') }} <span>Starten</span></button>
+                    <a href="{{ next_url if next_url else url_for('system.index') }}" class="btn btn-outline-secondary btn-lg icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+                </div>
+            </form>
+        </div>
     </div>
-
-    <div class="mb-3">
-        <label class="form-label">Titel / Anlass</label>
-        <input type="text" name="anlass" class="form-control" placeholder="z.B. Diagnostiktest 1" required>
-    </div>
-
-    <div class="mb-3">
-        <label class="form-label">Datum der Beobachtung</label>
-        <input type="date" name="datum" class="form-control" required>
-    </div>
-
-    <button type="submit" class="btn btn-primary btn-lg w-100">Starten</button>
-</form>
+</div>
 
 <script>
-    // Setzt das Datum automatisch auf Heute
-    document.querySelector('input[type="date"]').valueAsDate = new Date();
+document.querySelector('input[type="date"]').valueAsDate = new Date();
 </script>
 {% endblock %}

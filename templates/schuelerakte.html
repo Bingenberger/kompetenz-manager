@@ -1,0 +1,404 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .akte-grid {
+        display: grid;
+        gap: 1rem;
+    }
+    .akte-top-grid {
+        display: grid;
+        grid-template-columns: 1.2fr .8fr;
+        gap: 1rem;
+        align-items: stretch;
+    }
+    .akte-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .75rem;
+    }
+    .akte-summary-card {
+        border-radius: 14px;
+        border: 1px solid rgba(87,117,144,0.14);
+        background: linear-gradient(180deg, rgba(255,255,255,0.97), rgba(255,255,255,0.92));
+        padding: .85rem .9rem;
+    }
+    .akte-summary-card .value {
+        display: block;
+        font-family: 'Sora', sans-serif;
+        font-size: 1.25rem;
+        line-height: 1;
+        font-weight: 700;
+        margin-bottom: .35rem;
+    }
+    .akte-quick-links {
+        display: grid;
+        gap: .6rem;
+    }
+    .akte-quick-links .btn {
+        justify-content: center;
+    }
+    .akte-panel {
+        border-radius: 16px;
+        border: 1px solid rgba(87,117,144,0.12);
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90));
+        box-shadow: 0 10px 24px rgba(31,41,51,0.05);
+    }
+    .akte-panel-head {
+        padding: .95rem 1rem .85rem;
+        border-bottom: 1px solid rgba(87,117,144,0.10);
+    }
+    .akte-panel-body {
+        padding: 1rem;
+    }
+    .akte-empty {
+        border: 1px dashed rgba(87,117,144,0.22);
+        border-radius: 12px;
+        padding: 1rem;
+        color: #5f7387;
+        background: rgba(87,117,144,0.03);
+    }
+    .akte-mini-table td, .akte-mini-table th {
+        vertical-align: middle;
+    }
+    @media (max-width: 991px) {
+        .akte-top-grid {
+            grid-template-columns: 1fr;
+        }
+        .akte-summary-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+    @media (max-width: 575px) {
+        .akte-summary-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+    <div>
+        <span class="section-label">Schülerakte</span>
+        <h2 class="mt-2 mb-1 d-inline-flex align-items-center gap-2">
+            {{ bi('person-vcard', 'bi-icon-md') }} <span>Schülerakte</span>
+        </h2>
+        <p class="text-muted mb-0">Förderpläne, Elternkontakte und Beobachtungsbögen eines Kindes zentral anzeigen.</p>
+    </div>
+    <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">
+        {{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück zur Übersicht</span>
+    </a>
+</div>
+
+<div class="akte-grid">
+    <div class="akte-panel">
+        <div class="akte-panel-body">
+            <form method="GET" class="row g-3 align-items-end">
+                <div class="col-lg-8">
+                    <label class="form-label">Kind auswählen</label>
+                    {% set student_select_id = 'akte_schueler_id' %}
+                    {% set student_select_name = 'schueler_id' %}
+                    {% set student_select_selected = selected_s_id %}
+                    {% set student_select_required = false %}
+                    {% set student_select_placeholder = 'Kind auswählen...' %}
+                    {% set student_search_placeholder = 'Kind suchen...' %}
+                    {% include 'includes/student_select_field.html' %}
+                </div>
+                <div class="col-lg-4 d-flex flex-wrap gap-2">
+                    <button type="submit" class="btn btn-primary icon-btn">
+                        {{ bi('search', 'bi-icon') }} <span>Akte öffnen</span>
+                    </button>
+                    {% if selected_s_id %}
+                    <a href="{{ url_for('system.schuelerakte') }}" class="btn btn-outline-secondary icon-btn">
+                        {{ bi('x-circle', 'bi-icon') }} <span>Zurücksetzen</span>
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if selected_student %}
+    <div class="akte-top-grid">
+        <div class="akte-panel">
+            <div class="akte-panel-head">
+                <span class="section-label">Ausgewähltes Kind</span>
+                <h3 class="mt-2 mb-1">{{ selected_student.vorname }} {{ selected_student.nachname }}</h3>
+                <p class="text-muted mb-1">Klasse {{ selected_student.klasse or '-' }}</p>
+                <p class="text-muted mb-0">
+                    Geburtsdatum:
+                    {% if selected_student.geburtsdatum %}
+                    {{ selected_student.geburtsdatum.strftime('%d.%m.%Y') }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </p>
+            </div>
+            <div class="akte-panel-body">
+                <div class="akte-summary-grid">
+                    <div class="akte-summary-card">
+                        <span class="value">{{ bogen_summaries|length }}</span>
+                        <small class="text-muted">Beobachtungsbögen mit Einträgen</small>
+                    </div>
+                    <div class="akte-summary-card">
+                        <span class="value">{{ recent_beobachtungen|length }}</span>
+                        <small class="text-muted">Letzte Beobachtungen (Ausschnitt)</small>
+                    </div>
+                    <div class="akte-summary-card">
+                        <span class="value">{{ foerderplaene|length }}</span>
+                        <small class="text-muted">Förderpläne</small>
+                    </div>
+                    <div class="akte-summary-card">
+                        <span class="value">{{ elternkontakte|length }}</span>
+                        <small class="text-muted">Elternkontakte (letzte 12)</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="akte-panel">
+            <div class="akte-panel-head">
+                <span class="section-label">Schnellaktionen</span>
+                <h3 class="mt-2 mb-0">Direkt weiterarbeiten</h3>
+            </div>
+            <div class="akte-panel-body">
+                <div class="akte-quick-links">
+                    <a href="{{ url_for('report.report_schueler', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-info text-white icon-btn">
+                        {{ bi('clipboard2-data', 'bi-icon') }} <span>Beobachtungsbogen-Bericht öffnen</span>
+                    </a>
+                    <a href="{{ url_for('foerderplan.foerderplan_list', schueler_id=selected_student.id) }}" class="btn btn-outline-dark icon-btn">
+                        {{ bi('folder2-open', 'bi-icon') }} <span>Förderpläne dieses Kindes</span>
+                    </a>
+                    <a href="{{ url_for('foerderplan.foerderplan_neu', s_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-dark icon-btn">
+                        {{ bi('plus-circle', 'bi-icon') }} <span>Neuen Förderplan erstellen</span>
+                    </a>
+                    <a href="{{ url_for('erfassung.elternkontakte_start', schueler_id=selected_student.id) }}" class="btn btn-outline-primary icon-btn">
+                        {{ bi('chat-left-text', 'bi-icon') }} <span>Elternkontakte filtern</span>
+                    </a>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{{ url_for('erfassung.elternkontakt_notiz', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">
+                            {{ bi('pencil-square', 'bi-icon-sm') }} <span>Notiz</span>
+                        </a>
+                        <a href="{{ url_for('erfassung.elternkontakt_protokoll', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-warning icon-btn">
+                            {{ bi('journal-text', 'bi-icon-sm') }} <span>Protokoll</span>
+                        </a>
+                    </div>
+                    <small class="text-muted">Für Beobachtungsbögen wählen Sie im nächsten Schritt noch den Kompetenzbogen.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-xl-6">
+            <div class="akte-panel h-100">
+                <div class="akte-panel-head d-flex justify-content-between align-items-center gap-2">
+                    <div>
+                        <span class="section-label">Beobachtungsbögen</span>
+                        <h3 class="mt-2 mb-0">Vorhandene Einträge</h3>
+                    </div>
+                    <a href="{{ url_for('report.report_schueler', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-info icon-btn">
+                        {{ bi('clipboard2-data', 'bi-icon-sm') }} <span>Bericht</span>
+                    </a>
+                </div>
+                <div class="akte-panel-body">
+                    {% if bogen_summaries %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 akte-mini-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Bogen</th>
+                                    <th>Einträge</th>
+                                    <th>Letzte Beobachtung</th>
+                                    <th class="text-end">Aktion</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in bogen_summaries %}
+                                <tr>
+                                    <td class="fw-bold">{{ row.bogen_titel }}</td>
+                                    <td>{{ row.anzahl_eintraege }}</td>
+                                    <td>{{ row.letzte_beobachtung.strftime('%d.%m.%Y') if row.letzte_beobachtung else '-' }}</td>
+                                    <td class="text-end">
+                                        <a href="{{ url_for('report.report_schueler', schueler_id=selected_student.id, bogen_id=row.bogen_id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-info icon-btn">
+                                            {{ bi('eye', 'bi-icon-sm') }} <span>Öffnen</span>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="akte-empty">
+                        Für dieses Kind wurden noch keine Beobachtungsbögen erfasst.
+                    </div>
+                    {% endif %}
+
+                    {% if recent_beobachtungen %}
+                    <hr>
+                    <div class="small text-muted mb-2">Letzte Beobachtungen</div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover align-middle mb-0 akte-mini-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Datum</th>
+                                    <th>Bogen / Item</th>
+                                    <th>Wert</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in recent_beobachtungen %}
+                                <tr>
+                                    <td>{{ row.beobachtung.datum.strftime('%d.%m.%Y') if row.beobachtung.datum else '-' }}</td>
+                                    <td>
+                                        <div class="fw-semibold">{{ row.bogen_titel }}</div>
+                                        <div class="small text-muted">{{ row.item_text }}</div>
+                                    </td>
+                                    <td>
+                                        {% if row.beobachtung.wert is not none %}
+                                        <span class="badge bg-primary">{{ row.beobachtung.wert }}</span>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-6">
+            <div class="akte-panel h-100 mb-4">
+                <div class="akte-panel-head d-flex justify-content-between align-items-center gap-2">
+                    <div>
+                        <span class="section-label">Förderplanung</span>
+                        <h3 class="mt-2 mb-0">Förderpläne</h3>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{{ url_for('foerderplan.foerderplan_neu', s_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-primary icon-btn">
+                            {{ bi('plus-circle', 'bi-icon-sm') }} <span>Neu</span>
+                        </a>
+                        <a href="{{ url_for('foerderplan.foerderplan_list', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-dark icon-btn">
+                            {{ bi('filter', 'bi-icon-sm') }} <span>Liste</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="akte-panel-body">
+                    {% if foerderplaene %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 akte-mini-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Titel</th>
+                                    <th>Erstellt</th>
+                                    <th>Status</th>
+                                    <th class="text-end">Aktion</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in foerderplaene[:8] %}
+                                <tr>
+                                    <td class="fw-bold">{{ p.titel }}</td>
+                                    <td>{{ p.datum_erstellung.strftime('%d.%m.%Y') if p.datum_erstellung else '-' }}</td>
+                                    <td>
+                                        {% if p.status == 'aktiv' %}
+                                        <span class="badge bg-success">Aktiv</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Geschlossen</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="{{ url_for('foerderplan.foerderplan_view', p_id=p.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-btn">
+                                            {{ bi('eye', 'bi-icon-sm') }} <span>Ansehen</span>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="akte-empty">
+                        Noch kein Förderplan vorhanden.
+                        <div class="mt-2">
+                            <a href="{{ url_for('foerderplan.foerderplan_neu', s_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-primary icon-btn">
+                                {{ bi('plus-circle', 'bi-icon-sm') }} <span>Ersten Förderplan anlegen</span>
+                            </a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="akte-panel h-100">
+                <div class="akte-panel-head d-flex justify-content-between align-items-center gap-2">
+                    <div>
+                        <span class="section-label">Elternkontakte</span>
+                        <h3 class="mt-2 mb-0">Dokumentation</h3>
+                    </div>
+                    <a href="{{ url_for('erfassung.elternkontakte_start', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-primary icon-btn">
+                        {{ bi('filter', 'bi-icon-sm') }} <span>Liste filtern</span>
+                    </a>
+                </div>
+                <div class="akte-panel-body">
+                    {% if elternkontakte %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 akte-mini-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Datum</th>
+                                    <th>Typ</th>
+                                    <th>Betreff / Inhalt</th>
+                                    <th class="text-end">Aktion</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for e in elternkontakte %}
+                                <tr>
+                                    <td>{{ e.datum.strftime('%d.%m.%Y') if e.datum else '-' }}</td>
+                                    <td>
+                                        {% if e.eintrag_typ == 'protokoll' %}
+                                        <span class="badge bg-warning text-dark">Protokoll</span>
+                                        {% else %}
+                                        <span class="badge bg-info">Notiz</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-muted">{{ e.betreff or e.mitteilung or '-' }}</td>
+                                    <td class="text-end">
+                                        <a href="{{ url_for('erfassung.elternkontakt_view', kontakt_id=e.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-btn">
+                                            {{ bi('eye', 'bi-icon-sm') }} <span>Ansehen</span>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="akte-empty">
+                        Noch keine Elternkontakte dokumentiert.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="akte-panel">
+        <div class="akte-panel-body">
+            <div class="akte-empty">
+                {% if schueler|length == 0 %}
+                Es sind noch keine Kinder vorhanden.
+                {% else %}
+                Bitte ein Kind auswählen, um die Schülerakte anzuzeigen.
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

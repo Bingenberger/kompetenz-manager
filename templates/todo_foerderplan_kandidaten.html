@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="surface-panel p-4 p-md-5 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+        <div>
+            <span class="section-label">To-do</span>
+            <h2 class="mt-2 mb-1">Förderpläne erstellen</h2>
+            <p class="text-muted mb-0">Klasse {{ fokus_klasse }}: Kinder mit Förderplan-Bedarf (mind. 4x „-“ in einem Bogen).</p>
+        </div>
+        <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+    </div>
+
+    {% if aktive_elternsprechtage %}
+    <div class="alert alert-danger">
+        {% for label, termin, tage in aktive_elternsprechtage %}
+        <div><strong>{{ label }}</strong>: {{ termin.strftime('%d.%m.%Y') }} (in {{ tage }} Tagen)</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if kandidat_rows %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Kind</th>
+                    <th>Auffällige Bögen (letzte 12 Wochen)</th>
+                    <th class="text-end">Aktion</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in kandidat_rows %}
+                <tr>
+                    <td class="fw-bold">{{ row.schueler.nachname }}, {{ row.schueler.vorname }}</td>
+                    <td>
+                        {% for b in row.boegen %}
+                        <div>
+                            <span class="badge bg-danger-subtle text-danger border">{{ b.minus_items }}x "-"</span>
+                            {{ b.bogen_titel }}
+                        </div>
+                        {% endfor %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('foerderplan.foerderplan_neu', s_id=row.schueler.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-primary icon-btn">
+                            {{ bi('plus-circle', 'bi-icon-sm') }} <span>Förderplan erstellen</span>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">Aktuell keine Kinder mit Förderplan-Erinnerung in diesem Zeitraum.</div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .contact-mode-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 1rem;
+    }
+    .contact-mode-card {
+        border-radius: 16px;
+        border: 1px solid rgba(87,117,144,0.12);
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90));
+        box-shadow: 0 10px 24px rgba(31,41,51,0.05);
+    }
+    .contact-mode-card .mode-head {
+        display: flex;
+        align-items: center;
+        gap: .7rem;
+        margin-bottom: .5rem;
+    }
+    .mode-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+    }
+    .mode-icon.note { background: linear-gradient(135deg, #277da1, #4d908e); }
+    .mode-icon.protocol { background: linear-gradient(135deg, #f8961e, #f3722c); }
+    @media (max-width: 767px) {
+        .contact-mode-grid { grid-template-columns: 1fr; }
+    }
+</style>
+
+<div class="surface-panel p-4 p-md-5 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+        <div>
+            <span class="section-label">Elternkontakte</span>
+            <h2 class="mt-2 mb-1">Elternkontakte erfassen</h2>
+            <p class="text-muted mb-0">Kurze Kontakte dokumentieren oder ein vollständiges Gesprächsprotokoll erfassen.</p>
+        </div>
+        <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+    </div>
+
+    <div class="contact-mode-grid mb-4">
+        <div class="contact-mode-card p-4">
+            <div class="mode-head">
+                <span class="mode-icon note">{{ bi('chat-left-text', 'bi-icon-md') }}</span>
+                <div>
+                    <h3 class="h5 mb-0">Kleine Notiz</h3>
+                    <small class="text-muted">Kurz-Kontakt, Elternmitteilung, Telefonat, Mail</small>
+                </div>
+            </div>
+            <p class="text-muted mb-3">Kurz dokumentieren, in welcher Form der Kontakt stattgefunden hat und was mitgeteilt wurde.</p>
+            <form method="GET" action="{{ url_for('erfassung.elternkontakt_notiz') }}" class="row g-2">
+                <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                <div class="col-12">
+                    <label class="form-label">Kind auswählen</label>
+                    {% set student_select_id = 'eltern_start_notiz_schueler_id' %}
+                    {% set student_select_name = 'schueler_id' %}
+                    {% set student_select_required = true %}
+                    {% set student_search_placeholder = 'Kind suchen...' %}
+                    {% include 'includes/student_select_field.html' %}
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary icon-btn">{{ bi('pencil-square', 'bi-icon') }} <span>Notiz anlegen</span></button>
+                </div>
+            </form>
+        </div>
+
+        <div class="contact-mode-card p-4">
+            <div class="mode-head">
+                <span class="mode-icon protocol">{{ bi('journal-text', 'bi-icon-md') }}</span>
+                <div>
+                    <h3 class="h5 mb-0">Protokoll</h3>
+                    <small class="text-muted">Elterngespräch nach Schulprotokoll-Vorlage</small>
+                </div>
+            </div>
+            <p class="text-muted mb-3">Gesprächsanlass, Inhalte, Vereinbarungen und nächste Schritte strukturiert festhalten.</p>
+            <form method="GET" action="{{ url_for('erfassung.elternkontakt_protokoll') }}" class="row g-2">
+                <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                <div class="col-12">
+                    <label class="form-label">Kind auswählen</label>
+                    {% set student_select_id = 'eltern_start_protokoll_schueler_id' %}
+                    {% set student_select_name = 'schueler_id' %}
+                    {% set student_select_required = true %}
+                    {% set student_search_placeholder = 'Kind suchen...' %}
+                    {% include 'includes/student_select_field.html' %}
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-warning icon-btn">{{ bi('journal-text', 'bi-icon') }} <span>Protokoll anlegen</span></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="table-panel">
+        <div class="table-toolbar">
+            <div class="table-toolbar-title">Zuletzt erfasste Elternkontakte</div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <form method="GET" class="d-flex flex-wrap align-items-center gap-2">
+                    <div style="min-width: 280px;">
+                        {% set student_select_id = 'eltern_filter_schueler_id' %}
+                        {% set student_select_name = 'schueler_id' %}
+                        {% set student_select_selected = selected_s_id %}
+                        {% set student_select_include_empty = true %}
+                        {% set student_select_placeholder = 'Alle Kinder' %}
+                        {% set student_select_class = 'form-select form-select-sm' %}
+                        {% set student_search_placeholder = 'Kind filtern...' %}
+                        {% include 'includes/student_select_field.html' %}
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('search', 'bi-icon-sm') }} <span>Filtern</span></button>
+                    {% if selected_s_id %}
+                    <a href="{{ url_for('erfassung.elternkontakte_start') }}" class="btn btn-sm btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon-sm') }} <span>Zurücksetzen</span></a>
+                    {% endif %}
+                </form>
+                <span class="badge bg-info">{{ recent_contacts|length }} Einträge</span>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Datum</th>
+                        <th>Kind</th>
+                        <th>Typ</th>
+                        <th>Form</th>
+                        <th>Betreff / Inhalt</th>
+                        <th class="text-end">Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in recent_contacts %}
+                    <tr>
+                        <td>{{ e.datum.strftime('%d.%m.%Y') }}</td>
+                        <td>{{ e.schueler.nachname }}, {{ e.schueler.vorname }}</td>
+                        <td>
+                            {% if e.eintrag_typ == 'protokoll' %}
+                            <span class="badge bg-warning">Protokoll</span>
+                            {% else %}
+                            <span class="badge bg-info">Notiz</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ e.kontaktform or '-' }}</td>
+                        <td class="text-muted">{{ e.betreff or e.mitteilung or '-' }}</td>
+                        <td class="text-end">
+                            <div class="d-inline-flex flex-wrap gap-2 justify-content-end">
+                                <a href="{{ url_for('erfassung.elternkontakt_view', kontakt_id=e.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-btn">
+                                    {{ bi('eye', 'bi-icon-sm') }}
+                                    <span>Ansehen</span>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not recent_contacts %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">Noch keine Elternkontakte erfasst.</td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

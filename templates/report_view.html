@@ -1,24 +1,205 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<style>
+    .report-summary {
+        border-radius: 16px;
+        border: 1px solid rgba(87,117,144,0.12);
+        background: linear-gradient(180deg, rgba(255,255,255,0.94), rgba(255,255,255,0.90));
+        box-shadow: 0 12px 24px rgba(31,41,51,0.05);
+        padding: 1rem 1.1rem;
+    }
+    .report-item-card {
+        border-left-width: 5px !important;
+        overflow: hidden;
+    }
+    .report-toggle {
+        cursor: pointer;
+    }
+    .report-toggle:hover {
+        background: rgba(39,125,161,0.05) !important;
+    }
+    .report-score {
+        min-width: 92px;
+    }
+    .report-score .value {
+        font-family: 'Sora', sans-serif;
+        line-height: 1;
+    }
+    .report-pill {
+        border-radius: 999px;
+        font-weight: 700;
+        padding: .4rem .65rem;
+    }
+    .entry-delete-btn {
+        padding: .1rem .3rem;
+        line-height: 1;
+        border-radius: .35rem;
+    }
+    .entry-media-modal .modal-dialog {
+        max-width: min(1000px, 96vw);
+    }
+    .entry-media-stage {
+        background: #0d1117;
+        border-radius: 12px;
+        min-height: 280px;
+        max-height: 70vh;
+        overflow: auto;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+        padding: .5rem;
+    }
+    .entry-media-stage img {
+        display: block;
+        width: 100%;
+        max-width: none;
+        height: auto;
+        border-radius: 8px;
+        background: #111;
+    }
+    .entry-media-controls .form-range {
+        min-width: 130px;
+    }
+    @media (max-width: 768px) {
+        .report-summary {
+            padding: .9rem;
+        }
+        .entry-media-stage {
+            max-height: 62vh;
+            min-height: 220px;
+            padding: .3rem;
+        }
+    }
+    @media print {
+        @page {
+            size: A4;
+            margin: 12mm;
+        }
+
+        .no-print,
+        nav,
+        .btn {
+            display: none !important;
+        }
+
+        .report-summary {
+            display: none !important;
+        }
+
+        .page-title-row {
+            margin-bottom: .5rem !important;
+        }
+
+        .page-title-row h2 {
+            font-size: 1.2rem;
+            margin-bottom: .1rem !important;
+        }
+
+        .page-title-row .badge,
+        .page-title-row .text-muted {
+            color: #111 !important;
+            background: transparent !important;
+            border: none !important;
+            padding: 0 !important;
+        }
+
+        .card {
+            break-inside: avoid;
+            border: 1px solid #ccc;
+            box-shadow: none !important;
+            background: #fff !important;
+            margin-bottom: .7rem !important;
+            border-radius: 0 !important;
+        }
+
+        .collapse {
+            display: block !important;
+        }
+
+        .card-header {
+            background: #fff !important;
+            border-bottom: 1px solid #ddd !important;
+            padding: .5rem .7rem !important;
+        }
+
+        .table > :not(caption) > * > * {
+            padding: .35rem .45rem !important;
+            font-size: 10.5px !important;
+            border-bottom: 1px solid #e6e6e6 !important;
+            color: #111 !important;
+        }
+
+        .table thead th {
+            background: #f4f4f4 !important;
+            color: #222 !important;
+        }
+
+        .badge {
+            border: 1px solid #bbb !important;
+            background: #fff !important;
+            color: #111 !important;
+            box-shadow: none !important;
+        }
+
+        .report-item-card {
+            border-left: 3px solid #777 !important;
+        }
+
+        .report-pill {
+            padding: .15rem .35rem !important;
+        }
+
+        .report-score .value {
+            font-size: 1.05rem !important;
+        }
+
+        .text-muted,
+        .fst-italic {
+            color: #333 !important;
+            font-style: normal !important;
+        }
+
+        body {
+            background: white;
+            color: #111;
+        }
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 page-title-row">
     <div>
-        <h6 class="text-muted mb-0">Bericht für</h6>
-        <h2>{{ schueler.vorname }} {{ schueler.nachname }}</h2>
+        <span class="section-label">Bericht</span>
+        <h2 class="mt-2 mb-1">{{ schueler.vorname }} {{ schueler.nachname }}</h2>
+        <p class="text-muted mb-0">Kompetenzübersicht mit Verlauf und Eintragsdetails</p>
     </div>
     <div class="text-end">
+        {% if next_url %}
+        <div class="mb-2">
+            <a href="{{ next_url }}" class="btn btn-sm btn-outline-secondary icon-btn no-print">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span></a>
+        </div>
+        {% endif %}
         <span class="badge bg-primary fs-6">{{ bogen.titel }}</span>
         <br>
         <small class="text-muted">Erstellt am: {{ now }}</small>
     </div>
 </div>
 
-<hr>
+<div class="report-summary mb-4">
+    <div class="row g-2 align-items-center">
+        <div class="col-md">
+            <strong>{{ report_data|length }}</strong> Kompetenzen im Bericht
+        </div>
+        <div class="col-md-auto text-md-end text-muted small">
+            Klicken Sie auf einen Bereich, um Einträge ein- oder auszublenden.
+        </div>
+    </div>
+</div>
 
 {% for row in report_data %}
-<div class="card mb-4 shadow-sm"
-    style="border-left: 5px solid {% if row.durchschnitt >= 3.5 %}#198754{% elif row.durchschnitt >= 2.5 %}#0d6efd{% elif row.durchschnitt >= 1.5 %}#ffc107{% else %}#dc3545{% endif %};">
-    <!-- Header jetzt klickbar -->
-    <div class="card-header bg-light d-flex justify-content-between align-items-center" style="cursor: pointer;"
+<div class="card mb-4 shadow-sm report-item-card fade-in fade-in-delay-1"
+    style="border-left-color: {% if row.durchschnitt >= 3.5 %}#43aa8b{% elif row.durchschnitt >= 2.5 %}#277da1{% elif row.durchschnitt >= 1.5 %}#f9c74f{% else %}#f94144{% endif %};">
+    <div class="card-header bg-light d-flex justify-content-between align-items-center report-toggle"
         data-bs-toggle="collapse" data-bs-target="#collapse-{{ row.item.id }}" aria-expanded="false"
         aria-controls="collapse-{{ row.item.id }}">
 
@@ -28,9 +209,9 @@
         </div>
 
         <div class="d-flex align-items-center">
-            <div class="text-center me-3">
+            <div class="text-center me-3 report-score">
                 {% if row.anzahl > 0 %}
-                <span class="h3 fw-bold">{{ row.durchschnitt }}</span>
+                <span class="h3 fw-bold value">{{ row.durchschnitt }}</span>
                 <span class="d-block small text-muted">Ø aus {{ row.anzahl }} Einträgen</span>
                 {% else %}
                 <span class="badge bg-secondary">Keine Daten</span>
@@ -54,13 +235,14 @@
                             <th style="width: 10%">Wert</th>
                             <th>Kommentar</th>
                             <th style="width: 10%">Foto</th>
+                            <th class="text-end" style="width: 1%"></th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for entry in row.eintraege %}
                         <tr>
                             <td>{{ entry.datum.strftime('%d.%m.%Y') }}</td>
-                            <td><span class="badge bg-light text-dark border">{{ entry.anlass or '-' }}</span></td>
+                            <td><span class="badge bg-light text-dark border report-pill">{{ entry.anlass or '-' }}</span></td>
                             <td>
                                 <span class="badge bg-{{ color_map[entry.wert] }} fs-6" style="min-width: 40px;">
                                     {{ symbol_map[entry.wert] }}
@@ -71,11 +253,27 @@
                             </td>
                             <td>
                                 {% if entry.foto_pfad %}
-                                <a href="{{ url_for('static', filename='uploads/' + entry.foto_pfad) }}" target="_blank"
-                                    class="btn btn-sm btn-outline-primary">
-                                    📷 Bild
-                                </a>
+                                {% set photo_url = url_for('static', filename='uploads/' + entry.foto_pfad) %}
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-primary icon-btn entry-media-open"
+                                    data-bs-toggle="modal"
+                                    data-bs-target="#entryMediaModal"
+                                    data-photo-url="{{ photo_url }}"
+                                    data-photo-title="{{ row.item.text }} • {{ entry.datum.strftime('%d.%m.%Y') }}">
+                                    {{ bi('camera', 'bi-icon-sm') }} <span>Bild</span>
+                                </button>
                                 {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <form method="POST" action="{{ url_for('report.report_beobachtung_delete', beobachtung_id=entry.id) }}" class="d-inline"
+                                      onsubmit="return confirm('Diesen Beobachtungseintrag wirklich löschen?')">
+                                    {{ csrf_input() }}
+                                    <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger entry-delete-btn" title="Eintrag löschen" aria-label="Eintrag löschen">
+                                        {{ bi('trash', 'bi-icon-sm') }}
+                                    </button>
+                                </form>
                             </td>
                         </tr>
                         {% endfor %}
@@ -89,31 +287,97 @@
 {% endfor %}
 
 <div class="text-center no-print mt-5">
-    <button onclick="window.print()" class="btn btn-secondary">🖨️ Bericht drucken / PDF</button>
+    <button onclick="window.print()" class="btn btn-secondary icon-btn">{{ bi('printer', 'bi-icon') }} <span>Bericht drucken / PDF</span></button>
 </div>
 
-<style>
-    @media print {
+<div class="modal fade entry-media-modal no-print" id="entryMediaModal" tabindex="-1" aria-labelledby="entryMediaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title" id="entryMediaModalLabel">Bildvorschau</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2 entry-media-controls">
+                    <div class="small text-muted">Tippen/Klicken zum Öffnen, per Regler oder Mausrad zoomen.</div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="entryMediaZoomOut">-</button>
+                        <input type="range" class="form-range m-0" id="entryMediaZoomRange" min="1" max="4" step="0.1" value="1" aria-label="Zoom">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="entryMediaZoomIn">+</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="entryMediaZoomReset">100%</button>
+                    </div>
+                </div>
+                <div class="entry-media-stage" id="entryMediaStage">
+                    <img id="entryMediaImage" src="" alt="Bildvorschau">
+                </div>
+                <div class="small text-muted mt-2" id="entryMediaHint"></div>
+            </div>
+        </div>
+    </div>
+</div>
 
-        .no-print,
-        nav,
-        .btn {
-            display: none !important;
-        }
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modalEl = document.getElementById('entryMediaModal');
+    if (!modalEl) return;
 
-        .card {
-            break-inside: avoid;
-            border: 1px solid #ccc;
-        }
+    const imgEl = document.getElementById('entryMediaImage');
+    const titleEl = document.getElementById('entryMediaModalLabel');
+    const hintEl = document.getElementById('entryMediaHint');
+    const stageEl = document.getElementById('entryMediaStage');
+    const zoomRange = document.getElementById('entryMediaZoomRange');
+    const zoomInBtn = document.getElementById('entryMediaZoomIn');
+    const zoomOutBtn = document.getElementById('entryMediaZoomOut');
+    const zoomResetBtn = document.getElementById('entryMediaZoomReset');
+    let currentZoom = 1;
 
-        .collapse {
-            display: block !important;
-        }
-
-        body {
-            background: white;
-        }
+    function applyZoom(nextZoom) {
+        currentZoom = Math.max(1, Math.min(4, Number(nextZoom) || 1));
+        zoomRange.value = String(currentZoom);
+        imgEl.style.width = (currentZoom * 100) + '%';
     }
-</style>
+
+    function resetView() {
+        applyZoom(1);
+        stageEl.scrollTop = 0;
+        stageEl.scrollLeft = 0;
+    }
+
+    modalEl.addEventListener('show.bs.modal', function (event) {
+        const trigger = event.relatedTarget;
+        if (!trigger) return;
+        const photoUrl = trigger.getAttribute('data-photo-url') || '';
+        const photoTitle = trigger.getAttribute('data-photo-title') || 'Bildvorschau';
+        imgEl.src = photoUrl;
+        imgEl.alt = photoTitle;
+        titleEl.textContent = photoTitle;
+        hintEl.textContent = 'Bei Zoom > 100% kann das Bild im Fenster verschoben/gescrollt werden.';
+        resetView();
+    });
+
+    modalEl.addEventListener('hidden.bs.modal', function () {
+        imgEl.removeAttribute('src');
+        resetView();
+    });
+
+    zoomRange.addEventListener('input', function () {
+        applyZoom(zoomRange.value);
+    });
+    zoomInBtn.addEventListener('click', function () {
+        applyZoom(Math.round((currentZoom + 0.2) * 10) / 10);
+    });
+    zoomOutBtn.addEventListener('click', function () {
+        applyZoom(Math.round((currentZoom - 0.2) * 10) / 10);
+    });
+    zoomResetBtn.addEventListener('click', resetView);
+
+    stageEl.addEventListener('wheel', function (event) {
+        if (!event.ctrlKey && event.deltaY === 0) return;
+        event.preventDefault();
+        const step = event.deltaY < 0 ? 0.1 : -0.1;
+        applyZoom(Math.round((currentZoom + step) * 10) / 10);
+    }, { passive: false });
+});
+</script>
 
 {% endblock %}

@@ -1,17 +1,23 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
+<div class="toolbar-shell">
     <div>
-        <h6 class="text-muted mb-0">Items verwalten für Bogen:</h6>
-        <h3>{{ bogen.titel }}</h3>
+        <span class="section-label">Administration</span>
+        <div class="text-muted small mt-2">Items verwalten für Bogen</div>
+        <h2 class="h4 mb-0">{{ bogen.titel }}</h2>
     </div>
-    <div>
-        <a href="/admin/bogen/{{ bogen.id }}/item/new" class="btn btn-primary">+ Neues Item</a>
-        <a href="/admin/boegen" class="btn btn-outline-secondary ms-2">Zurück zur Übersicht</a>
+    <div class="toolbar-actions">
+        <a href="{{ url_for('admin.admin_item_edit', b_id=bogen.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-primary icon-btn">{{ bi('plus-circle', 'bi-icon-sm') }} <span>Neues Item</span></a>
+        <a href="{{ url_for('admin.admin_boegen') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück zur Übersicht</span></a>
     </div>
 </div>
 
-<div class="card shadow-sm">
+<div class="table-panel">
+    <div class="table-toolbar">
+        <div class="table-toolbar-title">Items</div>
+        <span class="badge bg-info">{{ items|length }} Einträge</span>
+    </div>
     <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
             <tr>
@@ -26,9 +32,12 @@
                 <td><span class="badge bg-secondary">{{ item.bereich }}</span></td>
                 <td>{{ item.text }}</td>
                 <td class="text-end">
-                    <a href="/admin/item/edit/{{ item.id }}" class="btn btn-sm btn-outline-primary">✎ Bearbeiten</a>
-                    <a href="/admin/item/delete/{{ item.id }}" class="btn btn-sm btn-outline-danger ms-1"
-                        onclick="return confirm('Soll dieses Item wirklich gelöscht werden? Alle Beobachtungen dazu gehen verloren!')">🗑️</a>
+                    <a href="{{ url_for('admin.admin_item_edit', i_id=item.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span></a>
+                    <form method="POST" action="{{ url_for('admin.admin_item_delete', i_id=item.id) }}" style="display:inline;" class="ms-1"
+                        onsubmit="return confirm('Soll dieses Item wirklich gelöscht werden? Alle Beobachtungen dazu gehen verloren!')">
+                        {{ csrf_input() }}
+                        <button type="submit" class="btn btn-sm btn-outline-danger icon-only-btn" aria-label="Item löschen">{{ bi('trash', 'bi-icon-sm') }}</button>
+                    </form>
                 </td>
             </tr>
             {% endfor %}

@@ -1,15 +1,23 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h3>📋 Bögen verwalten</h3>
+<div class="toolbar-shell">
     <div>
-        <a href="/import/bogen" class="btn btn-outline-primary me-2">+ Import Excel</a>
-        <a href="/admin/bogen/new" class="btn btn-primary">+ Neuer Bogen</a>
-        <a href="/admin" class="btn btn-outline-secondary ms-2">Zurück</a>
+        <span class="section-label">Administration</span>
+        <h2 class="h4 mt-2 mb-0">Bögen verwalten</h2>
+    </div>
+    <div class="toolbar-actions">
+        <a href="{{ url_for('system.data_import', typ='bogen') }}" class="btn btn-outline-primary icon-btn">{{ bi('file-earmark-excel', 'bi-icon-sm') }} <span>Import Excel</span></a>
+        <a href="{{ url_for('admin.admin_bogen_edit', next=request.full_path if request.query_string else request.path) }}" class="btn btn-primary icon-btn">{{ bi('plus-circle', 'bi-icon-sm') }} <span>Neuer Bogen</span></a>
+        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span></a>
     </div>
 </div>
 
-<div class="card shadow-sm">
+<div class="table-panel">
+    <div class="table-toolbar">
+        <div class="table-toolbar-title">Bögen</div>
+        <span class="badge bg-info">{{ boegen|length }} Einträge</span>
+    </div>
     <table class="table table-hover align-middle mb-0">
         <thead class="table-light">
             <tr>
@@ -22,9 +30,12 @@
             <tr>
                 <td class="fw-bold">{{ b.titel }}</td>
                 <td class="text-end">
-                    <a href="/admin/bogen/{{ b.id }}/items" class="btn btn-sm btn-info text-white me-2">📋 Items verwalten</a>
-                    <a href="/admin/bogen/edit/{{ b.id }}" class="btn btn-sm btn-outline-primary">✎ Titel ändern</a>
-                    <a href="/admin/bogen/delete/{{ b.id }}" class="btn btn-sm btn-outline-danger ms-1" onclick="return confirm('ACHTUNG: Soll der Bogen „{{ b.titel }}“ wirklich gelöscht werden? ALLE ITEMS UND BEOBACHTUNGEN DAZU WERDEN UNWIDERRUFLICH GELÖSCHT!')">🗑️</a>
+                    <a href="{{ url_for('admin.admin_items', b_id=b.id) }}" class="btn btn-sm btn-info text-white me-2 icon-btn">{{ bi('card-checklist', 'bi-icon-sm') }} <span>Items verwalten</span></a>
+                    <a href="{{ url_for('admin.admin_bogen_edit', b_id=b.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('pencil-square', 'bi-icon-sm') }} <span>Titel ändern</span></a>
+                    <form method="POST" action="{{ url_for('admin.admin_bogen_delete', b_id=b.id) }}" style="display:inline;" class="ms-1" onsubmit="return confirm('ACHTUNG: Soll der Bogen „{{ b.titel }}“ wirklich gelöscht werden? ALLE ITEMS UND BEOBACHTUNGEN DAZU WERDEN UNWIDERRUFLICH GELÖSCHT!')">
+                        {{ csrf_input() }}
+                        <button type="submit" class="btn btn-sm btn-outline-danger icon-only-btn" aria-label="Bogen löschen">{{ bi('trash', 'bi-icon-sm') }}</button>
+                    </form>
                 </td>
             </tr>
             {% endfor %}

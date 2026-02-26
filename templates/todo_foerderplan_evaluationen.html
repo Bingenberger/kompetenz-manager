@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="surface-panel p-4 p-md-5 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+        <div>
+            <span class="section-label">To-do</span>
+            <h2 class="mt-2 mb-1">Förderpläne evaluieren</h2>
+            <p class="text-muted mb-0">Klasse {{ fokus_klasse }}: offene/aktive Förderpläne direkt in die Evaluationsmaske öffnen.</p>
+        </div>
+        <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+    </div>
+
+    {% if aktive_elternsprechtage %}
+    <div class="alert alert-warning">
+        {% for label, termin, tage in aktive_elternsprechtage %}
+        <div><strong>{{ label }}</strong>: {{ termin.strftime('%d.%m.%Y') }} (in {{ tage }} Tagen)</div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if plaene %}
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Kind</th>
+                    <th>Titel</th>
+                    <th>Erstellt</th>
+                    <th>Status</th>
+                    <th class="text-end">Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in plaene %}
+                <tr>
+                    <td class="fw-bold">{{ p.schueler.nachname }}, {{ p.schueler.vorname }}</td>
+                    <td>{{ p.titel }}</td>
+                    <td>{{ p.datum_erstellung.strftime('%d.%m.%Y') if p.datum_erstellung else '-' }}</td>
+                    <td><span class="badge bg-success">Aktiv</span></td>
+                    <td class="text-end">
+                        <a href="{{ url_for('foerderplan.foerderplan_evaluate', p_id=p.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-warning icon-btn">
+                            {{ bi('journal-text', 'bi-icon-sm') }} <span>Evaluieren</span>
+                        </a>
+                        <a href="{{ url_for('foerderplan.foerderplan_view', p_id=p.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-btn">
+                            {{ bi('eye', 'bi-icon-sm') }} <span>Ansehen</span>
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">Keine aktiven Förderpläne in der Klasse vorhanden.</div>
+    {% endif %}
+</div>
+{% endblock %}

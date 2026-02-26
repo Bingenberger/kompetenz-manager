@@ -1,17 +1,393 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
-<div class="d-grid gap-3">
-    <a href="/erfassen/einzel" class="btn btn-warning btn-xl">⚡ Notiz zwischendurch</a>
-    <hr>
-    <a href="/erfassen/reihe/start" class="btn btn-primary btn-xl">👥 Klassen-Durchlauf (Reihe)</a>
-    <a href="/erfassen/schueler" class="btn btn-success btn-xl">👤 Ein Schüler - Ganzer Bogen</a>
-    <a href="/erfassen/multi/start" class="btn btn-dark btn-xl">🚀 Multi-Item Durchlauf</a>
-    <hr>
-    <a href="/report/schueler" class="btn btn-info btn-xl text-white">📊 Bericht / Übersicht</a>
-    <hr>
-    <!-- Import Links entfernt -->
-    <div class="text-center mt-4">
-        <a href="/setup" class="text-muted small">Datenbank Reset / Testdaten</a>
+<style>
+    .dashboard-hero {
+        position: relative;
+        overflow: hidden;
+        border-radius: 20px;
+        padding: 1.35rem;
+        background:
+            radial-gradient(circle at 8% 15%, rgba(249, 199, 79, 0.34), transparent 38%),
+            radial-gradient(circle at 95% 15%, rgba(67, 170, 139, 0.25), transparent 45%),
+            linear-gradient(135deg, rgba(39,125,161,0.95), rgba(77,144,142,0.90), rgba(87,117,144,0.92));
+        color: #fff;
+        border: 1px solid rgba(255,255,255,0.22);
+        box-shadow: 0 22px 40px rgba(39,125,161,0.18);
+    }
+    .dashboard-hero::after {
+        content: "";
+        position: absolute;
+        inset: auto -10% -55% auto;
+        width: 320px;
+        height: 320px;
+        background: radial-gradient(circle, rgba(255,255,255,0.20), transparent 60%);
+        pointer-events: none;
+    }
+    .hero-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        border-radius: 999px;
+        padding: .4rem .75rem;
+        font-size: .82rem;
+        font-weight: 700;
+        color: rgba(255,255,255,.95);
+        background: rgba(255,255,255,.12);
+        border: 1px solid rgba(255,255,255,.18);
+        backdrop-filter: blur(2px);
+    }
+    .action-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .9rem;
+    }
+    .action-tile {
+        display: block;
+        border-radius: 16px;
+        padding: 1rem;
+        text-decoration: none;
+        color: inherit;
+        border: 1px solid rgba(87,117,144,0.14);
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90));
+        box-shadow: 0 10px 22px rgba(31,41,51,0.05);
+        transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+        min-height: 136px;
+    }
+    .action-tile:hover {
+        text-decoration: none;
+        color: inherit;
+        transform: translateY(-2px);
+        box-shadow: 0 14px 28px rgba(31,41,51,0.09);
+    }
+    .action-tile .icon-wrap {
+        width: 42px;
+        height: 42px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        margin-bottom: .75rem;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35);
+    }
+    .tile-eyebrow {
+        display: block;
+        color: #5f7387;
+        font-size: .78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: .04em;
+        margin-bottom: .15rem;
+    }
+    .tile-title {
+        font-family: 'Sora', sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        line-height: 1.2;
+        margin-bottom: .25rem;
+    }
+    .tile-copy {
+        color: #5f7387;
+        font-size: .88rem;
+        margin: 0;
+    }
+    .stack-card {
+        border-radius: 16px;
+        border: 1px solid rgba(87,117,144,0.12);
+        background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.90));
+        box-shadow: 0 10px 26px rgba(31,41,51,0.05);
+    }
+    .stack-card .stack-head {
+        border-bottom: 1px solid rgba(87,117,144,0.10);
+        padding: .9rem 1rem .8rem;
+    }
+    .stack-card .stack-body {
+        padding: 1rem;
+    }
+    .hero-stats {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0,1fr));
+        gap: .75rem;
+    }
+    .hero-stat {
+        border-radius: 12px;
+        padding: .7rem .8rem;
+        background: rgba(255,255,255,0.14);
+        border: 1px solid rgba(255,255,255,0.16);
+    }
+    .hero-stat .value {
+        display: block;
+        font-family: 'Sora', sans-serif;
+        font-size: 1.2rem;
+        line-height: 1;
+        font-weight: 700;
+    }
+    .hero-stat .label {
+        color: rgba(255,255,255,.83);
+        line-height: 1.15;
+        font-size: .82rem;
+        display: block;
+        margin-top: .35rem;
+    }
+    .hero-todo-card {
+        height: 100%;
+        border-radius: 16px;
+        padding: 1rem;
+        background: rgba(255,255,255,0.12);
+        border: 1px solid rgba(255,255,255,0.18);
+        backdrop-filter: blur(2px);
+    }
+    .hero-todo-list {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: .55rem;
+    }
+    .hero-todo-item {
+        border-radius: 12px;
+        padding: .65rem .75rem;
+        background: rgba(255,255,255,0.09);
+        border: 1px solid rgba(255,255,255,0.12);
+    }
+    .hero-todo-item strong {
+        display: block;
+        font-size: .9rem;
+        line-height: 1.2;
+        margin-bottom: .15rem;
+    }
+    .hero-todo-item small {
+        display: block;
+        color: rgba(255,255,255,.82);
+        line-height: 1.2;
+    }
+    .todo-dot {
+        width: .55rem;
+        height: .55rem;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: .45rem;
+        vertical-align: middle;
+    }
+    .todo-dot-danger { background: #ffd0d1; }
+    .todo-dot-warning { background: #ffe7ad; }
+    .todo-dot-info { background: #bde8ff; }
+    .todo-dot-success { background: #c6f3d3; }
+    .hero-meta-line {
+        color: rgba(255,255,255,0.88);
+        margin-bottom: .9rem;
+    }
+    .accent-orange { background: linear-gradient(135deg, rgba(248,150,30,0.16), rgba(249,132,74,0.10)); border-color: rgba(248,150,30,0.22); }
+    .accent-blue { background: linear-gradient(135deg, rgba(39,125,161,0.14), rgba(87,117,144,0.08)); border-color: rgba(39,125,161,0.20); }
+    .accent-green { background: linear-gradient(135deg, rgba(67,170,139,0.14), rgba(144,190,109,0.10)); border-color: rgba(67,170,139,0.20); }
+    .accent-red { background: linear-gradient(135deg, rgba(249,65,68,0.12), rgba(243,114,44,0.08)); border-color: rgba(249,65,68,0.18); }
+    .icon-orange { background: linear-gradient(135deg, #f8961e, #f9844a); color: #fff; }
+    .icon-blue { background: linear-gradient(135deg, #277da1, #577590); color: #fff; }
+    .icon-green { background: linear-gradient(135deg, #43aa8b, #90be6d); color: #fff; }
+    .icon-red { background: linear-gradient(135deg, #f94144, #f3722c); color: #fff; }
+    .mini-note {
+        border-left: 4px solid rgba(249,199,79,0.75);
+        background: rgba(249,199,79,0.10);
+        border-radius: 10px;
+        padding: .75rem .9rem;
+        color: #5a4a1d;
+    }
+    @media (max-width: 991px) {
+        .hero-stats { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 767px) {
+        .action-grid { grid-template-columns: 1fr; }
+        .dashboard-hero { padding: 1rem; }
+        .stack-card .stack-head,
+        .stack-card .stack-body { padding-left: .85rem; padding-right: .85rem; }
+        .hero-chip { font-size: .76rem; }
+        .tile-title { font-size: .95rem; }
+        .action-tile { min-height: 118px; }
+    }
+    @media (max-width: 575px) {
+        .dashboard-hero {
+            border-radius: 16px;
+        }
+        .dashboard-hero h1 {
+            font-size: 1.25rem !important;
+            line-height: 1.2;
+        }
+        .mini-note {
+            padding: .65rem .75rem;
+            font-size: .9rem;
+        }
+    }
+</style>
+
+<div class="dashboard-hero mb-4 fade-in">
+    <div class="row g-3 align-items-stretch">
+        <div class="col-lg-7">
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <span class="hero-chip">{{ bi('building', 'bi-icon-sm') }} Kompetenz-Manager</span>
+                {% if school_year %}
+                <span class="hero-chip">{{ bi('calendar3', 'bi-icon-sm') }} Schuljahr {{ school_year }}</span>
+                {% endif %}
+                {% if hero_klasse %}
+                <span class="hero-chip">
+                    {{ bi('mortarboard', 'bi-icon-sm') }}
+                    {% if hero_klasse_typ == 'klassenleitung' %}Klasse {{ hero_klasse }}{% else %}Fachklasse {{ hero_klasse }}{% endif %}
+                </span>
+                {% endif %}
+            </div>
+            <h1 class="mb-2" style="font-size: clamp(1.5rem, 2.5vw, 2.1rem);">Willkommen, {{ teacher_name }}</h1>
+            <p class="hero-meta-line" style="max-width: 56ch;">
+                {% if hero_klasse_typ == 'klassenleitung' %}
+                Überblick für Ihre Klasse {{ hero_klasse }}: Beobachtungen, Förderplanung und nächste Aufgaben auf einen Blick.
+                {% elif hero_klasse %}
+                Überblick für die Fachklasse {{ hero_klasse }} mit den wichtigsten Kennzahlen und anstehenden Aufgaben.
+                {% else %}
+                Personalisierte Begrüßung aktiv. Für klassenbezogene Statistiken bitte eine Klassenzuordnung hinterlegen.
+                {% endif %}
+            </p>
+            <div class="hero-stats mb-3">
+                <div class="hero-stat">
+                    <span class="value">{{ hero_stats.kinder_in_klasse }}</span>
+                    <span class="label">Kinder in {% if hero_klasse %}Klasse {{ hero_klasse }}{% else %}der Klasse{% endif %}</span>
+                </div>
+                <div class="hero-stat">
+                    <span class="value">{{ hero_stats.beobachtungsboegen_ausgefuellt }}</span>
+                    <span class="label">Ausgefüllte Beobachtungsbögen</span>
+                </div>
+                <div class="hero-stat">
+                    <span class="value">{{ hero_stats.aktive_foerderplaene }}</span>
+                    <span class="label">Aktive Förderpläne</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-5">
+            <div class="hero-todo-card">
+                <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                    <strong class="mb-0">{{ bi('list-check', 'bi-icon-sm') }} Nächste Aufgaben</strong>
+                    <small style="color: rgba(255,255,255,.82);">demnächst</small>
+                </div>
+                <ul class="hero-todo-list">
+                    {% for todo in hero_todos %}
+                    <li>
+                        {% if todo.url %}
+                        <a href="{{ todo.url }}" class="hero-todo-item d-block text-decoration-none text-reset">
+                        {% else %}
+                        <div class="hero-todo-item">
+                        {% endif %}
+                        <strong>
+                            <span class="todo-dot todo-dot-{{ todo.variant | default('info') }}"></span>
+                            {{ todo.title }}
+                        </strong>
+                        <small>{{ todo.detail }}</small>
+                        {% if todo.url %}
+                        </a>
+                        {% else %}
+                        </div>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="stack-card fade-in fade-in-delay-1">
+            <div class="stack-head d-flex justify-content-between align-items-center">
+                <div>
+                    <span class="section-label">Beobachtungen</span>
+                    <h3 class="mt-2 mb-0">Erfassung</h3>
+                </div>
+                <small class="text-muted">4 Arbeitsmodi</small>
+            </div>
+            <div class="stack-body">
+                <div class="action-grid">
+                    <a href="{{ url_for('erfassung.erfassen_einzel') }}" class="action-tile accent-orange">
+                        <span class="icon-wrap icon-orange">{{ bi('lightning-charge', 'bi-icon-md') }}</span>
+                        <span class="tile-eyebrow">Schnell</span>
+                        <div class="tile-title">Notiz zwischendurch</div>
+                        <p class="tile-copy">Spontane Beobachtung mit Bewertung, Kommentar und Foto.</p>
+                    </a>
+
+                    <a href="{{ url_for('erfassung.reihe_start') }}" class="action-tile accent-blue">
+                        <span class="icon-wrap icon-blue">{{ bi('people', 'bi-icon-md') }}</span>
+                        <span class="tile-eyebrow">Klasse</span>
+                        <div class="tile-title">Klassen-Durchlauf</div>
+                        <p class="tile-copy">Ein Item nacheinander für alle Schülerinnen und Schüler.</p>
+                    </a>
+
+                    <a href="{{ url_for('erfassung.erfassen_schueler') }}" class="action-tile accent-green">
+                        <span class="icon-wrap icon-green">{{ bi('person', 'bi-icon-md') }}</span>
+                        <span class="tile-eyebrow">Ein Kind</span>
+                        <div class="tile-title">Ganzer Bogen</div>
+                        <p class="tile-copy">Alle Items eines Bogens gesammelt für ein Kind bewerten.</p>
+                    </a>
+
+                    <a href="{{ url_for('erfassung.multi_start') }}" class="action-tile accent-red">
+                        <span class="icon-wrap icon-red">{{ bi('rocket-takeoff', 'bi-icon-md') }}</span>
+                        <span class="tile-eyebrow">Mehrfach</span>
+                        <div class="tile-title">Multi-Item Durchlauf</div>
+                        <p class="tile-copy">Mehrere Kompetenzen pro Kind in einem Durchgang erfassen.</p>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="d-flex flex-column gap-4">
+            <div class="stack-card fade-in fade-in-delay-2" style="border-color: rgba(39,125,161,0.20);">
+                <div class="stack-head" style="background: linear-gradient(90deg, rgba(39,125,161,0.10), rgba(77,144,142,0.08)); border-radius: 16px 16px 0 0;">
+                    <span class="section-label">Kommunikation</span>
+                    <h3 class="mt-2 mb-0">Elternkontakte</h3>
+                </div>
+                <div class="stack-body d-grid gap-3">
+                    <p class="text-muted mb-0">Kurznotizen und strukturierte Protokolle zu Elternkontakten dokumentieren.</p>
+                    <a href="{{ url_for('erfassung.elternkontakte_start') }}" class="btn btn-primary btn-lg icon-btn justify-content-center">
+                        {{ bi('chat-left-text', 'bi-icon') }} <span>Elternkontakte öffnen</span>
+                    </a>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{{ url_for('erfassung.elternkontakt_notiz') }}" class="btn btn-outline-primary icon-btn">
+                            {{ bi('pencil-square', 'bi-icon-sm') }} <span>Kleine Notiz</span>
+                        </a>
+                        <a href="{{ url_for('erfassung.elternkontakt_protokoll') }}" class="btn btn-outline-dark icon-btn">
+                            {{ bi('journal-text', 'bi-icon-sm') }} <span>Protokoll</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stack-card fade-in fade-in-delay-3">
+                <div class="stack-head">
+                    <span class="section-label">Schülerakte</span>
+                    <h3 class="mt-2 mb-0">Zentrale Ansicht</h3>
+                </div>
+                <div class="stack-body">
+                    <p class="text-muted mb-3">Alle zugehörigen Daten eines Kindes in einer Ansicht: Beobachtungen, Förderpläne und Elternkontakte.</p>
+                    <a href="{{ url_for('system.schuelerakte') }}" class="btn btn-info btn-lg w-100 text-white icon-btn justify-content-center">
+                        {{ bi('person-vcard', 'bi-icon') }} <span>Schülerakte öffnen</span>
+                    </a>
+                </div>
+            </div>
+
+            <div class="stack-card fade-in fade-in-delay-3" style="border-color: rgba(249,199,79,0.28);">
+                <div class="stack-head" style="background: linear-gradient(90deg, rgba(249,199,79,0.18), rgba(249,132,74,0.10)); border-radius: 16px 16px 0 0;">
+                    <span class="section-label" style="background: rgba(249,199,79,0.18); border-color: rgba(249,199,79,0.25); color:#6f5308;">Förderplanung</span>
+                    <h3 class="mt-2 mb-0">Ziele & Evaluation</h3>
+                </div>
+                <div class="stack-body d-grid gap-3">
+                    <p class="text-muted mb-0">Förderpläne aus Beobachtungen ableiten, dokumentieren und später evaluieren.</p>
+                    <a href="{{ url_for('foerderplan.foerderplan_select_student') }}" class="btn btn-outline-dark btn-lg icon-btn justify-content-center">
+                        {{ bi('plus-circle', 'bi-icon') }} <span>Förderplan erstellen</span>
+                    </a>
+                    <a href="{{ url_for('foerderplan.foerderplan_list') }}" class="btn btn-dark btn-lg icon-btn justify-content-center">
+                        {{ bi('folder2-open', 'bi-icon') }} <span>Förderpläne ansehen / evaluieren</span>
+                    </a>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

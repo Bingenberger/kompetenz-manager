@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+{% set klassenleitung = namespace(value='') %}
+{% set fachklassen = namespace(values=[]) %}
+{% for z in current_zuordnungen %}
+    {% if z.rolle == 'klassenleitung' %}
+        {% set klassenleitung.value = z.klasse %}
+    {% elif z.rolle == 'fach' %}
+        {% set _ = fachklassen.values.append(z.klasse) %}
+    {% endif %}
+{% endfor %}
+
+<div class="row justify-content-center">
+    <div class="col-xl-8">
+        <div class="surface-panel p-4 p-md-5 fade-in">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+                <div>
+                    <span class="section-label">Administration</span>
+                    <h2 class="mt-2 mb-1">Klassenzuordnungen</h2>
+                    <p class="text-muted mb-0">Lehrkraft <strong>{{ user.username }}</strong>: Klassenleitung und Fachunterricht festlegen.</p>
+                </div>
+                <a href="{{ next_url if next_url else url_for('admin.admin_users') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+            </div>
+
+            <form method="POST">
+                {{ csrf_input() }}
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+                <div class="mb-4">
+                    <label class="form-label">Klassenlehrkraft für Klasse (optional)</label>
+                    <select name="klassenleitung_klasse" class="form-select">
+                        <option value="">Keine Zuordnung</option>
+                        {% for klasse in klassen %}
+                        <option value="{{ klasse }}" {% if klassenleitung.value == klasse %}selected{% endif %}>{{ klasse }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Eine Klasse kann nur einer Lehrkraft als Klassenleitung zugewiesen werden.</div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Fachlehrkraft in Klassen (optional)</label>
+                    <select name="fachklassen" class="form-select" size="{{ 8 if klassen|length > 8 else (klassen|length if klassen|length > 0 else 3) }}" multiple>
+                        {% for klasse in klassen %}
+                        <option value="{{ klasse }}" {% if klasse in fachklassen.values %}selected{% endif %}>{{ klasse }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Mehrfachauswahl: `Strg` (Windows/Linux) oder `Cmd` (Mac) gedrückt halten.</div>
+                </div>
+
+                <div class="alert alert-info small">
+                    Priorisierung in Schüler-Auswahlfeldern:
+                    <strong>eigene Klassenleitung</strong> -> <strong>Fachklassen</strong> -> <strong>alle anderen</strong>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg icon-btn">{{ bi('floppy', 'bi-icon') }} <span>Zuordnungen speichern</span></button>
+                    <a href="{{ next_url if next_url else url_for('admin.admin_users') }}" class="btn btn-outline-secondary btn-lg icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

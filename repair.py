@@ -1,3 +1,6 @@
+import os
+import secrets
+
 from app import app, db, User, Schueler, Bogen, Item
 from werkzeug.security import generate_password_hash
 
@@ -11,14 +14,16 @@ with app.app_context():
     
     if not admin:
         print("Erstelle Admin-User...")
-        # Neues Passwort hashen (ohne Methode, für Kompatibilität)
-        pw_hash = generate_password_hash("schule123")
+        neues_passwort = os.environ.get("REPAIR_ADMIN_PASSWORD") or secrets.token_urlsafe(12)
+        pw_hash = generate_password_hash(neues_passwort)
         admin = User(username='admin', password_hash=pw_hash)
         db.session.add(admin)
     else:
-        print("Admin existiert bereits. Setze Passwort zurück auf 'schule123'...")
-        admin.password_hash = generate_password_hash("schule123")
+        neues_passwort = os.environ.get("REPAIR_ADMIN_PASSWORD") or secrets.token_urlsafe(12)
+        print("Admin existiert bereits. Setze Passwort zurück auf ein temporäres Passwort...")
+        admin.password_hash = generate_password_hash(neues_passwort)
 
     # ALLES SPEICHERN
     db.session.commit()
+    print(f"Temporäres Admin-Passwort: {neues_passwort}")
     print("--- FERTIG! Alle Daten wurden gespeichert. ---")

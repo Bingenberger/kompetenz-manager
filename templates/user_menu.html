@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="surface-panel p-4 p-md-5 fade-in">
+            <div class="mb-4">
+                <span class="section-label">Benutzerkonto</span>
+                <h2 class="mt-2 mb-1">Profil</h2>
+                <p class="text-muted mb-0">Klarname pflegen. Der Benutzername bleibt unverändert.</p>
+            </div>
+
+            <form method="POST">
+                {{ csrf_input() }}
+                <input type="hidden" name="form_action" value="profile">
+
+                <div class="mb-3">
+                    <label class="form-label">Benutzername</label>
+                    <input type="text" class="form-control" value="{{ current_user.username }}" disabled>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Vorname</label>
+                        <input type="text" name="vorname" class="form-control" value="{{ current_user.vorname or '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Nachname</label>
+                        <input type="text" name="nachname" class="form-control" value="{{ current_user.nachname or '' }}">
+                    </div>
+                </div>
+
+                <div class="d-flex flex-wrap gap-2 mt-4">
+                    <button type="submit" class="btn btn-primary icon-btn">{{ bi('floppy', 'bi-icon') }} <span>Profil speichern</span></button>
+                    <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Schließen</span></a>
+                </div>
+            </form>
+        </div>
+
+        <div class="surface-panel p-4 p-md-5 fade-in fade-in-delay-1 mt-4" id="passwort">
+            <div class="mb-4">
+                <span class="section-label">Sicherheit</span>
+                <h2 class="mt-2 mb-1">Passwort ändern</h2>
+                <p class="text-muted mb-0">Bitte ein neues Passwort zweimal eingeben.</p>
+            </div>
+
+            <form method="POST">
+                {{ csrf_input() }}
+                <input type="hidden" name="form_action" value="password">
+
+                <div class="mb-3">
+                    <label class="form-label">Aktuelles Passwort</label>
+                    <input type="password" name="altes_pw" class="form-control" required>
+                </div>
+
+                <hr class="soft-divider">
+
+                <div class="mb-3">
+                    <label class="form-label">Neues Passwort</label>
+                    <input type="password" name="neues_pw" class="form-control" required>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Neues Passwort wiederholen</label>
+                    <input type="password" name="neues_pw_wdh" class="form-control" required>
+                </div>
+
+                <button type="submit" class="btn btn-success icon-btn">{{ bi('key', 'bi-icon') }} <span>Passwort speichern</span></button>
+            </form>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="surface-panel p-4 p-md-4 fade-in fade-in-delay-2">
+            <div class="mb-3">
+                <span class="section-label">Zuordnungen</span>
+                <h3 class="mt-2 mb-1">Klassen</h3>
+                <p class="text-muted mb-0">Nur lesbar. Änderungen erfolgen durch den Admin.</p>
+            </div>
+
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="small text-muted mb-1">Klassenlehrkraft</div>
+                    {% if klassenleitung %}
+                    <span class="badge bg-info">{{ klassenleitung }}</span>
+                    {% else %}
+                    <span class="text-muted">Keine Zuordnung</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="small text-muted mb-2">Fachunterricht</div>
+                    {% if fachklassen %}
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for klasse in fachklassen %}
+                        <span class="badge bg-secondary">{{ klasse }}</span>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <span class="text-muted">Keine Zuordnung</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

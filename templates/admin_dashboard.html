@@ -1,47 +1,81 @@
 {% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
 {% block content %}
-<h2 class="mb-4">⚙️ Administration</h2>
+<div class="surface-panel p-4 p-md-5 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+        <div>
+            <span class="section-label">Verwaltung</span>
+            <h2 class="mt-2 mb-1">Administration</h2>
+            <p class="text-muted mb-0">Zugänge, Schülergrunddaten und Kompetenzbögen zentral verwalten.</p>
+        </div>
+        <span class="badge bg-info px-3 py-2 d-inline-flex align-items-center gap-1">{{ bi('gear', 'bi-icon-sm') }} Adminbereich</span>
+    </div>
 
-<div class="row g-4">
-    <div class="col-md-4">
-        <div class="card h-100 border-0 shadow-sm">
-            <div class="card-body text-center p-4">
-                <div class="display-4 mb-3">👥</div>
-                <h3>Kollegium</h3>
-                <p class="text-muted">Lehrer verwalten & Zugänge.</p>
-                {% if current_user.username == 'admin' %}
-                <a href="/admin/users" class="btn btn-primary w-100">Verwalten</a>
-                {% else %}
-                <button class="btn btn-secondary w-100" disabled>Nur Admin</button>
-                {% endif %}
+    <div class="row g-4">
+        <div class="col-md-6 col-xl-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="display-4 mb-3">{{ bi('people', 'bi-icon-xl') }}</div>
+                    <h3 class="h4">Kollegium</h3>
+                    <p class="text-muted">Lehrkräfte verwalten und Konten pflegen.</p>
+                    {% if current_user.username == 'admin' %}
+                    <a href="{{ url_for('admin.admin_users') }}" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('people', 'bi-icon-sm') }} <span>Verwalten</span></a>
+                    {% else %}
+                    <button class="btn btn-secondary w-100" disabled>Nur Admin</button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="display-4 mb-3">{{ bi('mortarboard', 'bi-icon-xl') }}</div>
+                    <h3 class="h4">Schüler</h3>
+                    <p class="text-muted">Grunddaten, Klassen und Stammdatenpflege.</p>
+                    <a href="{{ url_for('admin.admin_students') }}" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('mortarboard', 'bi-icon-sm') }} <span>Verwalten</span></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="display-4 mb-3">{{ bi('card-checklist', 'bi-icon-xl') }}</div>
+                    <h3 class="h4">Bögen & Items</h3>
+                    <p class="text-muted">Kompetenzkataloge und Kriterien bearbeiten.</p>
+                    <a href="{{ url_for('admin.admin_boegen') }}" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('card-checklist', 'bi-icon-sm') }} <span>Verwalten</span></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="display-4 mb-3">{{ bi('calendar3', 'bi-icon-xl') }}</div>
+                    <h3 class="h4">Schuljahr & Termine</h3>
+                    <p class="text-muted mb-2">Schuljahr und Elternsprechtage für Erinnerungen festlegen.</p>
+                    <div class="small text-start text-muted border rounded p-2 mb-3 bg-light-subtle">
+                        <div><strong>Schuljahr:</strong> {{ settings.schuljahr or '-' }}</div>
+                        <div>
+                            <strong>Elternsprechtag 1:</strong>
+                            {{ settings.elternsprechtag_1.strftime('%d.%m.%Y') if settings.elternsprechtag_1 else '-' }}
+                        </div>
+                        <div>
+                            <strong>Elternsprechtag 2:</strong>
+                            {{ settings.elternsprechtag_2.strftime('%d.%m.%Y') if settings.elternsprechtag_2 else '-' }}
+                        </div>
+                    </div>
+                    <a href="{{ url_for('admin.admin_system_settings') }}" class="btn btn-primary w-100 icon-btn justify-content-center">
+                        {{ bi('calendar3', 'bi-icon-sm') }} <span>Einstellen</span>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="col-md-4">
-        <div class="card h-100 border-0 shadow-sm">
-            <div class="card-body text-center p-4">
-                <div class="display-4 mb-3">🎓</div>
-                <h3>Schüler</h3>
-                <p class="text-muted">Schülerdaten & Klassen.</p>
-                <a href="/admin/students" class="btn btn-primary w-100">Verwalten</a>
-            </div>
-        </div>
+    <div class="text-center mt-4">
+        <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück zum Hauptmenü</span></a>
     </div>
-
-    <div class="col-md-4">
-        <div class="card h-100 border-0 shadow-sm">
-            <div class="card-body text-center p-4">
-                <div class="display-4 mb-3">📋</div>
-                <h3>Bögen & Items</h3>
-                <p class="text-muted">Kriterienkataloge anpassen.</p>
-                <a href="/admin/boegen" class="btn btn-primary w-100">Verwalten</a>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="text-center mt-5">
-    <a href="/" class="btn btn-link text-muted">Zurück zum Hauptmenü</a>
 </div>
 {% endblock %}

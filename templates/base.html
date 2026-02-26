@@ -1,3 +1,4 @@
+{% from "includes/icons.html" import bi %}
 <!doctype html>
 <html lang="de">
   <head>
@@ -7,100 +8,231 @@
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&family=Sora:wght@500;600;700;800&display=swap" rel="stylesheet">
 
     <style>
-        /* --- SCHUL-FARBKONZEPT --- */
+        /* --- FARBKONZEPT (Palette des Projekts) --- */
         :root {
-            --school-blue: #84acce;
-            --school-yellow: #f6f2b5;
-            --school-green: #c7e1ba;
-            --school-orange: #f08d4b;
-            --school-dark: #343434;
-            --school-bg: #f8f9fa; /* Sehr helles Grau als Hintergrund */
+            --c-red: #f94144;
+            --c-tangerine: #f3722c;
+            --c-orange: #f8961e;
+            --c-coral: #f9844a;
+            --c-sun: #f9c74f;
+            --c-green: #90be6d;
+            --c-seagrass: #43aa8b;
+            --c-cyan: #4d908e;
+            --c-slate: #577590;
+            --c-cerulean: #277da1;
+
+            --ink-900: #1f2933;
+            --ink-700: #3b4a59;
+            --bg-canvas: #f8fbfc;
+            --bg-warm: #fff9ef;
+
+            --school-blue: var(--c-cerulean);
+            --school-yellow: var(--c-sun);
+            --school-green: var(--c-green);
+            --school-orange: var(--c-orange);
+            --school-dark: var(--ink-900);
+            --school-bg: var(--bg-canvas);
         }
 
         body {
             font-family: 'Nunito', sans-serif; /* Modernere Schriftart */
             color: var(--school-dark);
-            background-color: var(--school-bg);
+            line-height: 1.45;
+            background:
+                radial-gradient(circle at 0% 0%, rgba(249, 199, 79, 0.12), transparent 35%),
+                radial-gradient(circle at 100% 0%, rgba(39, 125, 161, 0.12), transparent 42%),
+                radial-gradient(circle at 100% 100%, rgba(67, 170, 139, 0.10), transparent 38%),
+                var(--school-bg);
+        }
+
+        h1, h2, h3, h4, h5, h6,
+        .navbar-brand {
+            font-family: 'Sora', 'Nunito', sans-serif;
+            letter-spacing: -0.02em;
+        }
+
+        h1, h2 { font-weight: 800; }
+        h3, h4, h5 { font-weight: 700; }
+        h6 { font-weight: 600; }
+
+        a {
+            transition: color 120ms ease, opacity 120ms ease;
+        }
+
+        .container {
+            max-width: 1120px;
+        }
+
+        .container.pb-5 {
+            padding-bottom: 4rem !important;
+        }
+
+        .text-muted {
+            color: #5f7387 !important;
         }
 
         /* 1. DIE NAVIGATION */
         .navbar {
-            background-color: var(--school-blue) !important;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            background: linear-gradient(90deg, var(--c-cerulean), var(--c-cyan), var(--c-seagrass)) !important;
+            box-shadow: 0 8px 20px rgba(39, 125, 161, 0.18);
         }
         .navbar-brand {
-            color: var(--school-dark) !important;
+            color: #ffffff !important;
             font-weight: 700;
         }
 
-        /* 2. BUTTONS: PRIMARY (Hauptaktionen) -> BLAU */
+        .navbar .text-white.small {
+            color: rgba(255,255,255,0.9) !important;
+        }
+
+        /* Bootstrap-Mapping auf Palette */
+        .bg-primary { background-color: var(--c-cerulean) !important; }
+        .bg-info { background-color: var(--c-cyan) !important; }
+        .bg-success { background-color: var(--c-seagrass) !important; }
+        .bg-warning { background-color: var(--c-sun) !important; }
+        .bg-danger { background-color: var(--c-red) !important; }
+        .bg-dark { background-color: var(--c-slate) !important; }
+
         .btn-primary {
-            background-color: var(--school-blue);
-            border-color: var(--school-blue);
-            color: var(--school-dark);
+            background-color: var(--c-cerulean);
+            border-color: var(--c-cerulean);
+            color: #fff;
             font-weight: 700;
         }
+        .btn-outline-primary {
+            color: var(--c-cerulean);
+            border-color: rgba(39,125,161,0.55);
+        }
+        .btn-outline-primary:hover, .btn-outline-primary:focus {
+            background-color: rgba(39,125,161,0.10);
+            border-color: var(--c-cerulean);
+            color: #1f5f7a;
+        }
         .btn-primary:hover, .btn-primary:active, .btn-primary:focus {
-            background-color: #6a9bbd !important; /* Etwas dunkleres Blau beim Klick */
-            border-color: #6a9bbd !important;
+            background-color: #216988 !important;
+            border-color: #216988 !important;
             color: #fff !important;
         }
 
-        /* 3. BUTTONS: SECONDARY (Überspringen etc.) -> GRAU */
+        .btn-info {
+            background-color: var(--c-cyan);
+            border-color: var(--c-cyan);
+            color: #fff;
+        }
+        .btn-info:hover, .btn-info:focus {
+            background-color: #3f7a79;
+            border-color: #3f7a79;
+            color: #fff;
+        }
+
+        .btn-success {
+            background-color: var(--c-seagrass);
+            border-color: var(--c-seagrass);
+            color: #fff;
+        }
+        .btn-success:hover, .btn-success:focus {
+            background-color: #368a70;
+            border-color: #368a70;
+            color: #fff;
+        }
+
+        .btn-warning {
+            background-color: var(--c-sun);
+            border-color: var(--c-sun);
+            color: var(--ink-900);
+        }
+        .btn-warning:hover, .btn-warning:focus {
+            background-color: #efb92e;
+            border-color: #efb92e;
+            color: var(--ink-900);
+        }
+
+        .btn-dark {
+            background-color: var(--c-slate);
+            border-color: var(--c-slate);
+        }
+        .btn-dark:hover, .btn-dark:focus {
+            background-color: #466178;
+            border-color: #466178;
+        }
+
+        .btn-outline-dark {
+            color: var(--c-slate);
+            border-color: var(--c-slate);
+        }
+        .btn-outline-dark:hover, .btn-outline-dark:focus {
+            background-color: var(--c-slate);
+            border-color: var(--c-slate);
+            color: #fff;
+        }
+
+        /* 3. BUTTONS: SECONDARY (Überspringen etc.) */
         .btn-secondary, .btn-outline-secondary {
-            color: #666;
-            border-color: #ccc;
+            color: var(--ink-700);
+            border-color: rgba(87,117,144,0.35);
+            background-color: transparent;
+        }
+        .btn-outline-secondary:hover, .btn-secondary:hover {
+            background-color: rgba(87,117,144,0.08);
+            border-color: rgba(87,117,144,0.55);
+            color: var(--ink-900);
         }
 
         /* 4. DIE BEWERTUNGS-BUTTONS (Das Wichtigste!) */
 
-        /* Das MINUS (-) -> Wird ORANGE statt Rot */
+        /* Das MINUS (-) */
         .btn-outline-danger {
-            color: var(--school-orange);
-            border-color: var(--school-orange);
+            color: var(--c-red);
+            border-color: var(--c-red);
         }
         .btn-outline-danger:hover, .btn-check:checked + .btn-outline-danger {
-            background-color: var(--school-orange);
-            border-color: var(--school-orange);
-            color: #fff; /* Weiße Schrift auf Orange */
+            background-color: var(--c-red);
+            border-color: var(--c-red);
+            color: #fff;
         }
 
-        /* Der KREIS (o) -> Wird GELB */
+        /* Der KREIS (o) */
         .btn-outline-warning {
-            color: #bfae2a; /* Etwas dunkleres Gelb für den Text (Lesbarkeit) */
-            border-color: var(--school-warning);
+            color: #ad7c08;
+            border-color: var(--c-sun);
         }
-        /* Wenn angeklickt: */
         .btn-outline-warning:hover, .btn-check:checked + .btn-outline-warning {
-            background-color: var(--school-yellow);
-            border-color: #e0db94;
-            color: var(--school-dark); /* Dunkle Schrift auf hellem Gelb */
+            background-color: var(--c-sun);
+            border-color: #efb92e;
+            color: var(--ink-900);
         }
 
-        /* Das PLUS (+ / ++) -> Wird GRÜN */
+        /* Das PLUS (+ / ++) */
         .btn-outline-success {
-            color: #7a9c6a; /* Dunkleres Grün für Text/Rahmen */
-            border-color: #7a9c6a;
+            color: var(--c-seagrass);
+            border-color: var(--c-seagrass);
         }
-        /* Wenn angeklickt: */
         .btn-outline-success:hover, .btn-check:checked + .btn-outline-success {
-            background-color: var(--school-green);
-            border-color: var(--school-green);
-            color: var(--school-dark);
+            background-color: var(--c-seagrass);
+            border-color: var(--c-seagrass);
+            color: #fff;
         }
 
         /* 5. KARTEN UND LAYOUT */
         .card {
-            border: none;
+            border: 1px solid rgba(87,117,144,0.12);
             border-radius: 12px; /* Runder */
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05); /* Sanfter Schatten */
+            box-shadow: 0 8px 24px rgba(31, 41, 51, 0.05);
+            background-color: rgba(255,255,255,0.92);
+            backdrop-filter: blur(2px);
+            transition: transform 140ms ease, box-shadow 140ms ease, border-color 140ms ease;
+        }
+        .card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 28px rgba(31,41,51,0.08);
+            border-color: rgba(39,125,161,0.18);
         }
         .card-header {
-            background-color: rgba(132, 172, 206, 0.2); /* Das Schulblau, aber sehr transparent */
-            border-bottom: 1px solid rgba(0,0,0,0.05);
+            background-color: rgba(39, 125, 161, 0.08);
+            border-bottom: 1px solid rgba(87,117,144,0.08);
             font-weight: bold;
         }
 
@@ -119,8 +251,506 @@
 
         /* Damit Checkboxen in der Multi-Auswahl gut aussehen */
         .form-check-input:checked {
-            background-color: var(--school-blue);
-            border-color: var(--school-blue);
+            background-color: var(--c-cerulean);
+            border-color: var(--c-cerulean);
+        }
+
+        .alert-success {
+            background-color: rgba(144,190,109,0.2) !important;
+            color: var(--ink-900) !important;
+            border: 1px solid rgba(144,190,109,0.35);
+        }
+
+        .table-light {
+            --bs-table-bg: rgba(77, 144, 142, 0.07);
+        }
+
+        .badge.bg-secondary {
+            background-color: var(--c-slate) !important;
+        }
+
+        .badge.bg-primary { background-color: var(--c-cerulean) !important; }
+        .badge.bg-info { background-color: var(--c-cyan) !important; color: #fff !important; }
+        .badge.bg-warning { background-color: var(--c-sun) !important; color: var(--ink-900) !important; }
+        .badge.bg-success { background-color: var(--c-seagrass) !important; }
+        .badge.bg-danger { background-color: var(--c-red) !important; }
+
+        .btn-light {
+            background-color: rgba(255,255,255,0.92);
+            border-color: rgba(255,255,255,0.55);
+            color: var(--c-cerulean);
+        }
+        .btn-light:hover {
+            background-color: #fff;
+            border-color: #fff;
+            color: var(--c-cyan);
+        }
+
+        .bi {
+            width: 1em;
+            height: 1em;
+            display: inline-block;
+            vertical-align: -.125em;
+            flex-shrink: 0;
+        }
+
+        .bi-icon-sm { width: 0.95rem; height: 0.95rem; }
+        .bi-icon { width: 1.05rem; height: 1.05rem; }
+        .bi-icon-md { width: 1.2rem; height: 1.2rem; }
+        .bi-icon-lg { width: 1.5rem; height: 1.5rem; }
+        .bi-icon-xl { width: 2rem; height: 2rem; }
+
+        .btn {
+            border-radius: 10px;
+            transition: transform 120ms ease, box-shadow 120ms ease, background-color 120ms ease, border-color 120ms ease;
+            white-space: nowrap;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .form-label {
+            font-weight: 700;
+            color: var(--ink-700);
+            margin-bottom: 0.4rem;
+        }
+
+        .form-control,
+        .form-select,
+        textarea.form-control {
+            border-radius: 10px;
+            border: 1px solid rgba(87,117,144,0.22);
+            background-color: rgba(255,255,255,0.96);
+            padding: 0.65rem 0.8rem;
+            color: var(--ink-900);
+        }
+
+        .form-control::placeholder,
+        .form-select::placeholder {
+            color: #7f94a8;
+        }
+
+        .form-control:focus,
+        .form-select:focus {
+            border-color: rgba(39,125,161,0.55);
+            box-shadow: 0 0 0 0.2rem rgba(39,125,161,0.14);
+        }
+
+        input[type="file"].form-control {
+            padding: 0.45rem 0.65rem;
+        }
+
+        .table {
+            --bs-table-bg: transparent;
+            margin-bottom: 0;
+        }
+        .table > :not(caption) > * > * {
+            padding: 0.8rem 0.9rem;
+            border-bottom-color: rgba(87,117,144,0.10);
+            vertical-align: middle;
+        }
+        .table-hover > tbody > tr:hover > * {
+            --bs-table-accent-bg: rgba(39,125,161,0.05);
+            color: inherit;
+        }
+        .table thead th {
+            font-size: 0.82rem;
+            letter-spacing: 0.02em;
+            text-transform: uppercase;
+            color: #51667b;
+            border-bottom-width: 1px;
+        }
+
+        .table-striped > tbody > tr:nth-of-type(odd) > * {
+            --bs-table-accent-bg: rgba(77,144,142,0.03);
+        }
+
+        .page-title-row {
+            margin-bottom: 1.1rem;
+        }
+
+        .surface-panel {
+            background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.88));
+            border: 1px solid rgba(87,117,144,0.12);
+            border-radius: 16px;
+            box-shadow: 0 12px 28px rgba(31,41,51,0.06);
+        }
+
+        .toolbar-shell {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+            padding: 0.95rem 1rem;
+            border-radius: 14px;
+            border: 1px solid rgba(87,117,144,0.12);
+            background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(255,255,255,0.88));
+            box-shadow: 0 8px 20px rgba(31,41,51,0.04);
+        }
+
+        .toolbar-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .toolbar-actions .btn {
+            white-space: normal;
+        }
+
+        .icon-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+        }
+
+        .icon-only-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-sm.icon-btn .bi,
+        .btn-sm.icon-only-btn .bi {
+            width: 0.9rem;
+            height: 0.9rem;
+        }
+
+        .btn.icon-btn .bi,
+        .btn.icon-only-btn .bi {
+            width: 1rem;
+            height: 1rem;
+        }
+
+        .btn-lg.icon-btn .bi,
+        .btn-lg.icon-only-btn .bi {
+            width: 1.05rem;
+            height: 1.05rem;
+        }
+
+        .btn-xl.icon-btn .bi,
+        .btn-xl.icon-only-btn .bi {
+            width: 1.15rem;
+            height: 1.15rem;
+        }
+
+        .table-panel {
+            border-radius: 14px;
+            border: 1px solid rgba(87,117,144,0.12);
+            background: rgba(255,255,255,0.92);
+            box-shadow: 0 10px 24px rgba(31,41,51,0.05);
+            overflow: hidden;
+        }
+
+        .table-panel .table {
+            margin-bottom: 0;
+        }
+
+        .table-responsive {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(87,117,144,0.35) transparent;
+        }
+
+        .table-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.6rem;
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid rgba(87,117,144,0.08);
+            background: rgba(77,144,142,0.05);
+        }
+
+        .table-toolbar-title {
+            font-weight: 800;
+            color: var(--ink-700);
+        }
+
+        .rating-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 64px;
+            border-radius: 10px !important;
+        }
+
+        .student-select-search {
+            font-size: .88rem;
+        }
+
+        .student-select-widget .form-select {
+            max-width: 100%;
+        }
+
+        .student-select-search-wrap {
+            display: flex;
+            align-items: center;
+            gap: .4rem;
+        }
+
+        .student-select-combo {
+            border: 1px solid rgba(87,117,144,0.22);
+            border-radius: 10px;
+            background: rgba(255,255,255,0.96);
+            overflow: hidden;
+            transition: border-color 120ms ease, box-shadow 120ms ease;
+        }
+
+        .student-select-combo:focus-within {
+            border-color: rgba(39,125,161,0.55);
+            box-shadow: 0 0 0 0.2rem rgba(39,125,161,0.14);
+        }
+
+        .student-select-combo .student-select-search-wrap {
+            gap: 0;
+            padding: 0.2rem 0.25rem 0.15rem 0.25rem;
+            border-bottom: 1px solid rgba(87,117,144,0.12);
+            background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(248,251,252,0.9));
+        }
+
+        .student-select-combo .student-select-search {
+            border: 0;
+            box-shadow: none !important;
+            background: transparent;
+            padding-top: .35rem;
+            padding-bottom: .35rem;
+        }
+
+        .student-select-combo .student-select-search:focus {
+            border: 0;
+            box-shadow: none !important;
+        }
+
+        .student-select-combo .student-select-clear {
+            border: 0;
+            background: transparent;
+            margin-right: .05rem;
+        }
+
+        .student-select-combo .student-select-clear:hover {
+            background: rgba(87,117,144,0.08);
+        }
+
+        .student-select-combo .student-select-combo-select {
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background-color: transparent;
+        }
+
+        .student-select-combo .student-select-combo-select:focus {
+            border: 0 !important;
+            box-shadow: none !important;
+        }
+
+        .student-select-clear {
+            min-width: 2rem;
+            line-height: 1;
+            padding-left: .45rem;
+            padding-right: .45rem;
+        }
+
+        .student-select-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .35rem;
+            align-items: center;
+        }
+
+        .student-select-legend-title {
+            font-size: .74rem;
+            font-weight: 800;
+            color: var(--ink-700);
+            margin-right: .1rem;
+        }
+
+        .student-select-legend-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            font-size: .72rem;
+            font-weight: 700;
+            line-height: 1.1;
+            border-radius: 999px;
+            padding: .28rem .55rem;
+            border: 1px solid rgba(87,117,144,0.15);
+            background: rgba(255,255,255,0.96);
+            color: var(--ink-700);
+            box-shadow: 0 1px 0 rgba(31,41,51,0.03);
+        }
+
+        .student-select-legend-chip::before {
+            content: "";
+            width: .45rem;
+            height: .45rem;
+            border-radius: 999px;
+            background: rgba(87,117,144,0.45);
+            box-shadow: 0 0 0 2px rgba(255,255,255,0.8);
+        }
+
+        .student-select-legend-chip.is-own {
+            background: rgba(67,170,139,0.16);
+            border-color: rgba(67,170,139,0.35);
+            color: #1f5f4f;
+        }
+        .student-select-legend-chip.is-own::before { background: #43aa8b; }
+
+        .student-select-legend-chip.is-fach {
+            background: rgba(39,125,161,0.16);
+            border-color: rgba(39,125,161,0.35);
+            color: #1d5770;
+        }
+        .student-select-legend-chip.is-fach::before { background: #277da1; }
+
+        .student-select-legend-chip.is-other {
+            background: rgba(87,117,144,0.12);
+            border-color: rgba(87,117,144,0.24);
+            color: #40566c;
+        }
+        .student-select-legend-chip.is-other::before { background: #577590; }
+
+        .student-select-legend-chip.is-all {
+            background: rgba(249,199,79,0.20);
+            border-color: rgba(249,199,79,0.32);
+            color: #6f5308;
+        }
+        .student-select-legend-chip.is-all::before { background: #f9c74f; }
+
+        .app-content-grid {
+            gap: 1rem;
+        }
+
+        .section-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #486178;
+            background: rgba(39,125,161,0.08);
+            border: 1px solid rgba(39,125,161,0.12);
+            border-radius: 999px;
+            padding: 0.3rem 0.65rem;
+        }
+
+        .soft-divider {
+            border: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(87,117,144,0.22), transparent);
+            margin: 1.25rem 0;
+        }
+
+        .fade-in {
+            animation: fadeUp 380ms ease both;
+        }
+        .fade-in-delay-1 { animation-delay: 40ms; }
+        .fade-in-delay-2 { animation-delay: 90ms; }
+        .fade-in-delay-3 { animation-delay: 140ms; }
+
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation: none !important;
+                transition: none !important;
+                scroll-behavior: auto !important;
+            }
+        }
+
+        @media (max-width: 991px) {
+            .container {
+                max-width: 100%;
+            }
+
+            .navbar .container {
+                padding-left: .8rem;
+                padding-right: .8rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container.pb-5 {
+                padding-bottom: 3rem !important;
+            }
+
+            .btn-lg {
+                padding: .65rem .95rem;
+                font-size: 1rem;
+            }
+
+            .page-title-row h2,
+            h2 {
+                font-size: 1.35rem;
+            }
+
+            .surface-panel {
+                border-radius: 14px;
+            }
+
+            .table > :not(caption) > * > * {
+                padding: .7rem .65rem;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .toolbar-shell,
+            .table-toolbar {
+                padding: 0.8rem 0.85rem;
+            }
+
+            .toolbar-shell {
+                align-items: stretch;
+            }
+
+            .toolbar-actions {
+                width: 100%;
+            }
+
+            .toolbar-actions .btn {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+
+            .navbar {
+                margin-bottom: .8rem !important;
+            }
+
+            .navbar-brand .d-none.d-md-inline {
+                display: inline !important;
+                font-size: .95rem;
+            }
+
+            .navbar .btn {
+                padding: .35rem .55rem;
+                font-size: .85rem;
+            }
+
+            .card-header,
+            .card-body {
+                padding-left: .75rem;
+                padding-right: .75rem;
+            }
+
+            .table thead th {
+                font-size: .74rem;
+            }
+
+            .section-label {
+                font-size: .72rem;
+                padding: .25rem .55rem;
+            }
         }
 
     </style>
@@ -128,19 +758,22 @@
   <body>
     <nav class="navbar mb-4 sticky-top">
   <div class="container d-flex justify-content-between">
-    <a class="navbar-brand d-flex align-items-center" href="/">
-        <span style="font-size: 1.5rem;">🏫</span>
+    <a class="navbar-brand d-flex align-items-center" href="{{ url_for('system.index') }}">
+        {{ bi('building', 'bi-icon-lg') }}
         <span class="ms-2 d-none d-md-inline">Kompetenz-App</span>
     </a>
 
  {% if current_user.is_authenticated %}
-    <div class="d-flex align-items-center gap-2">
-        <span class="text-white small d-none d-sm-inline me-2">👤 {{ current_user.username }}</span>
+    <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+        <a href="{{ url_for('auth.user_menu') }}" class="btn btn-sm btn-light icon-btn" title="Benutzermenü">
+            {{ bi('person-circle', 'bi-icon-sm') }}
+            <span class="d-none d-sm-inline">{{ current_user.display_name }}</span>
+        </a>
 
-        <a href="/admin" class="btn btn-sm btn-light" title="Verwaltung">⚙️</a>
-
-        <a href="/change_password" class="btn btn-sm btn-light" title="Passwort ändern">🔑</a>
-        <a href="/logout" class="btn btn-sm btn-outline-light">Abmelden</a>
+        {% if current_user.username == 'admin' %}
+        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-sm btn-light icon-only-btn" title="Verwaltung" aria-label="Verwaltung">{{ bi('gear', 'bi-icon') }}</a>
+        {% endif %}
+        <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light icon-btn">{{ bi('box-arrow-right', 'bi-icon-sm') }} <span>Abmelden</span></a>
     </div>
     {% endif %}
   </div>
@@ -149,15 +782,94 @@
     <div class="container pb-5">
         {% with messages = get_flashed_messages() %}
           {% if messages %}
-            <div class="alert alert-success shadow-sm border-0" style="background-color: var(--school-green); color: var(--school-dark);">
+            <div class="alert alert-success shadow-sm border-0">
                 {{ messages[0] }}
             </div>
           {% endif %}
         {% endwith %}
+        {% if session.get('report_last_deleted_beobachtung') %}
+            <div class="alert alert-warning shadow-sm border-0 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <span>Letzten gelöschten Beobachtungseintrag wiederherstellen?</span>
+                <form method="POST" action="{{ url_for('report.report_beobachtung_undo_delete') }}" class="d-inline">
+                    {{ csrf_input() }}
+                    <button type="submit" class="btn btn-sm btn-outline-dark">Rückgängig</button>
+                </form>
+            </div>
+        {% endif %}
 
         {% block content %}{% endblock %}
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    (function () {
+        function setupStudentSelectFilter(input) {
+            const targetId = input.dataset.studentSelectFilter;
+            const select = document.getElementById(targetId);
+            if (!select) return;
+            const clearBtn = document.querySelector(`[data-student-select-clear="${targetId}"]`);
+            const statusEl = document.querySelector(`[data-student-select-status="${targetId}"]`);
+
+            const allOptions = Array.from(select.querySelectorAll('option')).filter(opt => opt.value !== '');
+            const allGroups = Array.from(select.querySelectorAll('optgroup'));
+
+            function applyFilter() {
+                const q = (input.value || '').trim().toLowerCase();
+
+                allOptions.forEach((opt) => {
+                    const hay = (opt.dataset.search || opt.textContent || '').toLowerCase();
+                    const match = !q || hay.includes(q);
+                    opt.hidden = !match;
+                });
+
+                allGroups.forEach((group) => {
+                    const visibleChildren = Array.from(group.querySelectorAll('option')).some(opt => !opt.hidden);
+                    group.hidden = !visibleChildren;
+                });
+
+                const visibleOptions = allOptions.filter(opt => !opt.hidden);
+
+                // Autovervollstaendigung ab dem 3. Zeichen nur bei genau einem Treffer.
+                if (q.length >= 3 && visibleOptions.length === 1) {
+                    const onlyMatch = visibleOptions[0];
+                    if (onlyMatch && select.value !== onlyMatch.value) {
+                        select.value = onlyMatch.value;
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+
+                if (statusEl) {
+                    if (!q) {
+                        statusEl.textContent = '';
+                    } else if (visibleOptions.length === 0) {
+                        statusEl.textContent = 'Keine Treffer';
+                    } else if (visibleOptions.length === 1 && q.length >= 3) {
+                        statusEl.textContent = '1 Treffer – automatisch ausgewählt';
+                    } else {
+                        statusEl.textContent = `${visibleOptions.length} Treffer`;
+                    }
+                }
+
+                if (clearBtn) {
+                    clearBtn.classList.toggle('d-none', !q);
+                }
+            }
+
+            input.addEventListener('input', applyFilter);
+            if (clearBtn) {
+                clearBtn.addEventListener('click', function () {
+                    input.value = '';
+                    applyFilter();
+                    input.focus();
+                });
+            }
+            applyFilter();
+        }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('[data-student-select-filter]').forEach(setupStudentSelectFilter);
+        });
+    })();
+    </script>
   </body>
 </html>
