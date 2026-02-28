@@ -9,6 +9,7 @@ from csrf_protection import register_csrf
 from db_health_checks import (
     warn_if_elternkontakt_migration_needed,
     warn_if_foerderplan_creator_column_missing,
+    warn_if_workplan_setting_column_missing,
     warn_if_user_name_columns_missing,
 )
 from extensions import db, login_manager
@@ -19,6 +20,7 @@ from routes.erfassung_routes import register_erfassung_routes
 from routes.foerderplan_routes import register_foerderplan_routes
 from routes.report_routes import register_report_routes
 from routes.system_routes import register_system_routes
+from routes.workplan_routes import register_workplan_routes
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -97,6 +99,7 @@ def create_app(config_overrides=None):
     register_erfassung_routes(app)
     register_report_routes(app)
     register_foerderplan_routes(app)
+    register_workplan_routes(app)
     register_system_routes(app)
 
     return app
@@ -110,6 +113,7 @@ if __name__ == '__main__':
         warn_if_elternkontakt_migration_needed()
         warn_if_user_name_columns_missing()
         warn_if_foerderplan_creator_column_missing()
+        warn_if_workplan_setting_column_missing()
     app.run(
         debug=os.environ.get('FLASK_DEBUG') == '1',
         host=os.environ.get('FLASK_HOST', '127.0.0.1'),

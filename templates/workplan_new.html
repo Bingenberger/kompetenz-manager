@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4 page-title-row">
+  <div>
+    <span class="section-label">Arbeitspläne</span>
+    <h2 class="mt-2 mb-1">{% if is_edit_mode %}Grunddaten bearbeiten{% else %}Neuen Arbeitsplan anlegen{% endif %}</h2>
+    <p class="text-muted mb-0">{{ student.vorname }} {{ student.nachname }} ({{ student.klasse or '-' }})</p>
+  </div>
+</div>
+
+<form method="POST" class="surface-panel p-4">
+  {{ csrf_input() }}
+  {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label class="form-label">Von</label>
+      <input class="form-control" type="date" name="period_start" value="{{ (plan.period_start if is_edit_mode else today).isoformat() }}" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Bis</label>
+      <input class="form-control" type="date" name="period_end" value="{{ (plan.period_end if is_edit_mode else default_end).isoformat() }}" required>
+    </div>
+    <div class="col-md-4">
+      <label class="form-label">Status</label>
+      <input class="form-control" value="in Planung (automatisch)" disabled>
+    </div>
+    <div class="col-12">
+      <label class="form-label">Hinweis für das Kind</label>
+      <textarea class="form-control" name="notes_for_child" rows="3">{{ plan.notes_for_child if is_edit_mode and plan else '' }}</textarea>
+    </div>
+    <div class="col-12">
+      <label class="form-label">Interne Notiz</label>
+      <textarea class="form-control" name="notes_for_teacher" rows="3">{{ plan.notes_for_teacher if is_edit_mode and plan else '' }}</textarea>
+    </div>
+  </div>
+  <div class="mt-4 d-flex gap-2">
+    <button class="btn btn-success icon-btn" type="submit">{{ bi('floppy', 'bi-icon') }} <span>{% if is_edit_mode %}Speichern{% else %}Anlegen{% endif %}</span></button>
+    <a href="{{ next_url if next_url else url_for('workplan.workplan_list_page', schueler_id=student.id) }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
+  </div>
+  <p class="small text-muted mt-3 mb-0">Der Plan startet automatisch im Status „in Planung“.</p>
+</form>
+{% endblock %}

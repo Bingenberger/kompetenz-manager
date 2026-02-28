@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+.suggestions-grid { display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap:1rem; }
+.wp-task-card .chip { display:inline-block; padding:.18rem .45rem; border-radius:999px; background:rgba(39,125,161,.12); margin:.1rem; font-size:.8rem; }
+.touch-picker-list { max-height: 220px; overflow: auto; border: 1px solid rgba(87,117,144,0.22); border-radius: 8px; padding: .45rem; background: #fff; }
+.touch-picker-item { display: flex; align-items: center; gap: .5rem; padding: .2rem 0; }
+@media (max-width: 1200px) { .suggestions-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+@media (max-width: 767px) { .suggestions-grid { grid-template-columns: 1fr; } }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 page-title-row">
+  <div>
+    <span class="section-label">Arbeitspläne</span>
+    <h2 class="mt-2 mb-1">Editor: {{ plan.student.vorname }} {{ plan.student.nachname }}</h2>
+    <p class="text-muted mb-0">Zeitraum {{ plan.period_start.strftime('%d.%m.%Y') }} - {{ plan.period_end.strftime('%d.%m.%Y') }}</p>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <button class="btn btn-sm btn-primary icon-btn" type="submit" form="plan-meta-save-form">{{ bi('floppy', 'bi-icon-sm') }} <span>Speichen</span></button>
+    <a class="btn btn-sm btn-outline-primary icon-btn" href="{{ '/arbeitsplan/' ~ plan.id ~ '/export/odt' }}">{{ bi('download', 'bi-icon-sm') }} <span>ODT</span></a>
+    <a class="btn btn-sm btn-outline-danger icon-btn" href="{{ '/arbeitsplan/' ~ plan.id ~ '/export/pdf' }}">{{ bi('file-earmark-pdf', 'bi-icon-sm') }} <span>PDF</span></a>
+    <a class="btn btn-sm btn-outline-success icon-btn" href="{{ url_for('workplan.workplan_evaluate_page', plan_id=plan.id) }}">{{ bi('check2-square', 'bi-icon-sm') }} <span>Evaluation</span></a>
+    <a class="btn btn-sm btn-outline-dark icon-btn" href="{{ url_for('workplan.workplan_child_view_page', plan_id=plan.id) }}">{{ bi('eye', 'bi-icon-sm') }} <span>Ansicht</span></a>
+    <form method="POST" action="{{ url_for('workplan.workplan_delete_page', plan_id=plan.id) }}" class="d-inline" onsubmit="return confirm('Arbeitsplan wirklich löschen?');">
+      {{ csrf_input() }}
+      <button class="btn btn-sm btn-outline-danger icon-btn" type="submit">{{ bi('trash', 'bi-icon-sm') }} <span>Löschen</span></button>
+    </form>
+    <a class="btn btn-sm btn-outline-secondary icon-btn" href="{{ next_url if next_url else url_for('workplan.workplan_list_page', schueler_id=plan.student_id) }}">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span></a>
+  </div>
+</div>
+
+<div class="surface-panel p-3 mb-3">
+  <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+    <h5 class="mb-0">Grunddaten</h5>
+    <div class="d-flex gap-2">
+      <div class="dropdown">
+        <button class="btn btn-sm btn-outline-dark icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Grunddaten übernehmen">
+          {{ bi('people', 'bi-icon-sm') }} <span>Übernehmen</span>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 340px;">
+          <form method="POST" action="{{ url_for('workplan.api_work_plan_copy_basics', plan_id=plan.id) }}">
+            {{ csrf_input() }}
+            <label class="form-label small">Grunddaten für Kinder übernehmen</label>
+            <div class="d-flex gap-2 mb-2">
+              <button class="btn btn-sm btn-outline-secondary icon-btn" type="button" data-checklist-select-all="basics-copy-list">{{ bi('check2-all', 'bi-icon-sm') }} <span>Alle</span></button>
+              <button class="btn btn-sm btn-outline-secondary icon-btn" type="button" data-checklist-clear="basics-copy-list">{{ bi('x-circle', 'bi-icon-sm') }} <span>Leeren</span></button>
+            </div>
+            <div class="touch-picker-list mb-2" id="basics-copy-list">
+              {% for s in students %}
+              {% if s.id != plan.student_id %}
+              <label class="touch-picker-item">
+                <input type="checkbox" name="targetStudentIds" value="{{ s.id }}">
+                <span>{{ s.nachname }}, {{ s.vorname }} ({{ s.klasse or '-' }})</span>
+              </label>
+              {% endif %}
+              {% endfor %}
+            </div>
+            <div class="small text-muted mb-2">Übernimmt Zeitraum und Notizen. Mehrfachauswahl ist touchfreundlich.</div>
+            <button class="btn btn-sm btn-primary icon-btn" type="submit">{{ bi('check2', 'bi-icon-sm') }} <span>Übernehmen</span></button>
+          </form>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-outline-primary icon-btn" type="submit" form="plan-meta-save-edit-form">{{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span></button>
+    </div>
+  </div>
+  <div class="row g-3">
+    <div class="col-md-3">
+      <label class="form-label small text-muted">Von</label>
+      <div class="fw-semibold">{{ plan.period_start.strftime('%d.%m.%Y') if plan.period_start else '-' }}</div>
+    </div>
+    <div class="col-md-3">
+      <label class="form-label small text-muted">Bis</label>
+      <div class="fw-semibold">{{ plan.period_end.strftime('%d.%m.%Y') if plan.period_end else '-' }}</div>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small text-muted">Status</label>
+      <div class="fw-semibold">{% if plan.status == 'in_planung' %}in Planung{% elif plan.status == 'aktiv' %}aktiv{% elif plan.status == 'geschlossen' %}geschlossen{% else %}{{ plan.status }}{% endif %}</div>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small text-muted">Hinweis Kind</label>
+      <div class="small">{{ plan.notes_for_child or '-' }}</div>
+    </div>
+    <div class="col-md-2">
+      <label class="form-label small text-muted">Interne Notiz</label>
+      <div class="small">{{ plan.notes_for_teacher or '-' }}</div>
+    </div>
+  </div>
+</div>
+
+<form id="plan-meta-save-form" method="POST" action="{{ url_for('workplan.api_work_plans_update', plan_id=plan.id) }}" class="d-none">
+  {{ csrf_input() }}
+  <input type="hidden" name="periodStart" value="{{ plan.period_start.isoformat() if plan.period_start else '' }}">
+  <input type="hidden" name="periodEnd" value="{{ plan.period_end.isoformat() if plan.period_end else '' }}">
+  <input type="hidden" name="notesForChild" value="{{ plan.notes_for_child or '' }}">
+  <input type="hidden" name="notesForTeacher" value="{{ plan.notes_for_teacher or '' }}">
+  <input type="hidden" name="redirectTo" value="{{ url_for('workplan.workplan_edit_page', plan_id=plan.id) }}">
+</form>
+
+<form id="plan-meta-save-edit-form" method="POST" action="{{ url_for('workplan.api_work_plans_update', plan_id=plan.id) }}" class="d-none">
+  {{ csrf_input() }}
+  <input type="hidden" name="periodStart" value="{{ plan.period_start.isoformat() if plan.period_start else '' }}">
+  <input type="hidden" name="periodEnd" value="{{ plan.period_end.isoformat() if plan.period_end else '' }}">
+  <input type="hidden" name="notesForChild" value="{{ plan.notes_for_child or '' }}">
+  <input type="hidden" name="notesForTeacher" value="{{ plan.notes_for_teacher or '' }}">
+  <input type="hidden" name="redirectTo" value="{{ url_for('workplan.workplan_basics_edit_page', plan_id=plan.id, next=url_for('workplan.workplan_edit_page', plan_id=plan.id)) }}">
+</form>
+
+<div class="surface-panel p-3 mb-3">
+  <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+    <h5 class="mb-0">Vorschläge ({{ suggestions.windowWeeks }} Wochen)</h5>
+    <form method="POST" action="{{ url_for('workplan.api_work_plan_add_task', plan_id=plan.id) }}">
+      {{ csrf_input() }}
+      <input type="hidden" name="title" value="Neue Aufgabe">
+      <input type="hidden" name="instructions" value="">
+      <input type="hidden" name="sourceType" value="manual">
+      <button class="btn btn-primary fw-semibold icon-btn" type="submit" style="font-size: 1rem;">{{ bi('plus-circle', 'bi-icon') }} <span>Neue Aufgabe ohne Vorschlag</span></button>
+    </form>
+  </div>
+  <div class="suggestions-grid">
+    <div class="border rounded p-3">
+      <h6>Offen aus letztem Arbeitsplan</h6>
+      {% if suggestions.reProposalCompetencies %}
+        {% for item in suggestions.reProposalCompetencies %}
+        <form method="POST" action="{{ url_for('workplan.api_work_plan_add_task', plan_id=plan.id) }}" class="mb-2">
+          {{ csrf_input() }}
+          <input type="hidden" name="title" value="Erneut üben: {{ item.text }}">
+          <input type="hidden" name="instructions" value="Diese Kompetenz war im letzten Arbeitsplan noch nicht sicher.">
+          <input type="hidden" name="competencyIds" value="{{ item.id }}">
+          <div class="small mb-1"><strong>{{ item.bereich }}</strong><br>{{ item.text }}</div>
+          <button class="btn btn-sm btn-outline-warning icon-btn" type="submit">{{ bi('plus-circle', 'bi-icon-sm') }} <span>Als Aufgabe hinzufügen</span></button>
+        </form>
+        {% endfor %}
+      {% else %}<div class="small text-muted">Keine offenen Kompetenzen.</div>{% endif %}
+    </div>
+
+    <div class="border rounded p-3">
+      <h6>Schwache Kompetenzen</h6>
+      {% if suggestions.weakCompetencies %}
+      <form method="POST" action="{{ url_for('workplan.api_work_plan_add_task', plan_id=plan.id) }}">
+        {{ csrf_input() }}
+        <input type="hidden" name="title" value="Übung: Schwache Kompetenz">
+        <input type="hidden" name="instructions" value="Kompetenz mit Durchschnitt 1,4 oder schwächer im Zeitraum.">
+        <label class="form-label small">Kompetenz auswählen (Ø ≤ 1,4)</label>
+        <select class="form-select form-select-sm mb-2" name="competencyIds" required>
+          <option value="">Bitte wählen...</option>
+          {% for row in suggestions.weakCompetencies %}
+          <option value="{{ row.item.id }}">{{ row.item.bereich }} | {{ row.item.text }} (Ø {{ '%.2f'|format(row.avgWert) }})</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-sm btn-outline-primary icon-btn" type="submit">{{ bi('plus-circle', 'bi-icon-sm') }} <span>Als Aufgabe hinzufügen</span></button>
+      </form>
+      {% else %}<div class="small text-muted">Keine Kompetenzen mit Ø 1,4 oder schwächer.</div>{% endif %}
+    </div>
+
+    <div class="border rounded p-3">
+      <h6>Aktiver Förderplan</h6>
+      {% if suggestions.activePlanGoals %}
+        {% for goal in suggestions.activePlanGoals %}
+        <form method="POST" action="{{ url_for('workplan.api_work_plan_add_task', plan_id=plan.id) }}" class="mb-2">
+          {{ csrf_input() }}
+          <input type="hidden" name="title" value="Förderziel: {{ goal.ziel }}">
+          <input type="hidden" name="instructions" value="{{ goal.massnahmen or '' }}">
+          <div class="small mb-1"><strong>{{ goal.ziel }}</strong><br>{{ goal.massnahmen or '-' }}</div>
+          <button class="btn btn-sm btn-outline-dark icon-btn" type="submit">{{ bi('arrow-down-circle', 'bi-icon-sm') }} <span>Als Aufgabe übernehmen</span></button>
+        </form>
+        {% endfor %}
+      {% else %}<div class="small text-muted">Kein aktiver Förderplan gefunden.</div>{% endif %}
+    </div>
+
+    <div class="border rounded p-3">
+      <h6>Bibliothek</h6>
+      {% if suggestions.libraryMatches %}
+      <form method="POST" action="{{ url_for('workplan.api_work_plan_library_to_task_by_form') }}">
+        {{ csrf_input() }}
+        <input type="hidden" name="workPlanId" value="{{ plan.id }}">
+        <label class="form-label small">Aufgabe auswählen</label>
+        <select class="form-select form-select-sm mb-2" name="templateId" required>
+          <option value="">Bitte wählen...</option>
+          {% set current_area = none %}
+          {% for tpl in suggestions.libraryMatches %}
+            {% set area = tpl.learningArea or 'Ohne Lernbereich' %}
+            {% if current_area != area %}
+              {% if current_area is not none %}</optgroup>{% endif %}
+              <optgroup label="{{ area }}">
+              {% set current_area = area %}
+            {% endif %}
+            <option value="{{ tpl.id }}">{{ tpl.title }}</option>
+          {% endfor %}
+          {% if current_area is not none %}</optgroup>{% endif %}
+        </select>
+        <button class="btn btn-sm btn-outline-success icon-btn" type="submit">{{ bi('bookmark-check', 'bi-icon-sm') }} <span>Aus Bibliothek übernehmen</span></button>
+      </form>
+      {% else %}<div class="small text-muted">Keine Bibliothekseinträge für die Klasse.</div>{% endif %}
+    </div>
+  </div>
+</div>
+
+{% set ordered_tasks = plan.tasks|sort(attribute='sort_order') %}
+{% for task in ordered_tasks %}
+    <div class="surface-panel p-3 mb-3 wp-task-card">
+      <div class="d-flex justify-content-between gap-2 flex-wrap align-items-start">
+        <h5 class="mb-0">{{ task.title }}</h5>
+        <div class="d-flex align-items-center gap-2">
+          {% if not loop.first %}
+          <form method="POST" action="{{ url_for('workplan.api_work_plan_move_task', plan_id=plan.id, task_id=task.id) }}">
+            {{ csrf_input() }}
+            <input type="hidden" name="direction" value="up">
+            <button class="btn btn-sm btn-outline-secondary icon-btn" type="submit" title="Nach oben">{{ bi('arrow-up', 'bi-icon-sm') }} <span>Nach oben</span></button>
+          </form>
+          {% endif %}
+          {% if not loop.last %}
+          <form method="POST" action="{{ url_for('workplan.api_work_plan_move_task', plan_id=plan.id, task_id=task.id) }}">
+            {{ csrf_input() }}
+            <input type="hidden" name="direction" value="down">
+            <button class="btn btn-sm btn-outline-secondary icon-btn" type="submit" title="Nach unten">{{ bi('arrow-down', 'bi-icon-sm') }} <span>Nach unten</span></button>
+          </form>
+          {% endif %}
+          <span class="badge bg-light text-dark">{{ task.source_type }}</span>
+        </div>
+      </div>
+      <form method="POST" action="{{ url_for('workplan.api_work_plan_update_task', plan_id=plan.id, task_id=task.id) }}" class="row g-3 mb-3">
+        {{ csrf_input() }}
+        <div class="col-md-4">
+          <label class="form-label small">Titel der Aufgabe</label>
+          <input class="form-control" name="title" value="{{ task.title }}" required>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small">Lernbereich</label>
+          <select class="form-select" name="learningArea">
+            <option value="">Bitte wählen...</option>
+            {% for area in ['Lesen', 'Schreiben', 'Deutsch', 'Mathematik'] %}
+            <option value="{{ area }}" {% if task.learning_area == area %}selected{% endif %}>{{ area }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small">Icon</label>
+          <select class="form-select" name="iconName">
+            <option value="">Bitte wählen...</option>
+            {% for icon_name in ['book', 'pencil', 'journal-text', 'calculator', 'alphabet', 'chat-dots', 'lightbulb', 'stars', 'check2-square', 'mortarboard'] %}
+            <option value="{{ icon_name }}" {% if task.icon_name == icon_name %}selected{% endif %}>{{ icon_name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <input type="hidden" name="sortOrder" value="{{ task.sort_order }}">
+        <div class="col-md-6">
+          <label class="form-label small">Aufgabenbeschreibung</label>
+          <textarea class="form-control" name="instructions" rows="3">{{ task.instructions or '' }}</textarea>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small">Material</label>
+          <textarea class="form-control" name="materials" rows="3">{{ task.materials or '' }}</textarea>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small">Lernziel auf Kinderniveau</label>
+          <textarea class="form-control" name="childGoal" rows="3">{{ task.child_goal or '' }}</textarea>
+        </div>
+        <div class="col-12">
+          <label class="form-label small">Kompetenz (Beobachtungsbogen)</label>
+          {% set selected_link = (task.competency_links[0] if task.competency_links else None) %}
+          <select class="form-select" name="competencyId">
+            <option value="">Keine Verknüpfung</option>
+            {% for item in all_items %}
+            <option value="{{ item.id }}" {% if selected_link and selected_link.item_id == item.id %}selected{% endif %}>{{ item.bogen.titel }} | {{ item.bereich }} | {{ item.text }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12">
+          <button class="btn btn-outline-primary icon-btn" type="submit">{{ bi('floppy', 'bi-icon-sm') }} <span>Speichern</span></button>
+        </div>
+      </form>
+
+      <div class="d-flex justify-content-end align-items-center gap-2">
+        <form method="POST" action="{{ url_for('workplan.api_work_plan_delete_task', plan_id=plan.id, task_id=task.id) }}" class="mb-0">
+          {{ csrf_input() }}
+          <button class="btn btn-sm btn-outline-danger icon-btn" type="submit" title="Löschen">{{ bi('trash', 'bi-icon-sm') }} <span>Löschen</span></button>
+        </form>
+
+        <div class="dropdown">
+          <button class="btn btn-sm btn-outline-dark icon-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Für anderes Kind übernehmen">
+            {{ bi('people', 'bi-icon-sm') }} <span>Übernehmen</span>
+          </button>
+          <div class="dropdown-menu dropdown-menu-end p-3" style="min-width: 320px;">
+            <form method="POST" action="{{ url_for('workplan.api_work_plan_copy_task', plan_id=plan.id, task_id=task.id) }}">
+              {{ csrf_input() }}
+              <label class="form-label small">Für andere Kinder übernehmen</label>
+              <div class="d-flex gap-2 mb-2">
+                <button class="btn btn-sm btn-outline-secondary icon-btn" type="button" data-checklist-select-all="task-copy-list-{{ task.id }}">{{ bi('check2-all', 'bi-icon-sm') }} <span>Alle</span></button>
+                <button class="btn btn-sm btn-outline-secondary icon-btn" type="button" data-checklist-clear="task-copy-list-{{ task.id }}">{{ bi('x-circle', 'bi-icon-sm') }} <span>Leeren</span></button>
+              </div>
+              <div class="touch-picker-list mb-2" id="task-copy-list-{{ task.id }}">
+                {% for s in students %}
+                <label class="touch-picker-item">
+                  <input type="checkbox" name="targetStudentIds" value="{{ s.id }}">
+                  <span>{{ s.nachname }}, {{ s.vorname }} ({{ s.klasse or '-' }})</span>
+                </label>
+                {% endfor %}
+              </div>
+              <div class="small text-muted mb-2">Mehrfachauswahl ist touchfreundlich.</div>
+              <button class="btn btn-sm btn-primary icon-btn" type="submit">{{ bi('check2', 'bi-icon-sm') }} <span>Übernehmen</span></button>
+            </form>
+          </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('workplan.api_work_plan_library_create_template') }}" class="mb-0">
+          {{ csrf_input() }}
+          <input type="hidden" name="studentId" value="{{ plan.student_id }}">
+          <input type="hidden" name="title" value="{{ task.title }}">
+          <input type="hidden" name="learningArea" value="{{ task.learning_area or '' }}">
+          <input type="hidden" name="iconName" value="{{ task.icon_name or '' }}">
+          <input type="hidden" name="instructions" value="{{ task.instructions or '' }}">
+          <input type="hidden" name="materials" value="{{ task.materials or '' }}">
+          <input type="hidden" name="diffHints" value="{{ task.child_goal or '' }}">
+          {% if task.competency_links %}
+          <input type="hidden" name="competencyIds" value="{{ task.competency_links[0].item_id }}">
+          {% endif %}
+          <button class="btn btn-sm btn-outline-success icon-btn" type="submit" title="In Bibliothek speichern">{{ bi('bookmark-plus', 'bi-icon-sm') }} <span>Bibliothek</span></button>
+        </form>
+      </div>
+    </div>
+{% else %}
+<div class="surface-panel p-4 text-muted">Noch keine Aufgaben angelegt.</div>
+{% endfor %}
+
+<script>
+document.querySelectorAll('[data-checklist-select-all]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const id = btn.getAttribute('data-checklist-select-all');
+    const root = document.getElementById(id);
+    if (!root) return;
+    root.querySelectorAll('input[type=\"checkbox\"]').forEach((cb) => { cb.checked = true; });
+  });
+});
+document.querySelectorAll('[data-checklist-clear]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const id = btn.getAttribute('data-checklist-clear');
+    const root = document.getElementById(id);
+    if (!root) return;
+    root.querySelectorAll('input[type=\"checkbox\"]').forEach((cb) => { cb.checked = false; });
+  });
+});
+</script>
+{% endblock %}

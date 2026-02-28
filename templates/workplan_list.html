@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+  .student-button-grid { display:flex; flex-wrap:wrap; gap:.5rem; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4 page-title-row">
+  <div>
+    <span class="section-label">Arbeitspläne</span>
+    <h2 class="mt-2 mb-1">Individuelle Arbeitspläne</h2>
+    <p class="text-muted mb-0">Lehrkraftbezogen: nur eigene Pläne (Admin sieht alle).</p>
+  </div>
+  <a class="btn btn-outline-dark icon-btn" href="{{ url_for('workplan.workplan_library_page') }}">{{ bi('collection', 'bi-icon') }} <span>Bibliothek</span></a>
+</div>
+
+<div class="surface-panel p-4 mb-4">
+  <ul class="nav nav-tabs" role="tablist">
+    {% for tab in tab_definitions %}
+    <li class="nav-item" role="presentation">
+      <a class="nav-link {% if active_tab == tab.id %}active{% endif %}" href="{{ url_for('workplan.workplan_list_page', tab=tab.id, view=class_view_mode if tab.kind == 'class' else None, schueler_id=selected_s_id if selected_s_id else None, klasse_von=class_date_from if class_date_from else None, klasse_bis=class_date_to if class_date_to else None) }}">
+        {{ tab.label }}
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+
+  <div class="pt-3">
+    {% for tab in tab_definitions %}
+      {% if active_tab == tab.id %}
+        {% if tab.kind == 'class' %}
+          {% if tab.students %}
+          <div class="student-button-grid">
+            {% for s in tab.students %}
+            <a class="btn btn-sm icon-btn {% if selected_student and selected_student.id == s.id %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('workplan.workplan_list_page', tab=tab.id, view=class_view_mode, schueler_id=s.id, klasse_von=class_date_from if class_date_from else None, klasse_bis=class_date_to if class_date_to else None) }}">
+              {{ bi('person', 'bi-icon-sm') }} <span>{{ s.vorname }} {{ s.nachname }}</span>
+            </a>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="text-muted small">Keine Kinder in dieser Klasse gefunden.</div>
+          {% endif %}
+        {% else %}
+          <form method="GET" class="row g-3 align-items-end">
+            <input type="hidden" name="tab" value="dropdown">
+            <div class="col-md-8">
+              <label class="form-label">Kind auswählen</label>
+              {% set student_select_id = 'wp_schueler_id' %}
+              {% set student_select_name = 'schueler_id' %}
+              {% set student_select_selected = selected_s_id %}
+              {% set student_select_required = false %}
+              {% set student_select_placeholder = 'Kind auswählen...' %}
+              {% set student_search_placeholder = 'Kind suchen...' %}
+              {% include 'includes/student_select_field.html' %}
+            </div>
+            <div class="col-md-4 d-flex gap-2">
+              <button type="submit" class="btn btn-primary icon-btn">{{ bi('search', 'bi-icon') }} <span>Anzeigen</span></button>
+            </div>
+          </form>
+        {% endif %}
+      {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+{% if active_class_name %}
+<div class="surface-panel p-3 mb-4">
+  <ul class="nav nav-pills gap-2">
+    <li class="nav-item">
+      <a class="nav-link {% if class_view_mode != 'class' %}active{% endif %}" href="{{ url_for('workplan.workplan_list_page', tab=active_tab, view='student', schueler_id=selected_s_id if selected_s_id else None, klasse_von=class_date_from if class_date_from else None, klasse_bis=class_date_to if class_date_to else None) }}">
+        {{ bi('person', 'bi-icon-sm') }} <span>Kindansicht</span>
+      </a>
+    </li>
+    <li class="nav-item">
+      <a class="nav-link {% if class_view_mode == 'class' %}active{% endif %}" href="{{ url_for('workplan.workplan_list_page', tab=active_tab, view='class', schueler_id=selected_s_id if selected_s_id else None, klasse_von=class_date_from if class_date_from else None, klasse_bis=class_date_to if class_date_to else None) }}">
+        {{ bi('people', 'bi-icon-sm') }} <span>Ganze Klasse</span>
+      </a>
+    </li>
+  </ul>
+</div>
+{% endif %}
+
+{% if active_class_name and class_view_mode == 'class' %}
+<div class="surface-panel p-4 mb-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
+    <h4 class="mb-0">Ganze Klasse {{ active_class_name }}</h4>
+    <a class="btn btn-outline-danger icon-btn" href="{{ url_for('workplan.workplan_export_class_pdf', tab=active_tab, klasse=active_class_name, klasse_von=class_date_from if class_date_from else None, klasse_bis=class_date_to if class_date_to else None) }}">
+      {{ bi('file-earmark-pdf', 'bi-icon') }} <span>Alle angezeigten als PDF</span>
+    </a>
+  </div>
+
+  <form method="GET" class="row g-2 align-items-end mb-3">
+    <input type="hidden" name="tab" value="{{ active_tab }}">
+    {% if selected_s_id %}<input type="hidden" name="schueler_id" value="{{ selected_s_id }}">{% endif %}
+    <div class="col-md-3">
+      <label class="form-label">Von</label>
+      <input type="date" class="form-control" name="klasse_von" value="{{ class_date_from or '' }}">
+    </div>
+    <div class="col-md-3">
+      <label class="form-label">Bis</label>
+      <input type="date" class="form-control" name="klasse_bis" value="{{ class_date_to or '' }}">
+    </div>
+    <div class="col-md-6 d-flex gap-2">
+      <button type="submit" class="btn btn-primary icon-btn">{{ bi('funnel', 'bi-icon') }} <span>Filtern</span></button>
+      <a class="btn btn-outline-secondary icon-btn" href="{{ url_for('workplan.workplan_list_page', tab=active_tab, schueler_id=selected_s_id if selected_s_id else None) }}">{{ bi('arrow-counterclockwise', 'bi-icon') }} <span>Filter zurücksetzen</span></a>
+    </div>
+  </form>
+
+  {% if class_plans %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Kind</th>
+          <th>Zeitraum</th>
+          <th>Status</th>
+          <th>Aufgaben</th>
+          <th>Erstellt</th>
+          <th class="text-end">Aktion</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in class_plans %}
+        <tr>
+          <td>{{ p.student.vorname }} {{ p.student.nachname }}</td>
+          <td>{{ p.period_start.strftime('%d.%m.%Y') }} - {{ p.period_end.strftime('%d.%m.%Y') }}</td>
+          <td>
+            <span class="badge bg-secondary">
+              {% if p.status == 'in_planung' %}in Planung{% elif p.status == 'aktiv' %}aktiv{% elif p.status == 'geschlossen' %}geschlossen{% else %}{{ p.status }}{% endif %}
+            </span>
+          </td>
+          <td>{{ p.tasks|length }}</td>
+          <td>{{ p.created_at.strftime('%d.%m.%Y') if p.created_at else '-' }}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-primary icon-only-btn" href="{{ url_for('workplan.workplan_edit_page', plan_id=p.id) }}" title="Bearbeiten" aria-label="Bearbeiten">{{ bi('pencil-square', 'bi-icon-sm') }}</a>
+            <a class="btn btn-sm btn-outline-info icon-only-btn" href="{{ '/arbeitsplan/' ~ p.id ~ '/export/odt' }}" title="ODT exportieren" aria-label="ODT exportieren">{{ bi('download', 'bi-icon-sm') }}</a>
+            <a class="btn btn-sm btn-outline-danger icon-only-btn" href="{{ '/arbeitsplan/' ~ p.id ~ '/export/pdf' }}" title="PDF exportieren" aria-label="PDF exportieren">{{ bi('file-earmark-pdf', 'bi-icon-sm') }}</a>
+            <a class="btn btn-sm btn-outline-dark icon-only-btn" href="{{ url_for('workplan.workplan_child_view_page', plan_id=p.id) }}" title="Ansicht" aria-label="Ansicht">{{ bi('eye', 'bi-icon-sm') }}</a>
+            <form method="POST" action="{{ url_for('workplan.workplan_delete_page', plan_id=p.id) }}" class="d-inline" onsubmit="return confirm('Arbeitsplan wirklich löschen?');">
+              {{ csrf_input() }}
+              <input type="hidden" name="tab" value="{{ active_tab }}">
+              <input type="hidden" name="view" value="{{ class_view_mode }}">
+              {% if class_date_from %}<input type="hidden" name="klasse_von" value="{{ class_date_from }}">{% endif %}
+              {% if class_date_to %}<input type="hidden" name="klasse_bis" value="{{ class_date_to }}">{% endif %}
+              <button class="btn btn-sm btn-outline-danger icon-only-btn" type="submit" title="Löschen" aria-label="Löschen">{{ bi('trash', 'bi-icon-sm') }}</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-muted">Keine Arbeitspläne für diese Klasse im gewählten Zeitraum.</div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if selected_student and class_view_mode != 'class' %}
+<div class="surface-panel p-4">
+  <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
+    <h4 class="mb-0">{{ selected_student.vorname }} {{ selected_student.nachname }} ({{ selected_student.klasse or '-' }})</h4>
+    <a class="btn btn-success icon-btn" href="{{ url_for('workplan.workplan_new_page', s_id=selected_student.id, next=url_for('workplan.workplan_list_page', tab=active_tab, view=class_view_mode, schueler_id=selected_student.id, klasse_von=class_date_from if class_date_from else None, klasse_bis=class_date_to if class_date_to else None)) }}">{{ bi('plus-circle', 'bi-icon') }} <span>+ Neu</span></a>
+  </div>
+  {% if plans %}
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Zeitraum</th>
+          <th>Status</th>
+          <th>Aufgaben</th>
+          <th>Erstellt</th>
+          <th class="text-end">Aktion</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in plans %}
+        <tr>
+          <td>{{ p.period_start.strftime('%d.%m.%Y') }} - {{ p.period_end.strftime('%d.%m.%Y') }}</td>
+          <td>
+            <span class="badge bg-secondary">
+              {% if p.status == 'in_planung' %}in Planung{% elif p.status == 'aktiv' %}aktiv{% elif p.status == 'geschlossen' %}geschlossen{% else %}{{ p.status }}{% endif %}
+            </span>
+          </td>
+          <td>{{ p.tasks|length }}</td>
+          <td>{{ p.created_at.strftime('%d.%m.%Y') if p.created_at else '-' }}</td>
+          <td class="text-end">
+            <a class="btn btn-sm btn-outline-primary icon-only-btn" href="{{ url_for('workplan.workplan_edit_page', plan_id=p.id) }}" title="Bearbeiten" aria-label="Bearbeiten">{{ bi('pencil-square', 'bi-icon-sm') }}</a>
+            <a class="btn btn-sm btn-outline-info icon-only-btn" href="{{ '/arbeitsplan/' ~ p.id ~ '/export/odt' }}" title="ODT exportieren" aria-label="ODT exportieren">{{ bi('download', 'bi-icon-sm') }}</a>
+            <a class="btn btn-sm btn-outline-danger icon-only-btn" href="{{ '/arbeitsplan/' ~ p.id ~ '/export/pdf' }}" title="PDF exportieren" aria-label="PDF exportieren">{{ bi('file-earmark-pdf', 'bi-icon-sm') }}</a>
+            <a class="btn btn-sm btn-outline-success icon-only-btn" href="{{ url_for('workplan.workplan_evaluate_page', plan_id=p.id) }}" title="Evaluieren" aria-label="Evaluieren">{{ bi('check2-square', 'bi-icon-sm') }}</a>
+            <a class="btn btn-sm btn-outline-dark icon-only-btn" href="{{ url_for('workplan.workplan_child_view_page', plan_id=p.id) }}" title="Ansicht" aria-label="Ansicht">{{ bi('eye', 'bi-icon-sm') }}</a>
+            <form method="POST" action="{{ url_for('workplan.workplan_delete_page', plan_id=p.id) }}" class="d-inline" onsubmit="return confirm('Arbeitsplan wirklich löschen?');">
+              {{ csrf_input() }}
+              <input type="hidden" name="tab" value="{{ active_tab }}">
+              <input type="hidden" name="view" value="{{ class_view_mode }}">
+              {% if class_date_from %}<input type="hidden" name="klasse_von" value="{{ class_date_from }}">{% endif %}
+              {% if class_date_to %}<input type="hidden" name="klasse_bis" value="{{ class_date_to }}">{% endif %}
+              <button class="btn btn-sm btn-outline-danger icon-only-btn" type="submit" title="Löschen" aria-label="Löschen">{{ bi('trash', 'bi-icon-sm') }}</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="text-muted">Für dieses Kind gibt es noch keine Arbeitspläne.</div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if not selected_student and class_view_mode != 'class' %}
+<div class="surface-panel p-4 text-muted">Bitte ein Kind auswählen.</div>
+{% endif %}
+{% endblock %}

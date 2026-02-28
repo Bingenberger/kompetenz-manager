@@ -13,7 +13,7 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from extensions import db
-from models import Elternkontakt, Foerderinhalt, Foerderplan, Schueler, User, UserKlassenzuordnung
+from models import Elternkontakt, Foerdergrundlage, Foerderinhalt, Foerderplan, Schueler, User, UserKlassenzuordnung
 
 
 CSRF_RE = re.compile(r'name="_csrf_token"\s+value="([^"]+)"')
@@ -37,7 +37,10 @@ class CriticalFlowsTestCase(unittest.TestCase):
             db.create_all()
             db.session.add(User(username='admin', password_hash=generate_password_hash('adminpass')))
             db.session.add(User(username='kollege', password_hash=generate_password_hash('kollegepass')))
-            db.session.add(Schueler(vorname='Max', nachname='Test', klasse='4a'))
+            schueler = Schueler(vorname='Max', nachname='Test', klasse='4a')
+            db.session.add(schueler)
+            db.session.flush()
+            db.session.add(Foerdergrundlage(schueler_id=schueler.id, besondere_staerken='Test'))
             db.session.commit()
 
     def tearDown(self):

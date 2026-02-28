@@ -97,3 +97,33 @@ def warn_if_foerderplan_creator_column_missing():
             print()
     except Exception as exc:
         print(f"DB-Check Warnung (ignorierbar): {exc}")
+
+
+def warn_if_workplan_setting_column_missing():
+    """Checks legacy SQLite schema and warns if workplan_suggestions_weeks is missing."""
+    engine = db.engine
+    if engine.url.get_backend_name() != "sqlite":
+        return
+
+    try:
+        with engine.connect() as conn:
+            table_exists = conn.execute(
+                text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='system_konfiguration'")
+            ).first()
+            if not table_exists:
+                return
+
+            pragma_rows = conn.execute(text("PRAGMA table_info(system_konfiguration)")).mappings().all()
+            names = {row["name"] for row in pragma_rows}
+            if "workplan_suggestions_weeks" in names:
+                return
+
+            print()
+            print("! DB-Hinweis: Update empfohlen")
+            print("  Tabelle 'system_konfiguration' hat noch keine Spalte 'workplan_suggestions_weeks'.")
+            print("  Fuer Arbeitsplan-Vorschlaege wird sonst das harte Default-Fenster genutzt.")
+            print("  Bitte einmal ausfuehren:")
+            print("    python update_db.py")
+            print()
+    except Exception as exc:
+        print(f"DB-Check Warnung (ignorierbar): {exc}")

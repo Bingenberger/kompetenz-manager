@@ -9,7 +9,7 @@ from sqlalchemy import func
 from werkzeug.security import generate_password_hash
 
 from extensions import db
-from models import Bogen, Beobachtung, Elternkontakt, Foerderplan, Item, Schueler, SystemKonfiguration, User
+from models import Bogen, Beobachtung, Elternkontakt, Foerderplan, Item, Schueler, SystemKonfiguration, User, WorkPlan
 from student_selection import get_grouped_student_choices_for_user, get_prioritized_students_for_user, get_user_klassenkontext
 from time_utils import utc_now
 
@@ -375,6 +375,7 @@ def schuelerakte():
             selected_s_id = ''
 
     foerderplaene = []
+    work_plans = []
     elternkontakte = []
     bogen_summaries = []
     recent_beobachtungen = []
@@ -384,6 +385,12 @@ def schuelerakte():
             Foerderplan.query
             .filter(Foerderplan.schueler_id == selected_student.id)
             .order_by(Foerderplan.datum_erstellung.desc())
+            .all()
+        )
+        work_plans = (
+            WorkPlan.query
+            .filter(WorkPlan.student_id == selected_student.id)
+            .order_by(WorkPlan.created_at.desc())
             .all()
         )
 
@@ -435,6 +442,7 @@ def schuelerakte():
         selected_s_id=selected_s_id,
         selected_student=selected_student,
         foerderplaene=foerderplaene,
+        work_plans=work_plans,
         elternkontakte=elternkontakte,
         bogen_summaries=bogen_summaries,
         recent_beobachtungen=recent_beobachtungen,

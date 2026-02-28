@@ -108,6 +108,46 @@ Die Förderplanung ist als Workflow umgesetzt:
 - Förderpläne und Grundlagenblätter können als ODT/PDF exportiert werden (inkl. kombinierter Export mit Grundlagenblatt).
 - Auch hier gibt es einen Konfliktschutz bei paralleler Bearbeitung.
 
+### Arbeitspläne (neu)
+
+Für jedes Kind können individuelle Arbeitspläne (z. B. wöchentlich) erstellt, bearbeitet und evaluiert werden.
+
+- Datenstruktur:
+  - `WorkPlan` (Zeitraum, Status, Hinweise für Kind/Lehrkraft, Ersteller)
+  - `WorkPlanTask` (Aufgaben inkl. Quelle `manual|library|copied`)
+  - `WorkPlanTaskCompetency` (Verknüpfung Aufgabe ↔ Kompetenz-Item)
+  - `WorkPlanTaskAttachment` (mehrere Fotos pro Aufgabe)
+  - `WorkPlanTaskEvaluation` (`good|partial|bad`, Kommentar, Re-Proposal-Flag)
+  - optional `ClassTaskLibrary` + `ClassTaskTemplate` (Aufgabenbibliothek pro Klasse)
+
+- Arbeitsplan-Erstellung:
+  - zeigt immer Pflicht-Vorschläge:
+    - Kompetenzen mit letztem Stand `O`/`-` im konfigurierten Zeitraum
+    - Ziele/Maßnahmen aus aktivem Förderplan
+    - offene Kompetenzverknüpfungen aus letzter Arbeitsplan-Evaluation (Re-Proposal)
+  - zusätzliche freie Aufgaben sind möglich.
+
+- Evaluation:
+  - pro Aufgabe Bewertung `good|partial|bad`
+  - bei `partial`/`bad` werden verknüpfte Kompetenzen im nächsten Plan als offen vorgeschlagen
+  - aus der Evaluation kann direkt ein `Beobachtung`-Eintrag erzeugt werden (mapping `good→✓`, `partial→O`, `bad→-`).
+
+- Foto-Upload:
+  - pro Aufgabe mehrere Bilder möglich
+  - Uploads unter `static/uploads/workplan`
+  - erlaubte Typen: JPG/PNG/WEBP
+  - Größenlimit: 5 MB pro Datei
+
+- Rollenrechte:
+  - Arbeitspläne sind standardmäßig lehrkraftbezogen (`created_by_user_id`)
+  - Lehrkräfte sehen serverseitig nur eigene Arbeitspläne
+  - `admin` sieht alle
+  - Copy auf anderes Kind ist nur für Kinder in eigener Klassenzuordnung zulässig.
+
+- zentrale Routen:
+  - UI: `/arbeitsplaene`, `/arbeitsplan/neu/<s_id>`, `/arbeitsplan/<id>/bearbeiten`, `/arbeitsplan/<id>/evaluate`
+  - API: `/api/work-plans...`, `/api/work-plan-suggestions`, `/api/observations/from-evaluation`
+
 ### Dashboard und To-do-Logik
 
 Die Startseite ist kein statischer Einstieg, sondern ein arbeitsbezogenes Dashboard pro Lehrkraft/Klasse. Angezeigt werden u. a.:
@@ -145,6 +185,31 @@ Zusätzlich gibt es eigene To-do-Seiten mit Detaillisten für diese Bereiche.
 
 - Python 3.12 (oder kompatibel)
 - vorhandenes `venv/` im Projektordner (optional, aber empfohlen)
+- LibreOffice (für vollständige Exportfunktion inkl. PDF-Konvertierung)
+
+Hinweis:
+- Ohne LibreOffice funktionieren ODT-Exporte weiterhin, die PDF-Exporte jedoch nicht.
+
+### LibreOffice installieren (Beispiele)
+
+Debian/Ubuntu:
+
+```bash
+sudo apt update
+sudo apt install -y libreoffice
+```
+
+Fedora:
+
+```bash
+sudo dnf install -y libreoffice
+```
+
+macOS (Homebrew):
+
+```bash
+brew install --cask libreoffice
+```
 
 ## Installation
 
@@ -195,6 +260,9 @@ Hinweis:
 ```bash
 python update_db.py
 ```
+
+Hinweis zur Konfiguration:
+- `system_konfiguration.workplan_suggestions_weeks` steuert das Vorschlagsfenster für O/-Kompetenzen (Default `12`, empfohlen `8-12`).
 
 ### Migration: SQLite -> PostgreSQL (komplette Datenübernahme)
 

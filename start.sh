@@ -19,4 +19,7 @@ if [[ -z "${SECRET_KEY:-}" ]]; then
   echo "Hinweis: SECRET_KEY ist nicht gesetzt. Sessions werden nach Neustart ungültig."
 fi
 
+# Vor App-Start fehlende Tabellen/Spalten nachziehen (SQLite + PostgreSQL).
+python3 update_db.py
+
 exec python3 app.py

@@ -151,6 +151,10 @@
                         <span class="value">{{ elternkontakte|length }}</span>
                         <small class="text-muted">Elternkontakte (letzte 12)</small>
                     </div>
+                    <div class="akte-summary-card">
+                        <span class="value">{{ work_plans|length }}</span>
+                        <small class="text-muted">Arbeitspläne</small>
+                    </div>
                 </div>
             </div>
         </div>
@@ -173,6 +177,12 @@
                     </a>
                     <a href="{{ url_for('erfassung.elternkontakte_start', schueler_id=selected_student.id) }}" class="btn btn-outline-primary icon-btn">
                         {{ bi('chat-left-text', 'bi-icon') }} <span>Elternkontakte filtern</span>
+                    </a>
+                    <a href="{{ url_for('workplan.workplan_list_page', schueler_id=selected_student.id) }}" class="btn btn-outline-success icon-btn">
+                        {{ bi('list-check', 'bi-icon') }} <span>Tab Arbeitspläne öffnen</span>
+                    </a>
+                    <a href="{{ url_for('workplan.workplan_new_page', s_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-success icon-btn">
+                        {{ bi('plus-circle', 'bi-icon') }} <span>Neuen Arbeitsplan erstellen</span>
                     </a>
                     <div class="d-flex flex-wrap gap-2">
                         <a href="{{ url_for('erfassung.elternkontakt_notiz', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">
@@ -329,6 +339,61 @@
                                 {{ bi('plus-circle', 'bi-icon-sm') }} <span>Ersten Förderplan anlegen</span>
                             </a>
                         </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="akte-panel h-100 mb-4">
+                <div class="akte-panel-head d-flex justify-content-between align-items-center gap-2">
+                    <div>
+                        <span class="section-label">Arbeitspläne</span>
+                        <h3 class="mt-2 mb-0">Wochen-/Individualpläne</h3>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{{ url_for('workplan.workplan_new_page', s_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-success icon-btn">
+                            {{ bi('plus-circle', 'bi-icon-sm') }} <span>Neu</span>
+                        </a>
+                        <a href="{{ url_for('workplan.workplan_list_page', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-success icon-btn">
+                            {{ bi('filter', 'bi-icon-sm') }} <span>Liste</span>
+                        </a>
+                    </div>
+                </div>
+                <div class="akte-panel-body">
+                    {% if work_plans %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 akte-mini-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Zeitraum</th>
+                                    <th>Status</th>
+                                    <th>Aufgaben</th>
+                                    <th class="text-end">Aktion</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for wp in work_plans[:8] %}
+                                <tr>
+                                    <td>{{ wp.period_start.strftime('%d.%m.%Y') if wp.period_start else '-' }} - {{ wp.period_end.strftime('%d.%m.%Y') if wp.period_end else '-' }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            {% if wp.status == 'in_planung' %}in Planung{% elif wp.status == 'aktiv' %}aktiv{% elif wp.status == 'geschlossen' %}geschlossen{% else %}{{ wp.status }}{% endif %}
+                                        </span>
+                                    </td>
+                                    <td>{{ wp.tasks|length }}</td>
+                                    <td class="text-end">
+                                        <a href="{{ url_for('workplan.workplan_edit_page', plan_id=wp.id) }}" class="btn btn-sm btn-outline-success icon-btn">
+                                            {{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="akte-empty">
+                        Noch kein Arbeitsplan vorhanden.
                     </div>
                     {% endif %}
                 </div>

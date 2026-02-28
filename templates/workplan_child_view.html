@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3 page-title-row">
+  <div>
+    <span class="section-label">Arbeitspläne</span>
+    <h2 class="mt-2 mb-0">Ansicht: {{ plan.student.vorname }} {{ plan.student.nachname }}</h2>
+  </div>
+  <div class="d-flex gap-2 flex-wrap">
+    <a class="btn btn-sm btn-outline-primary icon-btn" href="{{ '/arbeitsplan/' ~ plan.id ~ '/export/odt' }}">
+      {{ bi('download', 'bi-icon-sm') }} <span>ODT</span>
+    </a>
+    <a class="btn btn-sm btn-outline-danger icon-btn" href="{{ '/arbeitsplan/' ~ plan.id ~ '/export/pdf' }}">
+      {{ bi('file-earmark-pdf', 'bi-icon-sm') }} <span>PDF</span>
+    </a>
+    <a class="btn btn-sm btn-outline-primary icon-btn" href="{{ url_for('workplan.workplan_edit_page', plan_id=plan.id) }}">
+      {{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span>
+    </a>
+    <a class="btn btn-sm btn-outline-success icon-btn" href="{{ url_for('workplan.workplan_evaluate_page', plan_id=plan.id) }}">
+      {{ bi('check2-square', 'bi-icon-sm') }} <span>Evaluation</span>
+    </a>
+    <form method="POST" action="{{ url_for('workplan.workplan_delete_page', plan_id=plan.id) }}" class="d-inline" onsubmit="return confirm('Arbeitsplan wirklich löschen?');">
+      {{ csrf_input() }}
+      <button class="btn btn-sm btn-outline-danger icon-btn" type="submit">{{ bi('trash', 'bi-icon-sm') }} <span>Löschen</span></button>
+    </form>
+    <a class="btn btn-sm btn-outline-secondary icon-btn" href="{{ url_for('workplan.workplan_list_page', schueler_id=plan.student_id) }}">
+      {{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span>
+    </a>
+  </div>
+</div>
+
+<div class="surface-panel p-4">
+  <p class="text-muted">Zeitraum: {{ plan.period_start.strftime('%d.%m.%Y') }} - {{ plan.period_end.strftime('%d.%m.%Y') }}</p>
+  {% if plan.notes_for_child %}
+  <div class="alert alert-info">{{ plan.notes_for_child }}</div>
+  {% endif %}
+  {% if plan.notes_for_teacher %}
+  <div class="alert alert-light border">Interne Notiz: {{ plan.notes_for_teacher }}</div>
+  {% endif %}
+  {% for task in plan.tasks|sort(attribute='sort_order') %}
+  <div class="card mb-3">
+    <div class="card-body">
+      <h5 class="card-title d-flex align-items-center gap-2">
+        {% if task.icon_name %}{{ bi(task.icon_name, 'bi-icon-sm') }}{% endif %}
+        <span>{{ task.title }}</span>
+      </h5>
+      <div class="row g-2 mb-2">
+        <div class="col-md-3"><strong class="small text-muted">Lernbereich</strong><div>{{ task.learning_area or '-' }}</div></div>
+        <div class="col-md-3"><strong class="small text-muted">Icon</strong><div>{{ task.icon_name or '-' }}</div></div>
+        <div class="col-md-3"><strong class="small text-muted">Quelle</strong><div>{{ task.source_type or '-' }}</div></div>
+        <div class="col-md-3"><strong class="small text-muted">Sortierung</strong><div>{{ task.sort_order }}</div></div>
+      </div>
+      <div class="mb-2">
+        <strong class="small text-muted">Aufgabenbeschreibung</strong>
+        <div>{{ task.instructions or '-' }}</div>
+      </div>
+      <div class="mb-2">
+        <strong class="small text-muted">Material</strong>
+        <div>{{ task.materials or '-' }}</div>
+      </div>
+      <div class="mb-2">
+        <strong class="small text-muted">Lernziel auf Kinderniveau</strong>
+        <div>{{ task.child_goal or '-' }}</div>
+      </div>
+      <div>
+        <strong class="small text-muted">Verknüpfte Kompetenz</strong>
+        {% if task.competency_links %}
+          <ul>
+          {% for link in task.competency_links %}
+            <li>{{ link.item.bogen.titel }} | {{ link.item.bereich }} | {{ link.item.text }}</li>
+          {% endfor %}
+          </ul>
+        {% else %}
+          <span class="text-muted">Keine Kompetenz verknüpft.</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
