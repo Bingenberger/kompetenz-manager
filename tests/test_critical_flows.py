@@ -13,7 +13,27 @@ from werkzeug.security import generate_password_hash
 
 from app import create_app
 from extensions import db
-from models import Elternkontakt, Foerdergrundlage, Foerderinhalt, Foerderplan, Schueler, User, UserKlassenzuordnung
+from models import (
+    Beobachtung,
+    Bogen,
+    Elternberatung,
+    Elternkontakt,
+    ErziehungsEreignis,
+    ErziehungsEreignisLog,
+    ErziehungsEreignisKategorie,
+    ErziehungsEreignisKonsequenz,
+    ErziehungsEreignisVorlage,
+    ErziehungsKonsequenz,
+    ErziehungsOrt,
+    Foerdergrundlage,
+    Foerderinhalt,
+    Foerderplan,
+    Item,
+    Notification,
+    Schueler,
+    User,
+    UserKlassenzuordnung,
+)
 
 
 CSRF_RE = re.compile(r'name="_csrf_token"\s+value="([^"]+)"')
@@ -277,6 +297,74 @@ class CriticalFlowsTestCase(unittest.TestCase):
             self.assertEqual(plan.inhalte[0].status_id, 1)
             self.assertEqual(plan.inhalte[0].evaluation_text, 'Ziel erreicht.')
 
+    def test_new_foerderplan_uses_only_last_evaluated_plan_for_continue_items(self):
+        login_response = self._login('admin', 'adminpass')
+        self.assertEqual(login_response.status_code, 302)
+
+        with self.app.app_context():
+            schueler = Schueler.query.filter_by(vorname='Max', nachname='Test').first()
+            self.assertIsNotNone(schueler)
+
+            older_eval = Foerderplan(
+                schueler_id=schueler.id,
+                creator_user_id=1,
+                titel='Aelterer eval Plan',
+                status='geschlossen',
+                datum_erstellung=date(2026, 2, 1),
+                datum_evaluation=date(2026, 2, 10),
+            )
+            latest_eval = Foerderplan(
+                schueler_id=schueler.id,
+                creator_user_id=1,
+                titel='Letzter eval Plan',
+                status='geschlossen',
+                datum_erstellung=date(2026, 2, 20),
+                datum_evaluation=date(2026, 2, 28),
+            )
+            db.session.add_all([older_eval, latest_eval])
+            db.session.flush()
+
+            db.session.add(Foerderinhalt(
+                plan_id=older_eval.id,
+                foerderziel='Altziel',
+                ist_zustand='Alter Inhalt',
+                soll_zustand='Alter Soll-Zustand',
+                massnahmen='Alte Massnahme',
+                status_id=2,
+            ))
+            db.session.add(Foerderinhalt(
+                plan_id=latest_eval.id,
+                foerderziel='Lesen',
+                ist_zustand='Kind liest noch stockend.',
+                soll_zustand='Kind liest kurze Texte sicher.',
+                massnahmen='Taeglich 10 Minuten lesen.',
+                status_id=2,
+            ))
+            db.session.add(Foerderinhalt(
+                plan_id=latest_eval.id,
+                foerderziel='Mathe',
+                ist_zustand='Unsicher.',
+                soll_zustand='Sicher.',
+                massnahmen='Uebungen.',
+                status_id=1,
+            ))
+            db.session.commit()
+            schueler_id = schueler.id
+
+        response = self.client.get(f'/foerderplan/neu/{schueler_id}')
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+
+        self.assertIn('Lesen', html)
+        self.assertIn('Alter Ist-Zustand:', html)
+        self.assertIn('Kind liest noch stockend.', html)
+        self.assertIn('Kind liest kurze Texte sicher.', html)
+        self.assertIn('Alte Maßnahmen:', html)
+        self.assertIn('Taeglich 10 Minuten lesen.', html)
+
+        self.assertNotIn('Altziel', html)
+        self.assertNotIn('Mathe', html)
+
     def test_new_foerderplan_redirects_to_evaluation_if_active_plan_not_evaluated_exists(self):
         login_response = self._login('admin', 'adminpass')
         self.assertEqual(login_response.status_code, 302)
@@ -291,6 +379,29 @@ class CriticalFlowsTestCase(unittest.TestCase):
                 status='aktiv',
                 datum_erstellung=date(2026, 2, 23),
                 datum_evaluation=None,
+            )
+            db.session.add(plan)
+            db.session.commit()
+            plan_id = plan.id
+
+        response = self.client.get(f'/foerderplan/neu/{schueler_id}', follow_redirects=False)
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(f'/foerderplan/evaluate/{plan_id}', response.headers['Location'])
+
+    def test_new_foerderplan_redirects_if_active_plan_exists_even_with_evaluation_date(self):
+        login_response = self._login('admin', 'adminpass')
+        self.assertEqual(login_response.status_code, 302)
+
+        with self.app.app_context():
+            schueler = Schueler.query.filter_by(vorname='Max', nachname='Test').first()
+            schueler_id = schueler.id
+            plan = Foerderplan(
+                schueler_id=schueler_id,
+                creator_user_id=1,
+                titel='Aktiver aber evaluierter Plan',
+                status='aktiv',
+                datum_erstellung=date(2026, 3, 1),
+                datum_evaluation=date(2026, 3, 10),
             )
             db.session.add(plan)
             db.session.commit()
@@ -337,18 +448,18 @@ class CriticalFlowsTestCase(unittest.TestCase):
             data={
                 '_csrf_token': token,
                 'plan_status': 'geschlossen',
-                f'status_{inhalt_id}': '0',
+                f'status_{inhalt_id}': '2',
                 f'eval_{inhalt_id}': 'Noch in Arbeit.',
             },
             follow_redirects=False,
         )
-        self.assertEqual(response.status_code, 200)
-        self.assertIn('nur geschlossen werden', response.get_data(as_text=True))
+        self.assertEqual(response.status_code, 302)
 
         with self.app.app_context():
             plan = db.session.get(Foerderplan, plan_id)
-            self.assertEqual(plan.status, 'aktiv')
-            self.assertIsNone(plan.datum_evaluation)
+            self.assertEqual(plan.status, 'geschlossen')
+            self.assertEqual(plan.inhalte[0].status_id, 2)
+            self.assertIsNotNone(plan.datum_evaluation)
 
     def test_foerderplan_odt_export_downloads_filled_document(self):
         login_response = self._login('admin', 'adminpass')
@@ -577,6 +688,73 @@ class CriticalFlowsTestCase(unittest.TestCase):
             self.assertEqual(eintraege[1].eintrag_typ, 'protokoll')
             self.assertEqual(eintraege[1].teilnehmende, 'Mutter, Klassenleitung')
             self.assertEqual(eintraege[1].naechster_termin, date(2026, 3, 23))
+
+    def test_elternberatung_can_be_saved_with_bogen_and_plan_context(self):
+        login_response = self._login('admin', 'adminpass')
+        self.assertEqual(login_response.status_code, 302)
+
+        with self.app.app_context():
+            schueler = Schueler.query.filter_by(vorname='Max', nachname='Test').first()
+            self.assertIsNotNone(schueler)
+            schueler_id = schueler.id
+
+            bogen = Bogen(titel='Deutsch')
+            db.session.add(bogen)
+            db.session.flush()
+            item = Item(bogen_id=bogen.id, text='Liest kurze Texte', bereich='Lesen')
+            db.session.add(item)
+            db.session.flush()
+            db.session.add(Beobachtung(
+                schueler_id=schueler_id,
+                item_id=item.id,
+                wert=2,
+                kommentar='Benötigt noch Unterstützung.',
+                anlass='Unterricht',
+            ))
+            plan = Foerderplan(
+                schueler_id=schueler_id,
+                creator_user_id=1,
+                titel='Förderplan Lesen',
+                status='aktiv',
+            )
+            db.session.add(plan)
+            db.session.flush()
+            db.session.add(Foerderinhalt(
+                plan_id=plan.id,
+                foerderziel='Leseflüssigkeit',
+                ist_zustand='Liest stockend.',
+                soll_zustand='Liest kurze Texte sicher.',
+                massnahmen='Tägliche Leseübung.',
+            ))
+            db.session.commit()
+
+        create_page = self.client.get(f'/erfassen/elternberatung?schueler_id={schueler_id}')
+        self.assertEqual(create_page.status_code, 200)
+        html = create_page.get_data(as_text=True)
+        self.assertIn('Deutsch', html)
+        self.assertIn('Förderplan Lesen', html)
+        create_token = self._get_csrf(create_page)
+
+        create_response = self.client.post(
+            '/erfassen/elternberatung',
+            data={
+                '_csrf_token': create_token,
+                'schueler_id': str(schueler_id),
+                'datum': '2026-03-14',
+                'anlass': 'Beratung zur Leseentwicklung',
+                'weitere_beratungspunkte': 'Motivation und Lesepraxis zu Hause',
+                'vereinbarungen': 'Viermal wöchentlich 10 Minuten lesen',
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(create_response.status_code, 302)
+        self.assertIn('/erfassen/elternberatung/view/', create_response.headers['Location'])
+
+        with self.app.app_context():
+            beratungen = Elternberatung.query.all()
+            self.assertEqual(len(beratungen), 1)
+            self.assertEqual(beratungen[0].anlass, 'Beratung zur Leseentwicklung')
+            self.assertEqual(beratungen[0].vereinbarungen, 'Viermal wöchentlich 10 Minuten lesen')
 
     def test_elternkontakt_protokoll_odt_export_downloads_filled_document(self):
         login_response = self._login('admin', 'adminpass')
@@ -828,7 +1006,7 @@ class CriticalFlowsTestCase(unittest.TestCase):
             ])
             db.session.commit()
 
-        response = self.client.get('/erfassen/einzel')
+        response = self.client.get('/erfassen/einzel?tab=dropdown')
         self.assertEqual(response.status_code, 200)
         html = response.get_data(as_text=True)
 
@@ -839,6 +1017,248 @@ class CriticalFlowsTestCase(unittest.TestCase):
         self.assertTrue(pos_eigene != -1 and pos_fach != -1 and pos_andere != -1)
         self.assertLess(pos_eigene, pos_fach)
         self.assertLess(pos_fach, pos_andere)
+
+    def test_admin_can_create_erziehung_ereignis(self):
+        with self.app.app_context():
+            schueler = Schueler.query.filter_by(vorname='Max', nachname='Test').first()
+            weiterer = Schueler(vorname='Lina', nachname='Nebenfall', klasse='4a')
+            db.session.add(weiterer)
+            kategorie = ErziehungsEreignisKategorie(name='Verbale Gewalt', sort_order=1, is_active=True)
+            db.session.add(kategorie)
+            db.session.flush()
+            vorlage = ErziehungsEreignisVorlage(category_id=kategorie.id, name='Beleidigung', sort_order=1, is_active=True)
+            ort = ErziehungsOrt(name='Schulhof', sort_order=1, is_active=True)
+            konsequenz = ErziehungsKonsequenz(name='Reflexionsgespräch', sort_order=1, is_active=True)
+            db.session.add_all([vorlage, ort, konsequenz])
+            kontakt = Elternkontakt(
+                schueler_id=schueler.id,
+                eintrag_typ='notiz',
+                kontaktform='Telefonat',
+                betreff='Rückmeldung',
+                mitteilung='Kurzer Kontakt',
+            )
+            db.session.add(kontakt)
+            db.session.commit()
+            schueler_id = schueler.id
+            weiterer_id = weiterer.id
+            vorlage_id = vorlage.id
+            ort_id = ort.id
+            konsequenz_id = konsequenz.id
+            kontakt_id = kontakt.id
+
+        login_response = self._login('admin', 'adminpass')
+        self.assertEqual(login_response.status_code, 302)
+
+        create_page = self.client.get(f'/erziehung/neu?schueler_id={schueler_id}')
+        self.assertEqual(create_page.status_code, 200)
+        token = self._get_csrf(create_page)
+
+        response = self.client.post(
+            '/erziehung/neu',
+            data=MultiDict([
+                ('_csrf_token', token),
+                ('schueler_id', str(schueler_id)),
+                ('datum', '2026-03-14'),
+                ('status', 'offen'),
+                ('event_template_id', str(vorlage_id)),
+                ('ort_id', str(ort_id)),
+                ('assigned_user_id', ''),
+                ('beschreibung', 'Konflikt in der Pause.'),
+                ('konsequenz_ids', str(konsequenz_id)),
+                ('consequence_notes', 'Wiedergutmachung und Nachgespräch eingeplant.'),
+                ('affected_student_ids', str(weiterer_id)),
+                ('elternkontakt_ids', str(kontakt_id)),
+                ('child_statement', 'Ich war wütend.'),
+                ('others_statement', 'Mehrere Kinder haben es beobachtet.'),
+            ]),
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertIn('/erziehung/', response.headers['Location'])
+
+        with self.app.app_context():
+            event = ErziehungsEreignis.query.one()
+            self.assertEqual(event.student_id, schueler_id)
+            self.assertEqual(event.event_template_id, vorlage_id)
+            self.assertEqual(event.ort_id, ort_id)
+            self.assertEqual(event.status, 'offen')
+            self.assertEqual(event.consequence_notes, 'Wiedergutmachung und Nachgespräch eingeplant.')
+            self.assertEqual(len(event.selected_consequences), 1)
+            self.assertEqual(event.selected_consequences[0].consequence_id, konsequenz_id)
+            self.assertEqual(len(event.affected_students), 1)
+            self.assertEqual(event.affected_students[0].student_id, weiterer_id)
+            self.assertEqual(len(event.linked_parent_contacts), 1)
+            self.assertEqual(event.linked_parent_contacts[0].kontakt_id, kontakt_id)
+            self.assertEqual(ErziehungsEreignisLog.query.filter_by(event_id=event.id, action='created').count(), 1)
+
+    def test_erziehung_event_logs_updates(self):
+        with self.app.app_context():
+            schueler = Schueler.query.filter_by(vorname='Max', nachname='Test').first()
+            db.session.add(UserKlassenzuordnung(user_id=2, klasse='4a', rolle='klassenleitung'))
+            kategorie = ErziehungsEreignisKategorie(name='Konflikt', sort_order=1, is_active=True)
+            db.session.add(kategorie)
+            db.session.flush()
+            vorlage = ErziehungsEreignisVorlage(category_id=kategorie.id, name='Streit', sort_order=1, is_active=True)
+            ort = ErziehungsOrt(name='Flur', sort_order=1, is_active=True)
+            konsequenz = ErziehungsKonsequenz(name='Gespräch', sort_order=1, is_active=True)
+            konsequenz_neu = ErziehungsKonsequenz(name='Auszeit', sort_order=2, is_active=True)
+            db.session.add_all([vorlage, ort, konsequenz, konsequenz_neu])
+            db.session.flush()
+            event = ErziehungsEreignis(
+                student_id=schueler.id,
+                event_template_id=vorlage.id,
+                ort_id=ort.id,
+                status='offen',
+                beschreibung='Erster Stand',
+                created_by_user_id=1,
+            )
+            db.session.add(event)
+            db.session.flush()
+            db.session.add(ErziehungsEreignisLog(event_id=event.id, user_id=1, action='created', details='Initial'))
+            db.session.add(ErziehungsEreignisKonsequenz(event_id=event.id, consequence_id=konsequenz.id))
+            db.session.commit()
+            event_id = event.id
+            konsequenz_neu_id = konsequenz_neu.id
+
+        login_response = self._login('kollege', 'kollegepass')
+        self.assertEqual(login_response.status_code, 302)
+
+        edit_page = self.client.get(f'/erziehung/{event_id}/bearbeiten?schueler_id=1')
+        self.assertEqual(edit_page.status_code, 200)
+        token = self._get_csrf(edit_page)
+
+        response = self.client.post(
+            f'/erziehung/{event_id}/bearbeiten',
+            data=MultiDict([
+                ('_csrf_token', token),
+                ('schueler_id', '1'),
+                ('datum', '2026-03-14'),
+                ('status', 'abgeschlossen'),
+                ('event_template_id', '1'),
+                ('ort_id', '1'),
+                ('beschreibung', 'Aktualisierter Stand'),
+                ('konsequenz_ids', str(konsequenz_neu_id)),
+                ('child_statement', 'Ich habe mich entschuldigt.'),
+                ('others_statement', ''),
+            ]),
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 302)
+
+        with self.app.app_context():
+            logs = (
+                ErziehungsEreignisLog.query
+                .filter_by(event_id=event_id)
+                .order_by(ErziehungsEreignisLog.created_at.asc(), ErziehungsEreignisLog.id.asc())
+                .all()
+            )
+            self.assertEqual(len(logs), 4)
+            self.assertEqual(logs[1].action, 'status_changed')
+            self.assertIn('Status: offen -> abgeschlossen', logs[1].details)
+            self.assertEqual(logs[2].action, 'content_changed')
+            self.assertIn('Beschreibung: Erster Stand -> Aktualisierter Stand', logs[2].details)
+            self.assertIn('Stellungnahme Kind: leer -> Ich habe mich entschuldigt.', logs[2].details)
+            self.assertEqual(logs[3].action, 'links_changed')
+            self.assertIn('Konsequenzen: Gespräch -> Auszeit', logs[3].details)
+
+    def test_assignment_creates_notification_for_other_teacher(self):
+        with self.app.app_context():
+            schueler = Schueler.query.filter_by(vorname='Max', nachname='Test').first()
+            kategorie = ErziehungsEreignisKategorie(name='Hinweis', sort_order=1, is_active=True)
+            db.session.add(kategorie)
+            db.session.flush()
+            vorlage = ErziehungsEreignisVorlage(category_id=kategorie.id, name='Vorfall', sort_order=1, is_active=True)
+            ort = ErziehungsOrt(name='Klassenraum', sort_order=1, is_active=True)
+            db.session.add_all([vorlage, ort])
+            db.session.commit()
+            schueler_id = schueler.id
+            vorlage_id = vorlage.id
+            ort_id = ort.id
+            kollege = User.query.filter_by(username='kollege').first()
+            kollege_id = kollege.id
+
+        login_response = self._login('admin', 'adminpass')
+        self.assertEqual(login_response.status_code, 302)
+
+        create_page = self.client.get(f'/erziehung/neu?schueler_id={schueler_id}')
+        self.assertEqual(create_page.status_code, 200)
+        token = self._get_csrf(create_page)
+
+        response = self.client.post(
+            '/erziehung/neu',
+            data=MultiDict([
+                ('_csrf_token', token),
+                ('schueler_id', str(schueler_id)),
+                ('datum', '2026-03-14'),
+                ('status', 'offen'),
+                ('event_template_id', str(vorlage_id)),
+                ('ort_id', str(ort_id)),
+                ('assigned_user_id', str(kollege_id)),
+                ('beschreibung', 'Bitte übernehmen.'),
+            ]),
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 302)
+
+        with self.app.app_context():
+            notification = Notification.query.filter_by(user_id=kollege_id).first()
+            self.assertIsNotNone(notification)
+            notification_id = notification.id
+            self.assertFalse(notification.is_read)
+
+        login_response = self._login('kollege', 'kollegepass')
+        self.assertEqual(login_response.status_code, 302)
+
+        home = self.client.get('/')
+        self.assertEqual(home.status_code, 200)
+        self.assertIn('Benachrichtigungen', home.get_data(as_text=True))
+
+        open_response = self.client.get(f'/benachrichtigungen/{notification_id}/open', follow_redirects=False)
+        self.assertEqual(open_response.status_code, 302)
+
+        with self.app.app_context():
+            notification = db.session.get(Notification, notification_id)
+            self.assertTrue(notification.is_read)
+
+    def test_event_can_be_deleted(self):
+        with self.app.app_context():
+            schueler = Schueler.query.filter_by(vorname='Max', nachname='Test').first()
+            kategorie = ErziehungsEreignisKategorie(name='Löschen', sort_order=1, is_active=True)
+            db.session.add(kategorie)
+            db.session.flush()
+            vorlage = ErziehungsEreignisVorlage(category_id=kategorie.id, name='Vorfall', sort_order=1, is_active=True)
+            ort = ErziehungsOrt(name='Raum', sort_order=1, is_active=True)
+            event = ErziehungsEreignis(
+                student_id=schueler.id,
+                event_template=vorlage,
+                ort=ort,
+                status='offen',
+                beschreibung='Zu löschen',
+                created_by_user_id=1,
+            )
+            db.session.add_all([vorlage, ort, event])
+            db.session.flush()
+            db.session.add(ErziehungsEreignisLog(event_id=event.id, user_id=1, action='created', details='Initial'))
+            db.session.commit()
+            event_id = event.id
+
+        login_response = self._login('admin', 'adminpass')
+        self.assertEqual(login_response.status_code, 302)
+
+        view_page = self.client.get(f'/erziehung/{event_id}')
+        self.assertEqual(view_page.status_code, 200)
+        token = self._get_csrf(view_page)
+
+        response = self.client.post(
+            f'/erziehung/{event_id}/delete',
+            data={'_csrf_token': token},
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 302)
+
+        with self.app.app_context():
+            self.assertIsNone(db.session.get(ErziehungsEreignis, event_id))
+            self.assertEqual(ErziehungsEreignisLog.query.filter_by(event_id=event_id).count(), 0)
 
 
 if __name__ == '__main__':

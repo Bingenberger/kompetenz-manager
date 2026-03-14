@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="surface-panel p-4 p-md-5 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+        <div>
+            <span class="section-label">Verwaltung</span>
+            <h2 class="mt-2 mb-1">{{ cfg.title }}</h2>
+            <p class="text-muted mb-0">Pool-Einträge für das Modul erzieherische Arbeit pflegen.</p>
+        </div>
+        <a href="{{ url_for('admin.admin_erziehung_dashboard') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="surface-panel p-4 h-100">
+                <h3 class="h5 mb-3">{% if entry %}Eintrag bearbeiten{% else %}Neuen Eintrag anlegen{% endif %}</h3>
+                <form method="POST" class="d-grid gap-3">
+                    {{ csrf_input() }}
+                    {% if entry %}<input type="hidden" name="entry_id" value="{{ entry.id }}">{% endif %}
+                    <div>
+                        <label class="form-label">{{ cfg.name_label }}</label>
+                        <input type="text" class="form-control" name="name" value="{{ entry.name if entry else '' }}" required>
+                    </div>
+                    {% if cfg.has_category %}
+                    <div>
+                        <label class="form-label">Kategorie</label>
+                        <select class="form-select" name="category_id" required>
+                            <option value="">Bitte wählen...</option>
+                            {% for category in categories %}
+                            <option value="{{ category.id }}" {% if entry and entry.category_id == category.id %}selected{% endif %}>{{ category.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Sortierung</label>
+                            <input type="number" class="form-control" name="sort_order" value="{{ entry.sort_order if entry else 0 }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" name="is_active">
+                                <option value="1" {% if not entry or entry.is_active %}selected{% endif %}>aktiv</option>
+                                <option value="0" {% if entry and not entry.is_active %}selected{% endif %}>inaktiv</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary icon-btn">{{ bi('save', 'bi-icon') }} <span>Speichern</span></button>
+                        {% if entry %}
+                        <a href="{{ url_for('admin.admin_erziehung_pool', kind=kind) }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
+                        {% endif %}
+                    </div>
+                </form>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="table-panel">
+                <div class="table-toolbar">
+                    <div class="table-toolbar-title">Vorhandene Einträge</div>
+                    <span class="badge bg-info">{{ entries|length }} Einträge</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                {% if cfg.has_category %}<th>Kategorie</th>{% endif %}
+                                <th>Sortierung</th>
+                                <th>Status</th>
+                                <th class="text-end">Aktionen</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for row in entries %}
+                            <tr>
+                                <td class="fw-semibold">{{ row.name }}</td>
+                                {% if cfg.has_category %}<td>{{ row.category.name if row.category else '-' }}</td>{% endif %}
+                                <td>{{ row.sort_order }}</td>
+                                <td>{% if row.is_active %}<span class="badge bg-success">aktiv</span>{% else %}<span class="badge bg-secondary">inaktiv</span>{% endif %}</td>
+                                <td class="text-end">
+                                    <a href="{{ url_for('admin.admin_erziehung_pool', kind=kind, edit=row.id) }}" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span></a>
+                                    <form method="POST" action="{{ url_for('admin.admin_erziehung_pool_delete', kind=kind, entry_id=row.id) }}" class="d-inline" data-confirm-title="Eintrag löschen" data-confirm-message="Eintrag wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
+                                        {{ csrf_input() }}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger icon-btn">{{ bi('trash', 'bi-icon-sm') }} <span>Löschen</span></button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% if not entries %}
+                            <tr><td colspan="{{ 5 if cfg.has_category else 4 }}" class="text-center text-muted py-4">Noch keine Einträge vorhanden.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

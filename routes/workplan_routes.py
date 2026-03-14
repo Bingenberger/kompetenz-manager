@@ -1821,7 +1821,11 @@ def workplan_edit_page(plan_id):
 @login_required
 def workplan_child_view_page(plan_id):
     plan = _ensure_plan_access_or_404(plan_id)
-    return render_template('workplan_child_view.html', plan=plan)
+    return render_template(
+        'workplan_child_view.html',
+        plan=plan,
+        next_url=(request.args.get('next') or '').strip(),
+    )
 
 
 @workplan_bp.route('/arbeitsplan/<string:plan_id>/export/odt')
@@ -1947,7 +1951,12 @@ def workplan_export_class_pdf():
 @login_required
 def workplan_evaluate_page(plan_id):
     plan = _ensure_plan_access_or_404(plan_id)
-    return render_template('workplan_evaluate.html', plan=plan, today=utc_now().date())
+    return render_template(
+        'workplan_evaluate.html',
+        plan=plan,
+        today=utc_now().date(),
+        next_url=(request.args.get('next') or '').strip(),
+    )
 
 
 def register_workplan_routes(app):

@@ -4,7 +4,8 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Schul-Beobachter</title>
+    <title>KompetenzKompass</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 
@@ -82,6 +83,12 @@
         .navbar-brand {
             color: #ffffff !important;
             font-weight: 700;
+        }
+        .app-logo {
+            width: 2rem;
+            height: 2rem;
+            display: block;
+            filter: drop-shadow(0 3px 8px rgba(18, 41, 56, 0.22));
         }
 
         .navbar .text-white.small {
@@ -759,12 +766,54 @@
     <nav class="navbar mb-4 sticky-top">
   <div class="container d-flex justify-content-between">
     <a class="navbar-brand d-flex align-items-center" href="{{ url_for('system.index') }}">
-        {{ bi('building', 'bi-icon-lg') }}
-        <span class="ms-2 d-none d-md-inline">Kompetenz-App</span>
+        <img src="{{ url_for('static', filename='brand/kompetenzkompass-logo.svg') }}" alt="KompetenzKompass Logo" class="app-logo">
+        <span class="ms-2 d-none d-md-inline">KompetenzKompass</span>
     </a>
 
  {% if current_user.is_authenticated %}
     <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+        <div class="dropdown">
+            <button class="btn btn-sm btn-light position-relative icon-only-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Benachrichtigungen" aria-label="Benachrichtigungen">
+                {{ bi('bell', 'bi-icon') }}
+                {% if header_unread_notification_count %}
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">{{ header_unread_notification_count }}</span>
+                {% endif %}
+            </button>
+            <div class="dropdown-menu dropdown-menu-end p-0 shadow-sm border-0" style="width:min(420px, 92vw);">
+                <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+                    <strong>Benachrichtigungen</strong>
+                    {% if header_notifications %}
+                    <form method="POST" action="{{ url_for('system.notification_delete_all') }}" class="m-0">
+                        {{ csrf_input() }}
+                        <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">Alle löschen</button>
+                    </form>
+                    {% endif %}
+                </div>
+                <div style="max-height: 420px; overflow:auto;">
+                    {% if header_notifications %}
+                        {% for notification in header_notifications %}
+                        <div class="px-3 py-2 border-bottom {% if not notification.is_read %}bg-light-subtle{% endif %}">
+                            <div class="d-flex gap-2 align-items-start">
+                                <a href="{{ url_for('system.notification_open', notification_id=notification.id) }}" class="text-decoration-none text-reset flex-grow-1">
+                                    <div class="fw-semibold">{{ notification.title }}</div>
+                                    {% if notification.message %}<div class="small text-muted">{{ notification.message }}</div>{% endif %}
+                                    <div class="small text-muted">{{ notification.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
+                                </a>
+                                <form method="POST" action="{{ url_for('system.notification_delete', notification_id=notification.id) }}" class="m-0">
+                                    {{ csrf_input() }}
+                                    <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger icon-only-btn" title="Löschen" aria-label="Löschen">{{ bi('trash', 'bi-icon-sm') }}</button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                    <div class="px-3 py-4 text-muted text-center">Keine Benachrichtigungen.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
         <a href="{{ url_for('auth.user_menu') }}" class="btn btn-sm btn-light icon-btn" title="Benutzermenü">
             {{ bi('person-circle', 'bi-icon-sm') }}
             <span class="d-none d-sm-inline">{{ current_user.display_name }}</span>
@@ -800,9 +849,103 @@
         {% block content %}{% endblock %}
     </div>
 
+    <div class="modal fade" id="confirmActionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h3 class="h5 mb-0" id="confirmActionTitle">Aktion bestätigen</h3>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0" id="confirmActionMessage">Möchten Sie fortfahren?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="button" class="btn btn-danger" id="confirmActionSubmit">Bestätigen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
     (function () {
+        const confirmModalEl = document.getElementById('confirmActionModal');
+        const confirmTitleEl = document.getElementById('confirmActionTitle');
+        const confirmMessageEl = document.getElementById('confirmActionMessage');
+        const confirmSubmitEl = document.getElementById('confirmActionSubmit');
+        const confirmModal = (confirmModalEl && typeof bootstrap !== 'undefined') ? new bootstrap.Modal(confirmModalEl) : null;
+        let pendingConfirmForm = null;
+        const confirmVariants = {
+            warning: {
+                buttonClass: 'btn-warning',
+                headerClass: 'text-warning-emphasis',
+            },
+            delete: {
+                buttonClass: 'btn-danger',
+                headerClass: 'text-danger',
+            },
+            final: {
+                buttonClass: 'btn-dark',
+                headerClass: 'text-danger',
+            }
+        };
+
+        document.addEventListener('submit', function (event) {
+            const form = event.target;
+            if (!form || !form.matches('form[data-confirm-message]')) return;
+            if (form.dataset.confirmBypassed === '1') {
+                form.dataset.confirmBypassed = '0';
+                return;
+            }
+            event.preventDefault();
+            if (!confirmModal) {
+                if (window.confirm(form.dataset.confirmMessage || 'Möchten Sie fortfahren?')) {
+                    form.dataset.confirmBypassed = '1';
+                    form.requestSubmit ? form.requestSubmit() : form.submit();
+                }
+                return;
+            }
+            pendingConfirmForm = form;
+            if (confirmTitleEl) {
+                confirmTitleEl.textContent = form.dataset.confirmTitle || 'Aktion bestätigen';
+                confirmTitleEl.className = 'h5 mb-0';
+            }
+            if (confirmMessageEl) {
+                confirmMessageEl.textContent = form.dataset.confirmMessage || 'Möchten Sie fortfahren?';
+            }
+            if (confirmSubmitEl) {
+                const variantKey = form.dataset.confirmVariant || 'delete';
+                const variant = confirmVariants[variantKey] || confirmVariants.delete;
+                confirmSubmitEl.textContent = form.dataset.confirmButton || 'Bestätigen';
+                confirmSubmitEl.className = 'btn ' + (form.dataset.confirmButtonClass || variant.buttonClass);
+                if (confirmTitleEl && variant.headerClass) {
+                    confirmTitleEl.classList.add(...variant.headerClass.split(' '));
+                }
+            }
+            confirmModal.show();
+        });
+
+        if (confirmSubmitEl) {
+            confirmSubmitEl.addEventListener('click', function () {
+                if (!pendingConfirmForm) return;
+                pendingConfirmForm.dataset.confirmBypassed = '1';
+                confirmModal.hide();
+                if (pendingConfirmForm.requestSubmit) {
+                    pendingConfirmForm.requestSubmit();
+                } else {
+                    pendingConfirmForm.submit();
+                }
+                pendingConfirmForm = null;
+            });
+        }
+
+        if (confirmModalEl) {
+            confirmModalEl.addEventListener('hidden.bs.modal', function () {
+                pendingConfirmForm = null;
+            });
+        }
+
         function setupStudentSelectFilter(input) {
             const targetId = input.dataset.studentSelectFilter;
             const select = document.getElementById(targetId);

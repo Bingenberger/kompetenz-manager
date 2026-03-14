@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="surface-panel p-4 p-md-5 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+        <div>
+            <span class="section-label">Verwaltung</span>
+            <h2 class="mt-2 mb-1">Erzieherische Arbeit</h2>
+            <p class="text-muted mb-0">Pools für Kategorien, Ereignisse, Konsequenzen und Orte pflegen.</p>
+        </div>
+        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-md-6 col-xl-3">
+            <div class="card h-100 border-0 shadow-sm"><div class="card-body p-4 text-center">
+                <div class="display-5 mb-3">{{ bi('folder2-open', 'bi-icon-xl') }}</div>
+                <h3 class="h5">Kategorien</h3>
+                <p class="text-muted">z. B. körperliche Gewalt, verbale Gewalt</p>
+                <a href="{{ url_for('admin.admin_erziehung_pool', kind='kategorien') }}" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('folder2-open', 'bi-icon-sm') }} <span>Verwalten</span></a>
+            </div></div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="card h-100 border-0 shadow-sm"><div class="card-body p-4 text-center">
+                <div class="display-5 mb-3">{{ bi('exclamation-triangle', 'bi-icon-xl') }}</div>
+                <h3 class="h5">Ereignisse</h3>
+                <p class="text-muted">Vorfallarten für den Auswahlpool</p>
+                <a href="{{ url_for('admin.admin_erziehung_pool', kind='ereignisse') }}" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('exclamation-triangle', 'bi-icon-sm') }} <span>Verwalten</span></a>
+            </div></div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="card h-100 border-0 shadow-sm"><div class="card-body p-4 text-center">
+                <div class="display-5 mb-3">{{ bi('signpost', 'bi-icon-xl') }}</div>
+                <h3 class="h5">Orte</h3>
+                <p class="text-muted">Orte für die Dokumentation</p>
+                <a href="{{ url_for('admin.admin_erziehung_pool', kind='orte') }}" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('signpost', 'bi-icon-sm') }} <span>Verwalten</span></a>
+            </div></div>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <div class="card h-100 border-0 shadow-sm"><div class="card-body p-4 text-center">
+                <div class="display-5 mb-3">{{ bi('check2-square', 'bi-icon-xl') }}</div>
+                <h3 class="h5">Konsequenzen</h3>
+                <p class="text-muted">Markierbare Folgemaßnahmen</p>
+                <a href="{{ url_for('admin.admin_erziehung_pool', kind='konsequenzen') }}" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('check2-square', 'bi-icon-sm') }} <span>Verwalten</span></a>
+            </div></div>
+        </div>
+    </div>
+</div>
+{% endblock %}

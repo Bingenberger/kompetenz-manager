@@ -18,6 +18,7 @@ from odt_export import (
 from student_selection import (
     get_grouped_student_choices_for_user,
     get_prioritized_students_for_user,
+    get_tabbed_student_selection_for_user,
     get_user_klassenkontext,
 )
 from time_utils import utc_now
@@ -193,22 +194,21 @@ def foerderplan_neu(s_id):
         flash('Bitte zuerst das Grundlagenblatt für dieses Kind ausfüllen.')
         return redirect(url_for('foerderplan.foerdergrundlage_edit', s_id=schueler.id, next=url_for('foerderplan.foerderplan_neu', s_id=schueler.id, next=next_url) if next_url else url_for('foerderplan.foerderplan_neu', s_id=schueler.id)))
 
-    offener_plan = (
+    aktiver_plan = (
         Foerderplan.query
         .filter(
             Foerderplan.schueler_id == schueler.id,
             Foerderplan.status == 'aktiv',
-            Foerderplan.datum_evaluation.is_(None),
         )
-        .order_by(Foerderplan.datum_erstellung.desc())
+        .order_by(Foerderplan.datum_erstellung.desc(), Foerderplan.id.desc())
         .first()
     )
-    if offener_plan:
+    if aktiver_plan:
         flash(
-            'Für dieses Kind existiert bereits ein aktiver Förderplan ohne Evaluation. '
-            'Bitte zuerst den bestehenden Plan evaluieren.'
+            'Für dieses Kind existiert bereits ein aktiver Förderplan. '
+            'Bitte zuerst den bestehenden Plan evaluieren und schließen.'
         )
-        return redirect(url_for('foerderplan.foerderplan_evaluate', p_id=offener_plan.id))
+        return redirect(url_for('foerderplan.foerderplan_evaluate', p_id=aktiver_plan.id))
 
     if request.method == 'POST':
         titel = request.form.get('titel')
@@ -251,32 +251,33 @@ def foerderplan_neu(s_id):
     ).order_by(Beobachtung.datum.desc()).all()
 
     unique_obs = {}
+    obs_by_item = {}
     for obs in beobachtungen:
+        obs_by_item.setdefault(obs.item_id, []).append(obs)
         if obs.item_id not in unique_obs:
             unique_obs[obs.item_id] = obs
 
     vorschlaege = []
     existing_titles = {}
 
-    letzter_plan = Foerderplan.query.filter_by(schueler_id=s_id).order_by(Foerderplan.datum_erstellung.desc()).first()
-    if letzter_plan:
-        for inhalt in letzter_plan.inhalte:
-            if inhalt.status_id in [0, 2]:
-                prefix = "ÜBERNAHME: " if inhalt.status_id == 2 else "OFFEN: "
-                titel_full = prefix + inhalt.foerderziel
-
-                ist_text_neu = inhalt.ist_zustand
-                if inhalt.evaluation_text and letzter_plan.datum_evaluation:
-                    ist_text_neu += (
-                        f"\n\nEvaluation vom {letzter_plan.datum_evaluation.strftime('%d.%m.%Y')}: "
-                        f"{inhalt.evaluation_text}"
-                    )
-
+    letzter_eval_plan = (
+        Foerderplan.query
+        .filter(
+            Foerderplan.schueler_id == s_id,
+            Foerderplan.datum_evaluation.isnot(None),
+        )
+        .order_by(Foerderplan.datum_evaluation.desc(), Foerderplan.datum_erstellung.desc())
+        .first()
+    )
+    if letzter_eval_plan:
+        for inhalt in letzter_eval_plan.inhalte:
+            if inhalt.status_id == 2:
                 altes_ziel = {
-                    'bereich': titel_full,
-                    'soll': inhalt.soll_zustand,
-                    'ist': ist_text_neu,
-                    'massnahme': inhalt.massnahmen
+                    'bereich': inhalt.foerderziel or '',
+                    'soll': inhalt.soll_zustand or '',
+                    'ist': f"Alter Ist-Zustand:\n{inhalt.ist_zustand or ''}",
+                    'massnahme': f"Alte Maßnahmen:\n{inhalt.massnahmen or ''}",
+                    'source_label': 'Übernahme aus letztem evaluierten Förderplan',
                 }
 
                 vorschlaege.append(altes_ziel)
@@ -285,10 +286,20 @@ def foerderplan_neu(s_id):
     noten_text = {1: "reicht noch nicht aus (-)", 2: "ist wechselhaft (o)", 3: "gut", 4: "sehr gut"}
 
     for item_id, obs in unique_obs.items():
-        if obs.wert <= 2:
-            item = db.session.get(Item, int(item_id))
+        item_observations = [entry for entry in obs_by_item.get(item_id, []) if entry.wert is not None]
+        if not item_observations:
+            continue
 
-            ist_text = f"Beobachtung vom {obs.datum.strftime('%d.%m.')}: Die Leistung {noten_text.get(obs.wert, '')}."
+        avg_rating = sum(entry.wert for entry in item_observations) / len(item_observations)
+        if avg_rating < 1.2:
+            item = db.session.get(Item, int(item_id))
+            if not item or not item.bogen:
+                continue
+
+            ist_text = (
+                f"Beobachtung vom {obs.datum.strftime('%d.%m.')}: "
+                f"Die Leistung {noten_text.get(obs.wert, '')}. Durchschnitt im Zeitraum: {avg_rating:.1f}."
+            )
             if obs.kommentar:
                 ist_text += f" Anmerkung: {obs.kommentar}"
 
@@ -302,7 +313,8 @@ def foerderplan_neu(s_id):
                     'bereich': titel_generated,
                     'soll': '',
                     'ist': ist_text,
-                    'massnahme': ''
+                    'massnahme': '',
+                    'source_label': 'Vorschlag aus Beobachtung',
                 })
 
     all_boegen = Bogen.query.all()
@@ -442,11 +454,17 @@ def foerderplan_select_student():
 @foerderplan_bp.route('/foerderplan/list')
 @login_required
 def foerderplan_list():
+    selection = get_tabbed_student_selection_for_user(
+        current_user,
+        selected_s_id=(request.args.get('schueler_id') or '').strip(),
+        requested_tab=(request.args.get('tab') or '').strip(),
+        auto_select_first=False,
+    )
     filter_info = {
         "is_admin": current_user.username == 'admin',
         "klassenleitung": None,
-        "selected_s_id": "",
-        "selected_schueler": None,
+        "selected_s_id": selection["selected_s_id"],
+        "selected_schueler": selection["selected_student"],
     }
     query = Foerderplan.query.join(Schueler)
     if not filter_info["is_admin"]:
@@ -463,18 +481,27 @@ def foerderplan_list():
         else:
             query = query.filter(Foerderplan.creator_user_id == current_user.id)
 
-    selected_s_id = (request.args.get('schueler_id') or '').strip()
+    selected_s_id = selection["selected_s_id"]
     if selected_s_id:
         try:
             s_id_int = int(selected_s_id)
             query = query.filter(Foerderplan.schueler_id == s_id_int)
-            filter_info["selected_s_id"] = selected_s_id
-            filter_info["selected_schueler"] = db.session.get(Schueler, s_id_int)
         except ValueError:
             filter_info["selected_s_id"] = ""
+            filter_info["selected_schueler"] = None
 
     plaene = query.order_by(Foerderplan.datum_erstellung.desc()).all()
-    return render_template('foerderplan_list.html', plaene=plaene, filter_info=filter_info)
+    return render_template(
+        'foerderplan_list.html',
+        plaene=plaene,
+        filter_info=filter_info,
+        tab_definitions=selection['tab_definitions'],
+        active_tab=selection['active_tab'],
+        selected_s_id=selection['selected_s_id'],
+        selected_student=selection['selected_student'],
+        schueler=selection['students'],
+        schueler_groups=selection['groups'],
+    )
 
 
 @foerderplan_bp.route('/foerderplan/view/<int:p_id>')
@@ -536,10 +563,11 @@ def foerderplan_edit(p_id):
             'ist': inhalt.ist_zustand or '',
             'soll': inhalt.soll_zustand or '',
             'massnahme': inhalt.massnahmen or '',
+            'source_label': 'Bestehender Förderplaninhalt',
         })
 
     if not vorschlaege:
-        vorschlaege.append({'bereich': '', 'ist': '', 'soll': '', 'massnahme': ''})
+        vorschlaege.append({'bereich': '', 'ist': '', 'soll': '', 'massnahme': '', 'source_label': 'Leere Zeile'})
 
     return render_template(
         'foerderplan_wizard.html',
@@ -661,6 +689,8 @@ def foerderplan_evaluate(p_id):
                 neuer_status = int(neuer_status_raw) if neuer_status_raw is not None else inhalt.status_id
             except ValueError:
                 neuer_status = inhalt.status_id
+            if neuer_status not in (1, 2):
+                neuer_status = 2
             submitted_inhalte.append((inhalt, neuer_status, eval_text))
 
         if requested_plan_status == 'geschlossen':

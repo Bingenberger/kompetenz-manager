@@ -13,17 +13,17 @@
     <a class="btn btn-sm btn-outline-danger icon-btn" href="{{ '/arbeitsplan/' ~ plan.id ~ '/export/pdf' }}">
       {{ bi('file-earmark-pdf', 'bi-icon-sm') }} <span>PDF</span>
     </a>
-    <a class="btn btn-sm btn-outline-primary icon-btn" href="{{ url_for('workplan.workplan_edit_page', plan_id=plan.id) }}">
+    <a class="btn btn-sm btn-outline-primary icon-btn" href="{{ url_for('workplan.workplan_edit_page', plan_id=plan.id, next=next_url if next_url else None) }}">
       {{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span>
     </a>
-    <a class="btn btn-sm btn-outline-success icon-btn" href="{{ url_for('workplan.workplan_evaluate_page', plan_id=plan.id) }}">
+    <a class="btn btn-sm btn-outline-success icon-btn" href="{{ url_for('workplan.workplan_evaluate_page', plan_id=plan.id, next=next_url if next_url else None) }}">
       {{ bi('check2-square', 'bi-icon-sm') }} <span>Evaluation</span>
     </a>
-    <form method="POST" action="{{ url_for('workplan.workplan_delete_page', plan_id=plan.id) }}" class="d-inline" onsubmit="return confirm('Arbeitsplan wirklich löschen?');">
+    <form method="POST" action="{{ url_for('workplan.workplan_delete_page', plan_id=plan.id) }}" class="d-inline" data-confirm-title="Arbeitsplan löschen" data-confirm-message="Arbeitsplan wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
       {{ csrf_input() }}
       <button class="btn btn-sm btn-outline-danger icon-btn" type="submit">{{ bi('trash', 'bi-icon-sm') }} <span>Löschen</span></button>
     </form>
-    <a class="btn btn-sm btn-outline-secondary icon-btn" href="{{ url_for('workplan.workplan_list_page', schueler_id=plan.student_id) }}">
+    <a class="btn btn-sm btn-outline-secondary icon-btn" href="{{ next_url if next_url else url_for('workplan.workplan_list_page', schueler_id=plan.student_id) }}">
       {{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span>
     </a>
   </div>

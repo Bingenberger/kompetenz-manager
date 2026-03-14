@@ -1,0 +1,78 @@
+{% set _field_id = multi_student_select_id %}
+{% set _name = multi_student_select_name %}
+{% set _selected_list = multi_student_select_selected if multi_student_select_selected is defined else [] %}
+{% set _groups = multi_student_groups if multi_student_groups is defined else [] %}
+{% set _search_placeholder = multi_student_search_placeholder if multi_student_search_placeholder is defined else 'Kinder suchen...' %}
+{% set _size = multi_student_select_size if multi_student_select_size is defined else 8 %}
+
+<div class="student-multi-select-widget" data-student-multi-select-widget>
+    <div class="student-select-search-wrap mb-2">
+        <input
+            type="search"
+            class="form-control form-control-sm student-select-search"
+            placeholder="{{ _search_placeholder }}"
+            data-student-multi-filter="{{ _field_id }}">
+        <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary student-select-clear d-none"
+            data-student-multi-clear="{{ _field_id }}"
+            aria-label="Suche zurücksetzen">
+            ×
+        </button>
+    </div>
+    <select id="{{ _field_id }}" name="{{ _name }}" class="form-select" size="{{ _size }}" multiple>
+        {% for group in _groups %}
+        <optgroup label="{{ group.label }}">
+            {% for s in group.students %}
+            <option
+                value="{{ s.id }}"
+                {% if s.id|string in _selected_list or s.id in _selected_list %}selected{% endif %}
+                data-search="{{ (s.nachname ~ ' ' ~ s.vorname ~ ' ' ~ (s.klasse or ''))|lower }}">
+                {{ s.nachname }}, {{ s.vorname }}{% if s.klasse %} ({{ s.klasse }}){% endif %}
+            </option>
+            {% endfor %}
+        </optgroup>
+        {% endfor %}
+    </select>
+    <div class="small text-muted mt-2">Mehrfachauswahl: `Strg`/`Cmd` oder auf Touch-Geräten mehrfach antippen.</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('[data-student-multi-filter="{{ _field_id }}"]').forEach(function (input) {
+    var select = document.getElementById('{{ _field_id }}');
+    var clearButton = document.querySelector('[data-student-multi-clear="{{ _field_id }}"]');
+    if (!select) return;
+
+    function updateFilter() {
+      var term = (input.value || '').toLowerCase().trim();
+      var visibleCount = 0;
+      Array.from(select.querySelectorAll('option')).forEach(function (option) {
+        var haystack = option.dataset.search || option.textContent.toLowerCase();
+        var visible = !term || haystack.indexOf(term) !== -1;
+        option.hidden = !visible;
+        if (visible) visibleCount += 1;
+      });
+      Array.from(select.querySelectorAll('optgroup')).forEach(function (group) {
+        var hasVisible = Array.from(group.querySelectorAll('option')).some(function (option) {
+          return !option.hidden;
+        });
+        group.hidden = !hasVisible;
+      });
+      if (clearButton) {
+        clearButton.classList.toggle('d-none', !term);
+      }
+    }
+
+    input.addEventListener('input', updateFilter);
+    if (clearButton) {
+      clearButton.addEventListener('click', function () {
+        input.value = '';
+        updateFilter();
+        input.focus();
+      });
+    }
+    updateFilter();
+  });
+});
+</script>

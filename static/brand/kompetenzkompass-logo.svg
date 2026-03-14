@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">KompetenzKompass Logo</title>
+  <desc id="desc">Ein stilisierter Kompass mit Buch und Stern für KompetenzKompass.</desc>
+  <defs>
+    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#277da1"/>
+      <stop offset="55%" stop-color="#4d908e"/>
+      <stop offset="100%" stop-color="#43aa8b"/>
+    </linearGradient>
+    <linearGradient id="needle" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#f94144"/>
+      <stop offset="100%" stop-color="#f8961e"/>
+    </linearGradient>
+  </defs>
+  <circle cx="64" cy="64" r="54" fill="url(#ring)"/>
+  <circle cx="64" cy="64" r="45" fill="#f8fbfc" opacity="0.98"/>
+  <circle cx="64" cy="64" r="34" fill="#ffffff"/>
+  <path d="M64 24l4 8h-8zM104 64l-8 4v-8zM64 104l-4-8h8zM24 64l8-4v8z" fill="#577590"/>
+  <path d="M66 34l15 28-17 32-17-32z" fill="url(#needle)"/>
+  <path d="M62 48L47 62l17 5z" fill="#277da1"/>
+  <circle cx="64" cy="64" r="7" fill="#1f2933"/>
+  <circle cx="64" cy="64" r="3" fill="#ffffff"/>
+  <path d="M39 78c8-6 17-9 25-9s17 3 25 9v11c-8-5-17-7-25-7s-17 2-25 7z" fill="#f9c74f"/>
+  <path d="M64 52l2.1 4.7 5.1.4-3.9 3.4 1.2 5-4.5-2.7-4.5 2.7 1.2-5-3.9-3.4 5.1-.4z" fill="#f3722c"/>
+</svg>

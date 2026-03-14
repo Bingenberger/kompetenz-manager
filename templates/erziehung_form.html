@@ -1,0 +1,383 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .student-button-grid { display:flex; flex-wrap:wrap; gap:.5rem; }
+    .selection-card { border: 1px solid rgba(87,117,144,0.12); border-radius: 16px; padding: 1rem; background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90)); }
+    .check-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:.75rem; }
+    .check-card { border:1px solid rgba(87,117,144,0.14); border-radius:14px; padding:.75rem .85rem; background:#fff; }
+    .overlay-frame {
+        width: 100%;
+        min-height: 72vh;
+        border: 0;
+        border-radius: 12px;
+        background: #fff;
+    }
+    .attachment-link-btn {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    @media (max-width: 767px) { .check-grid { grid-template-columns: 1fr; } }
+</style>
+<div class="surface-panel p-4 p-md-5 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+        <div>
+            <span class="section-label">Erzieherische Arbeit</span>
+            <h2 class="mt-2 mb-1">{% if event %}Ereignis bearbeiten{% else %}Neues Ereignis{% endif %}</h2>
+            <p class="text-muted mb-0">Vorfallart, Beschreibung, Beteiligte und Folgeschritte dokumentieren.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            {% if event %}
+            <a href="{{ url_for('erziehung.erziehung_view', event_id=event.id, next=next_url) }}" class="btn btn-outline-secondary icon-btn">{{ bi('eye', 'bi-icon') }} <span>Ansicht</span></a>
+            {% endif %}
+            <a href="{{ next_url if next_url else url_for('erziehung.erziehung_list') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+        </div>
+    </div>
+
+    <form method="POST" action="{{ form_action }}" enctype="multipart/form-data" class="d-grid gap-4">
+        {{ csrf_input() }}
+        <input type="hidden" name="next" value="{{ next_url }}">
+
+        <div class="selection-card">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <h3 class="h5 mb-0">1. Kind auswählen</h3>
+                {% if selected_student %}
+                <span class="badge bg-primary">{{ selected_student.vorname }} {{ selected_student.nachname }}</span>
+                {% endif %}
+            </div>
+            <ul class="nav nav-tabs" role="tablist">
+                {% for tab in tab_definitions %}
+                <li class="nav-item" role="presentation">
+                    {% if event %}
+                    <a class="nav-link {% if active_tab == tab.id %}active{% endif %}" href="{{ url_for('erziehung.erziehung_edit', event_id=event.id, tab=tab.id, schueler_id=selected_s_id if selected_s_id else None, next=next_url) }}">{{ tab.label }}</a>
+                    {% else %}
+                    <a class="nav-link {% if active_tab == tab.id %}active{% endif %}" href="{{ url_for('erziehung.erziehung_new', tab=tab.id, schueler_id=selected_s_id if selected_s_id else None, next=next_url) }}">{{ tab.label }}</a>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            <div class="pt-3">
+                <input type="hidden" name="tab" value="{{ active_tab }}">
+                {% for tab in tab_definitions %}
+                    {% if active_tab == tab.id %}
+                        {% if tab.kind == 'class' %}
+                            <input type="hidden" name="schueler_id" value="{{ selected_s_id }}">
+                            {% if tab.students %}
+                            <div class="student-button-grid">
+                                {% for s in tab.students %}
+                                {% if event %}
+                                <a class="btn btn-sm icon-btn {% if selected_student and selected_student.id == s.id %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('erziehung.erziehung_edit', event_id=event.id, tab=tab.id, schueler_id=s.id, next=next_url) }}">
+                                    {{ bi('person', 'bi-icon-sm') }} <span>{{ s.vorname }} {{ s.nachname }}</span>
+                                </a>
+                                {% else %}
+                                <a class="btn btn-sm icon-btn {% if selected_student and selected_student.id == s.id %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('erziehung.erziehung_new', tab=tab.id, schueler_id=s.id, next=next_url) }}">
+                                    {{ bi('person', 'bi-icon-sm') }} <span>{{ s.vorname }} {{ s.nachname }}</span>
+                                </a>
+                                {% endif %}
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-muted small">Keine Kinder in dieser Klasse gefunden.</div>
+                            {% endif %}
+                        {% else %}
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-8">
+                                {% set student_select_id = 'erziehung_form_schueler_id' %}
+                                {% set student_select_name = 'schueler_id' %}
+                                {% set student_select_selected = selected_s_id %}
+                                {% set student_select_required = false %}
+                                {% set student_select_placeholder = 'Kind auswählen...' %}
+                                {% set student_search_placeholder = 'Kind suchen...' %}
+                                {% include 'includes/student_select_field.html' %}
+                            </div>
+                            <div class="col-md-4 d-flex gap-2">
+                                <button type="submit" class="btn btn-primary icon-btn" name="form_action" value="select-student">{{ bi('check2-circle', 'bi-icon') }} <span>Übernehmen</span></button>
+                            </div>
+                        </div>
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-8">
+                <div class="selection-card h-100">
+                    <h3 class="h5 mb-3">2. Ereignis und Beschreibung</h3>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Datum</label>
+                            <input type="date" class="form-control" name="datum" value="{{ request.form.get('datum') or (event.datum.isoformat() if event and event.datum else '') or today }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            {% set current_status = request.form.get('status') or (event.status if event else 'offen') %}
+                            <select class="form-select" name="status">
+                                <option value="offen" {% if current_status == 'offen' %}selected{% endif %}>offen</option>
+                                <option value="abgeschlossen" {% if current_status == 'abgeschlossen' %}selected{% endif %}>abgeschlossen</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Ereignis</label>
+                            {% set current_template_id = request.form.get('event_template_id') or (event.event_template_id if event else '') %}
+                            <select class="form-select" name="event_template_id">
+                                <option value="">Bitte wählen...</option>
+                                {% for category in categories %}
+                                    {% set options = templates_by_category.get(category.id, []) %}
+                                    {% if options %}
+                                    <optgroup label="{{ category.name }}">
+                                        {% for option in options %}
+                                        <option value="{{ option.id }}" {% if current_template_id|string == option.id|string %}selected{% endif %}>{{ option.name }}</option>
+                                        {% endfor %}
+                                    </optgroup>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Ort</label>
+                            {% set current_ort_id = request.form.get('ort_id') or (event.ort_id if event else '') %}
+                            <select class="form-select" name="ort_id">
+                                <option value="">Bitte wählen...</option>
+                                {% for ort in orte %}
+                                <option value="{{ ort.id }}" {% if current_ort_id|string == ort.id|string %}selected{% endif %}>{{ ort.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Beschreibung</label>
+                            <textarea class="form-control" name="beschreibung" rows="6" placeholder="Was ist passiert?">{{ request.form.get('beschreibung') or (event.beschreibung or '' if event else '') }}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="selection-card h-100">
+                    <h3 class="h5 mb-3">3. Betroffene Kinder</h3>
+                    {% set selected_affected_ids = request.form.getlist('affected_student_ids') if request.method == 'POST' else preselected_affected_ids %}
+                    {% if affected_student_choices %}
+                    {% set multi_student_select_id = 'affected_student_ids' %}
+                    {% set multi_student_select_name = 'affected_student_ids' %}
+                    {% set multi_student_select_selected = selected_affected_ids %}
+                    {% set multi_student_groups = affected_student_groups %}
+                    {% set multi_student_search_placeholder = 'Betroffene Kinder suchen...' %}
+                    {% set multi_student_select_size = 8 %}
+                    {% include 'includes/student_multi_select_field.html' %}
+                    {% else %}
+                    <div class="text-muted">Keine weiteren Kinder auswählbar.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="selection-card">
+            <h3 class="h5 mb-3">4. Stellungnahmen</h3>
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="h-100">
+                        <label class="form-label">Stellungnahme des Kindes</label>
+                        <textarea class="form-control" name="child_statement" rows="6" placeholder="Optional">{{ request.form.get('child_statement') or (event.child_statement or '' if event else '') }}</textarea>
+                    </div>
+                </div>
+                <div class="col-lg-6">
+                    <div class="h-100">
+                        <label class="form-label">Stellungnahmen weiterer Beteiligter</label>
+                        <textarea class="form-control" name="others_statement" rows="6" placeholder="Optional">{{ request.form.get('others_statement') or (event.others_statement or '' if event else '') }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="selection-card">
+            <h3 class="h5 mb-3">5. Zuständigkeit</h3>
+            {% set current_assigned_id = request.form.get('assigned_user_id') or (event.assigned_user_id if event else '') %}
+            <label class="form-label">Zuständige Lehrkraft</label>
+            <select class="form-select" name="assigned_user_id">
+                <option value="">Noch nicht zugewiesen</option>
+                {% for user in teacher_choices %}
+                <option value="{{ user.id }}" {% if current_assigned_id|string == user.id|string %}selected{% endif %}>{{ user.display_name }}</option>
+                {% endfor %}
+            </select>
+            <div class="small text-muted mt-2">Die Zuständigkeit kann später weiter geändert werden.</div>
+        </div>
+
+        <div class="selection-card">
+            <h3 class="h5 mb-3">6. Konsequenzen</h3>
+            {% set selected_consequence_ids = request.form.getlist('konsequenz_ids') if request.method == 'POST' else preselected_consequence_ids %}
+            <div class="check-grid">
+                {% for konsequenz in konsequenzen %}
+                <label class="check-card d-flex align-items-start gap-2">
+                    <input class="form-check-input mt-1" type="checkbox" name="konsequenz_ids" value="{{ konsequenz.id }}" {% if konsequenz.id|string in selected_consequence_ids or konsequenz.id in selected_consequence_ids %}checked{% endif %}>
+                    <span>{{ konsequenz.name }}</span>
+                </label>
+                {% endfor %}
+            </div>
+            <div class="mt-3">
+                <label class="form-label">Beschreibung zu den Konsequenzen</label>
+                <textarea class="form-control" name="consequence_notes" rows="4" placeholder="Optional">{{ request.form.get('consequence_notes') or (event.consequence_notes or '' if event else '') }}</textarea>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-lg-12">
+                <div class="selection-card h-100">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <h3 class="h5 mb-0">7. Verknüpfte Elternkontakte</h3>
+                        {% if selected_student %}
+                        <div class="d-flex flex-wrap gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary icon-btn" data-overlay-launch data-overlay-url="{{ url_for('erfassung.elternkontakt_notiz', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path, overlay=1) }}">
+                                {{ bi('pencil-square', 'bi-icon-sm') }} <span>Notiz</span>
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-dark icon-btn" data-overlay-launch data-overlay-url="{{ url_for('erfassung.elternkontakt_protokoll', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path, overlay=1) }}">
+                                {{ bi('journal-text', 'bi-icon-sm') }} <span>Protokoll</span>
+                            </button>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% set selected_contact_ids = request.form.getlist('elternkontakt_ids') if request.method == 'POST' else preselected_contact_ids %}
+                    <div id="parent-contact-link-list" data-student-id="{{ selected_student.id if selected_student else '' }}">
+                        {% include 'includes/erziehung_parent_contacts_list.html' %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="selection-card">
+            <h3 class="h5 mb-3">8. Anhänge</h3>
+            <input class="form-control mb-3" type="file" name="attachments" accept=".jpg,.jpeg,.png,.webp,.pdf,application/pdf,image/jpeg,image/png,image/webp" multiple>
+            <div class="small text-muted mb-3">Erlaubt sind Fotos oder PDF-Dateien bis 10 MB pro Datei.</div>
+            {% if event and event.attachments %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Datei</th>
+                            <th>Typ</th>
+                            <th class="text-end">Aktionen</th>
+                        </tr>
+                    </thead>
+                        <tbody>
+                        {% for attachment in event.attachments %}
+                        {% set attachment_static_path = attachment.file_path if attachment.file_path.startswith('uploads/') else 'uploads/' ~ attachment.file_path.lstrip('/') %}
+                        <tr>
+                            <td>
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-secondary attachment-link-btn"
+                                    data-overlay-launch
+                                    data-overlay-title="Anhang ansehen"
+                                    data-overlay-url="{{ url_for('static', filename=attachment_static_path) }}">
+                                    {{ attachment.original_name or attachment.file_path }}
+                                </button>
+                            </td>
+                            <td>{{ attachment.mime_type or '-' }}</td>
+                            <td class="text-end">
+                                <form method="POST" action="{{ url_for('erziehung.erziehung_attachment_delete', event_id=event.id, attachment_id=attachment.id, next=next_url) }}" class="d-inline" data-confirm-title="Anhang löschen" data-confirm-message="Anhang wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
+                                    {{ csrf_input() }}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger icon-only-btn" title="Anhang löschen" aria-label="Anhang löschen">{{ bi('trash', 'bi-icon-sm') }}</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary icon-btn">{{ bi('save', 'bi-icon') }} <span>Speichern</span></button>
+            {% if event %}
+            <form method="POST" action="{{ url_for('erziehung.erziehung_delete', event_id=event.id) }}" class="d-inline" data-confirm-title="Ereignis löschen" data-confirm-message="Ereignis wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
+                {{ csrf_input() }}
+                <input type="hidden" name="next" value="{{ next_url if next_url else url_for('erziehung.erziehung_list') }}">
+                <button type="submit" class="btn btn-outline-danger icon-btn">{{ bi('trash', 'bi-icon') }} <span>Löschen</span></button>
+            </form>
+            {% endif %}
+            <a href="{{ next_url if next_url else url_for('erziehung.erziehung_list') }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
+        </div>
+    </form>
+</div>
+
+<div class="modal fade" id="parentContactOverlay" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="h5 mb-0" data-overlay-heading>Overlay</h3>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted mb-3" data-overlay-copy>Die Ereignismaske bleibt geöffnet. Nach dem Speichern kannst du dieses Overlay wieder schließen.</p>
+                <iframe class="overlay-frame" src="about:blank" title="Elternkontakt-Overlay" data-overlay-frame></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var modalEl = document.getElementById('parentContactOverlay');
+  if (!modalEl || typeof bootstrap === 'undefined') return;
+
+  var frame = modalEl.querySelector('[data-overlay-frame]');
+  var modal = new bootstrap.Modal(modalEl);
+  var contactList = document.getElementById('parent-contact-link-list');
+  var heading = modalEl.querySelector('[data-overlay-heading]');
+  var copy = modalEl.querySelector('[data-overlay-copy]');
+
+  function refreshParentContacts(autoSelectId) {
+    if (!contactList) return;
+    var studentId = contactList.getAttribute('data-student-id');
+    if (!studentId) return;
+    var selected = Array.from(document.querySelectorAll('input[name="elternkontakt_ids"]:checked')).map(function (input) {
+      return 'selected=' + encodeURIComponent(input.value);
+    });
+    if (autoSelectId) {
+      selected.push('selected=' + encodeURIComponent(autoSelectId));
+    }
+    var query = selected.length ? '&' + selected.join('&') : '';
+    fetch('{{ url_for("erziehung.erziehung_parent_contacts_fragment") }}?schueler_id=' + encodeURIComponent(studentId) + query, {
+      headers: {'X-Requested-With': 'XMLHttpRequest'}
+    })
+      .then(function (response) { return response.text(); })
+      .then(function (html) { contactList.innerHTML = html; })
+      .catch(function () {});
+  }
+
+  document.querySelectorAll('[data-overlay-launch]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var url = button.getAttribute('data-overlay-url');
+      if (!url || !frame) return;
+      var title = button.getAttribute('data-overlay-title') || 'Overlay';
+      var isAttachment = title === 'Anhang ansehen';
+      if (heading) heading.textContent = title;
+      if (copy) {
+        copy.textContent = isAttachment
+          ? 'Der Anhang wird im Overlay geöffnet. Die Ereignismaske bleibt erhalten.'
+          : 'Die Ereignismaske bleibt geöffnet. Nach dem Speichern kannst du dieses Overlay wieder schließen.';
+      }
+      frame.src = url;
+      modal.show();
+    });
+  });
+
+  modalEl.addEventListener('hidden.bs.modal', function () {
+    if (frame) {
+      frame.src = 'about:blank';
+    }
+  });
+
+  window.addEventListener('message', function (event) {
+    if (!event.data) return;
+    if (event.data.type === 'parent-contact-created') {
+      refreshParentContacts(event.data.kontaktId || '');
+      modal.hide();
+    } else if (event.data.type === 'close-overlay') {
+      modal.hide();
+    }
+  });
+});
+</script>
+{% endblock %}

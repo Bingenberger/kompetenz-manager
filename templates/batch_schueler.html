@@ -2,6 +2,9 @@
 {% from "includes/icons.html" import bi %}
 {% block content %}
 {% if step == 1 %}
+<style>
+    .student-button-grid { display:flex; flex-wrap:wrap; gap:.5rem; }
+</style>
 <div class="row justify-content-center">
     <div class="col-lg-8">
         <div class="surface-panel p-4 p-md-5 fade-in">
@@ -12,20 +15,67 @@
             </div>
             <form method="GET">
                 {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
-                <label class="form-label">Schüler</label>
-                {% set student_select_id = 'batch_schueler_id' %}
-                {% set student_select_name = 'schueler_id' %}
-                {% set student_select_class = 'form-select mb-3' %}
-                {% set student_search_placeholder = 'Kind suchen...' %}
-                {% include 'includes/student_select_field.html' %}
+                <label class="form-label">Kind auswählen</label>
+                <div class="surface-panel p-3 mb-3">
+                    <ul class="nav nav-tabs" role="tablist">
+                        {% for tab in tab_definitions %}
+                        <li class="nav-item" role="presentation">
+                            <a class="nav-link {% if active_tab == tab.id %}active{% endif %}" href="{{ url_for('erfassung.erfassen_schueler', tab=tab.id, schueler_id=selected_s_id if selected_s_id else None, bogen_id=selected_b_id if selected_b_id else None, next=next_url if next_url else None) }}">
+                                {{ tab.label }}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div class="pt-3">
+                        {% for tab in tab_definitions %}
+                            {% if active_tab == tab.id %}
+                                {% if tab.kind == 'class' %}
+                                    {% if tab.students %}
+                                    <div class="student-button-grid">
+                                        {% for s in tab.students %}
+                                        <a class="btn btn-sm icon-btn {% if selected_student and selected_student.id == s.id %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('erfassung.erfassen_schueler', tab=tab.id, schueler_id=s.id, bogen_id=selected_b_id if selected_b_id else None, next=next_url if next_url else None) }}">
+                                            {{ bi('person', 'bi-icon-sm') }} <span>{{ s.vorname }} {{ s.nachname }}</span>
+                                        </a>
+                                        {% endfor %}
+                                    </div>
+                                    {% else %}
+                                    <div class="text-muted small">Keine Kinder in dieser Klasse gefunden.</div>
+                                    {% endif %}
+                                    <input type="hidden" name="schueler_id" value="{{ selected_s_id if selected_s_id else '' }}">
+                                {% else %}
+                                    {% set student_select_id = 'batch_schueler_id' %}
+                                    {% set student_select_name = 'schueler_id' %}
+                                    {% set student_select_selected = selected_s_id %}
+                                    {% set student_select_required = true %}
+                                    {% set student_select_class = 'form-select mb-0' %}
+                                    {% set student_search_placeholder = 'Kind suchen...' %}
+                                    {% include 'includes/student_select_field.html' %}
+                                {% endif %}
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
                 <label class="form-label">Bogen</label>
-                <select name="bogen_id" class="form-select mb-4">
+                <div class="student-button-grid mb-3">
                     {% for b in boegen %}
-                    <option value="{{ b.id }}">{{ b.titel }}</option>
+                    <a class="btn btn-sm icon-btn {% if selected_b_id and selected_b_id|string == b.id|string %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('erfassung.erfassen_schueler', tab=active_tab, schueler_id=selected_s_id if selected_s_id else None, bogen_id=b.id, next=next_url if next_url else None) }}">
+                        {{ bi('journal-text', 'bi-icon-sm') }} <span>{{ b.titel }}</span>
+                    </a>
                     {% endfor %}
-                </select>
+                </div>
+                <input type="hidden" name="bogen_id" value="{{ selected_b_id if selected_b_id else '' }}">
+                <input type="hidden" name="tab" value="{{ active_tab }}">
+                {% if selected_s_id and selected_b_id and bogen_stats %}
+                <div class="alert alert-info mb-3">
+                    <div><strong>Einträge für dieses Kind in diesem Bogen:</strong> {{ bogen_stats.total_entries }}</div>
+                    <div>
+                        <strong>Zuletzt komplett als „ganzer Bogen“ ausgefüllt:</strong>
+                        {% if bogen_stats.last_complete_day_display %}{{ bogen_stats.last_complete_day_display }}{% else %}noch nie{% endif %}
+                    </div>
+                </div>
+                {% endif %}
                 <div class="d-flex flex-wrap gap-2">
-                    <button type="submit" class="btn btn-primary icon-btn">{{ bi('play-circle', 'bi-icon') }} <span>Starten</span></button>
+                    <button type="submit" name="start" value="1" class="btn btn-primary icon-btn" {% if not selected_s_id or not selected_b_id %}disabled{% endif %}>{{ bi('play-circle', 'bi-icon') }} <span>Starten</span></button>
                     <a href="{{ next_url if next_url else url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
                 </div>
             </form>

@@ -33,7 +33,7 @@
         <a href="{{ url_for('foerderplan.foerderplan_evaluate', p_id=plan.id, next=next_url) if next_url else url_for('foerderplan.foerderplan_evaluate', p_id=plan.id) }}" class="btn btn-warning icon-btn">{{ bi('journal-text', 'bi-icon') }} <span>Evaluieren</span></a>
         {% endif %}
         {% if can_manage %}
-        <form method="POST" action="{{ url_for('foerderplan.foerderplan_delete', p_id=plan.id) }}" onsubmit="return confirm('Förderplan wirklich löschen?')" class="d-inline">
+        <form method="POST" action="{{ url_for('foerderplan.foerderplan_delete', p_id=plan.id) }}" class="d-inline" data-confirm-title="Förderplan löschen" data-confirm-message="Förderplan wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
             {{ csrf_input() }}
             {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
             <button type="submit" class="btn btn-outline-danger icon-btn">{{ bi('trash', 'bi-icon') }} <span>Löschen</span></button>

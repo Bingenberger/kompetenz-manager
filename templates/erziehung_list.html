@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .student-button-grid { display:flex; flex-wrap:wrap; gap:.5rem; }
+</style>
+<div class="surface-panel p-4 p-md-5 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+        <div>
+            <span class="section-label">Erzieherische Arbeit</span>
+            <h2 class="mt-2 mb-1">Ereignisse dokumentieren</h2>
+            <p class="text-muted mb-0">Vorfall, Beschreibung, Beteiligte, Konsequenzen und Folgekommunikation pro Kind festhalten.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+            <a href="{{ url_for('erziehung.erziehung_new', schueler_id=selected_s_id if selected_s_id else None, tab=active_tab, next=request.full_path if request.query_string else request.path) }}" class="btn btn-primary icon-btn">{{ bi('plus-circle', 'bi-icon') }} <span>Neues Ereignis</span></a>
+        </div>
+    </div>
+
+    <div class="surface-panel p-3 mb-4">
+        <label class="form-label">Kind auswählen</label>
+        <ul class="nav nav-tabs" role="tablist">
+            {% for tab in tab_definitions %}
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if active_tab == tab.id %}active{% endif %}" href="{{ url_for('erziehung.erziehung_list', tab=tab.id, schueler_id=selected_s_id if selected_s_id else None, status=status_filter if status_filter else None) }}">{{ tab.label }}</a>
+            </li>
+            {% endfor %}
+        </ul>
+        <div class="pt-3">
+            {% for tab in tab_definitions %}
+                {% if active_tab == tab.id %}
+                    {% if tab.kind == 'class' %}
+                        {% if tab.students %}
+                        <div class="student-button-grid">
+                            {% for s in tab.students %}
+                            <a class="btn btn-sm icon-btn {% if selected_student and selected_student.id == s.id %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('erziehung.erziehung_list', tab=tab.id, schueler_id=s.id, status=status_filter if status_filter else None) }}">
+                                {{ bi('person', 'bi-icon-sm') }} <span>{{ s.vorname }} {{ s.nachname }}</span>
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-muted small">Keine Kinder in dieser Klasse gefunden.</div>
+                        {% endif %}
+                    {% else %}
+                    <form method="GET" class="row g-3 align-items-end">
+                        <input type="hidden" name="tab" value="dropdown">
+                        <div class="col-md-7">
+                            {% set student_select_id = 'erziehung_schueler_id' %}
+                            {% set student_select_name = 'schueler_id' %}
+                            {% set student_select_selected = selected_s_id %}
+                            {% set student_select_required = false %}
+                            {% set student_select_placeholder = 'Kind auswählen...' %}
+                            {% set student_search_placeholder = 'Kind suchen...' %}
+                            {% include 'includes/student_select_field.html' %}
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" name="status">
+                                <option value="">alle</option>
+                                <option value="offen" {% if status_filter == 'offen' %}selected{% endif %}>offen</option>
+                                <option value="abgeschlossen" {% if status_filter == 'abgeschlossen' %}selected{% endif %}>abgeschlossen</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary icon-btn">{{ bi('search', 'bi-icon') }} <span>Anzeigen</span></button>
+                        </div>
+                    </form>
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="table-panel">
+        <div class="table-toolbar">
+            <div class="table-toolbar-title">Dokumentierte Ereignisse</div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                {% if selected_student %}
+                <span class="badge bg-primary">{{ selected_student.vorname }} {{ selected_student.nachname }}</span>
+                {% endif %}
+                <span class="badge bg-info">{{ events|length }} Einträge</span>
+            </div>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Datum</th>
+                        <th>Kind</th>
+                        <th>Ereignis</th>
+                        <th>Ort</th>
+                        <th>Status</th>
+                        <th>Zuständig</th>
+                        <th class="text-end">Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in events %}
+                    <tr>
+                        <td>{{ event.datum.strftime('%d.%m.%Y') }}</td>
+                        <td>{{ event.student.vorname }} {{ event.student.nachname }}</td>
+                        <td>
+                            <div class="fw-semibold">{{ event.event_template.name if event.event_template else '-' }}</div>
+                            <div class="small text-muted">{{ event.event_template.category.name if event.event_template and event.event_template.category else '' }}</div>
+                        </td>
+                        <td>{{ event.ort.name if event.ort else '-' }}</td>
+                        <td>
+                            {% if event.status == 'abgeschlossen' %}
+                            <span class="badge bg-success">abgeschlossen</span>
+                            {% else %}
+                            <span class="badge bg-warning text-dark">offen</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ event.assigned_user.display_name if event.assigned_user else '-' }}</td>
+                        <td class="text-end">
+                            <div class="d-inline-flex flex-wrap gap-2 justify-content-end">
+                                <a href="{{ url_for('erziehung.erziehung_view', event_id=event.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-only-btn" title="Ansehen" aria-label="Ansehen">{{ bi('eye', 'bi-icon-sm') }}</a>
+                                <a href="{{ url_for('erziehung.erziehung_edit', event_id=event.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-only-btn" title="Bearbeiten" aria-label="Bearbeiten">{{ bi('pencil-square', 'bi-icon-sm') }}</a>
+                                <form method="POST" action="{{ url_for('erziehung.erziehung_delete', event_id=event.id) }}" class="d-inline" data-confirm-title="Ereignis löschen" data-confirm-message="Ereignis wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
+                                    {{ csrf_input() }}
+                                    <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger icon-only-btn" title="Löschen" aria-label="Löschen">{{ bi('trash', 'bi-icon-sm') }}</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% if not events %}
+                    <tr><td colspan="7" class="text-center text-muted py-4">Noch keine Ereignisse vorhanden.</td></tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

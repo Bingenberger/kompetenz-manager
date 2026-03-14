@@ -66,7 +66,7 @@
     </div>
 
     <div class="hint-panel mb-3">
-        <small>{{ bi('info-circle', 'bi-icon-sm') }} Die folgenden Einträge basieren auf Ihren Beobachtungen (Bewertung "-" oder "o"). Passen Sie die Texte
+        <small>{{ bi('info-circle', 'bi-icon-sm') }} Die folgenden Einträge basieren auf Beobachtungen mit einem Durchschnitt unter 1,2 im gewählten Zeitraum. Passen Sie die Texte
             an oder löschen Sie Zeilen, die nicht in den Plan sollen.</small>
     </div>
 
@@ -93,7 +93,7 @@
         {% for v in vorschlaege %}
         <div class="card mb-3 shadow-sm border-start border-4 border-warning item-row fp-row-card">
             <div class="card-header d-flex justify-content-between align-items-center bg-white">
-                <strong>Vorschlag aus Beobachtung: {{ v.bereich }}</strong>
+                <strong>{{ v.source_label or 'Vorschlag' }}: {{ v.bereich }}</strong>
                 <button type="button" class="btn btn-sm btn-outline-danger"
                     onclick="this.closest('.item-row').remove()">{{ bi('trash', 'bi-icon-sm') }} Zeile löschen</button>
             </div>

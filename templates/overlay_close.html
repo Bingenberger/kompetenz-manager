@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <title>Schließen</title>
+</head>
+<body>
+<script>
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({{ payload|tojson }}, '*');
+  }
+</script>
+</body>
+</html>

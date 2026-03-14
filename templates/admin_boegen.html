@@ -32,7 +32,7 @@
                 <td class="text-end">
                     <a href="{{ url_for('admin.admin_items', b_id=b.id) }}" class="btn btn-sm btn-info text-white me-2 icon-btn">{{ bi('card-checklist', 'bi-icon-sm') }} <span>Items verwalten</span></a>
                     <a href="{{ url_for('admin.admin_bogen_edit', b_id=b.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('pencil-square', 'bi-icon-sm') }} <span>Titel ändern</span></a>
-                    <form method="POST" action="{{ url_for('admin.admin_bogen_delete', b_id=b.id) }}" style="display:inline;" class="ms-1" onsubmit="return confirm('ACHTUNG: Soll der Bogen „{{ b.titel }}“ wirklich gelöscht werden? ALLE ITEMS UND BEOBACHTUNGEN DAZU WERDEN UNWIDERRUFLICH GELÖSCHT!')">
+                    <form method="POST" action="{{ url_for('admin.admin_bogen_delete', b_id=b.id) }}" style="display:inline;" class="ms-1" data-confirm-title="Bogen endgültig löschen" data-confirm-message="ACHTUNG: Soll der Bogen „{{ b.titel }}“ wirklich gelöscht werden? Alle Items und Beobachtungen dazu werden unwiderruflich gelöscht." data-confirm-button="Endgültig löschen" data-confirm-button-class="btn-dark" data-confirm-variant="final">
                         {{ csrf_input() }}
                         <button type="submit" class="btn btn-sm btn-outline-danger icon-only-btn" aria-label="Bogen löschen">{{ bi('trash', 'bi-icon-sm') }}</button>
                     </form>

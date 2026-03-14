@@ -267,7 +267,11 @@
                             </td>
                             <td class="text-end">
                                 <form method="POST" action="{{ url_for('report.report_beobachtung_delete', beobachtung_id=entry.id) }}" class="d-inline"
-                                      onsubmit="return confirm('Diesen Beobachtungseintrag wirklich löschen?')">
+                                      data-confirm-title="Beobachtung löschen"
+                                      data-confirm-message="Diesen Beobachtungseintrag wirklich löschen?"
+                                      data-confirm-button="Löschen"
+                                      data-confirm-button-class="btn-danger"
+                                      data-confirm-variant="delete">
                                     {{ csrf_input() }}
                                     <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
                                     <button type="submit" class="btn btn-sm btn-outline-danger entry-delete-btn" title="Eintrag löschen" aria-label="Eintrag löschen">

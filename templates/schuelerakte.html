@@ -6,38 +6,6 @@
         display: grid;
         gap: 1rem;
     }
-    .akte-top-grid {
-        display: grid;
-        grid-template-columns: 1.2fr .8fr;
-        gap: 1rem;
-        align-items: stretch;
-    }
-    .akte-summary-grid {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: .75rem;
-    }
-    .akte-summary-card {
-        border-radius: 14px;
-        border: 1px solid rgba(87,117,144,0.14);
-        background: linear-gradient(180deg, rgba(255,255,255,0.97), rgba(255,255,255,0.92));
-        padding: .85rem .9rem;
-    }
-    .akte-summary-card .value {
-        display: block;
-        font-family: 'Sora', sans-serif;
-        font-size: 1.25rem;
-        line-height: 1;
-        font-weight: 700;
-        margin-bottom: .35rem;
-    }
-    .akte-quick-links {
-        display: grid;
-        gap: .6rem;
-    }
-    .akte-quick-links .btn {
-        justify-content: center;
-    }
     .akte-panel {
         border-radius: 16px;
         border: 1px solid rgba(87,117,144,0.12);
@@ -61,17 +29,131 @@
     .akte-mini-table td, .akte-mini-table th {
         vertical-align: middle;
     }
-    @media (max-width: 991px) {
-        .akte-top-grid {
-            grid-template-columns: 1fr;
-        }
-        .akte-summary-grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
+    .akte-top-stack {
+        display: grid;
+        gap: 1rem;
+    }
+    .akte-selected-card {
+        border: 1px solid rgba(87,117,144,0.12);
+        border-radius: 14px;
+        background: rgba(87,117,144,0.04);
+        padding: 1rem;
+        display: grid;
+        gap: .85rem;
+    }
+    .akte-selected-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    .akte-meta-chips,
+    .akte-stat-chips,
+    .akte-quick-groups {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .6rem;
+    }
+    .akte-meta-chip,
+    .akte-stat-chip {
+        border-radius: 999px;
+        border: 1px solid rgba(87,117,144,0.14);
+        background: #fff;
+        padding: .42rem .8rem;
+        display: inline-flex;
+        align-items: center;
+        gap: .45rem;
+        line-height: 1.2;
+    }
+    .akte-stat-chip strong {
+        font-family: 'Sora', sans-serif;
+        font-size: 1rem;
+        color: #203446;
+    }
+    .akte-quick-group {
+        flex: 1 1 220px;
+        min-width: 220px;
+        border-radius: 14px;
+        border: 1px solid rgba(87,117,144,0.12);
+        background: #fff;
+        padding: .85rem;
+    }
+    .akte-quick-group h4 {
+        font-size: .95rem;
+        margin-bottom: .7rem;
+    }
+    .akte-quick-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+    }
+    .akte-quick-actions .btn {
+        flex: 1 1 180px;
+        justify-content: center;
+    }
+    .student-button-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
+    }
+    .akte-record-tabs {
+        gap: .35rem;
+        border-bottom: 2px solid rgba(87,117,144,0.12);
+    }
+    .akte-record-tabs .nav-link {
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        border-radius: 14px 14px 0 0;
+        padding: .78rem 1rem;
+        font-size: 1rem;
+        font-weight: 700;
+        border: 1px solid rgba(87,117,144,0.18);
+        border-bottom: none;
+        background: rgba(255,255,255,0.82);
+        color: #334a5f;
+        transition: background-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
+    }
+    .akte-record-tabs .nav-link:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 18px rgba(31,41,51,0.08);
+    }
+    .akte-record-tabs .nav-link .badge {
+        font-size: .78rem;
+    }
+    .akte-record-tabs .nav-link.active {
+        color: #173042;
+        box-shadow: 0 10px 22px rgba(31,41,51,0.10);
+    }
+    .akte-record-tabs .nav-item:nth-child(1) .nav-link.active {
+        background: linear-gradient(180deg, rgba(39,125,161,0.20), rgba(39,125,161,0.08));
+        border-color: rgba(39,125,161,0.34);
+    }
+    .akte-record-tabs .nav-item:nth-child(2) .nav-link.active {
+        background: linear-gradient(180deg, rgba(67,170,139,0.22), rgba(67,170,139,0.09));
+        border-color: rgba(67,170,139,0.34);
+    }
+    .akte-record-tabs .nav-item:nth-child(3) .nav-link.active {
+        background: linear-gradient(180deg, rgba(248,150,30,0.22), rgba(248,150,30,0.09));
+        border-color: rgba(248,150,30,0.34);
+    }
+    .akte-record-tabs .nav-item:nth-child(4) .nav-link.active {
+        background: linear-gradient(180deg, rgba(87,117,144,0.22), rgba(87,117,144,0.09));
+        border-color: rgba(87,117,144,0.34);
+    }
+    .akte-tab-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .5rem;
     }
     @media (max-width: 575px) {
-        .akte-summary-grid {
-            grid-template-columns: 1fr;
+        .akte-quick-actions .btn {
+            flex-basis: 100%;
+        }
+        .akte-selected-head {
+            flex-direction: column;
+            align-items: stretch;
         }
     }
 </style>
@@ -82,7 +164,7 @@
         <h2 class="mt-2 mb-1 d-inline-flex align-items-center gap-2">
             {{ bi('person-vcard', 'bi-icon-md') }} <span>Schülerakte</span>
         </h2>
-        <p class="text-muted mb-0">Förderpläne, Elternkontakte und Beobachtungsbögen eines Kindes zentral anzeigen.</p>
+        <p class="text-muted mb-0">Alle Informationen zu einem Kind kompakt an einer Stelle.</p>
     </div>
     <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">
         {{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück zur Übersicht</span>
@@ -90,127 +172,213 @@
 </div>
 
 <div class="akte-grid">
-    <div class="akte-panel">
-        <div class="akte-panel-body">
-            <form method="GET" class="row g-3 align-items-end">
-                <div class="col-lg-8">
-                    <label class="form-label">Kind auswählen</label>
-                    {% set student_select_id = 'akte_schueler_id' %}
-                    {% set student_select_name = 'schueler_id' %}
-                    {% set student_select_selected = selected_s_id %}
-                    {% set student_select_required = false %}
-                    {% set student_select_placeholder = 'Kind auswählen...' %}
-                    {% set student_search_placeholder = 'Kind suchen...' %}
-                    {% include 'includes/student_select_field.html' %}
+    <div class="akte-top-stack">
+        <div class="akte-panel">
+            <div class="akte-panel-head">
+                <span class="section-label">Auswahl</span>
+                <h3 class="mt-2 mb-1">Kind auswählen</h3>
+                <p class="text-muted mb-0">Wie bei den Arbeitsplänen: Klasse wählen und dann das Kind direkt per Button öffnen.</p>
+            </div>
+            <div class="akte-panel-body">
+                <ul class="nav nav-tabs" role="tablist">
+                    {% for tab in tab_definitions %}
+                    <li class="nav-item" role="presentation">
+                        <a class="nav-link {% if active_tab == tab.id %}active{% endif %}" href="{{ url_for('system.schuelerakte', tab=tab.id, schueler_id=selected_s_id if selected_s_id else None) }}">
+                            {{ tab.label }}
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <div class="pt-3">
+                    {% for tab in tab_definitions %}
+                        {% if active_tab == tab.id %}
+                            {% if tab.kind == 'class' %}
+                                {% if tab.students %}
+                                <div class="student-button-grid">
+                                    {% for s in tab.students %}
+                                    <a class="btn btn-sm icon-btn {% if selected_student and selected_student.id == s.id %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('system.schuelerakte', tab=tab.id, schueler_id=s.id) }}">
+                                        {{ bi('person', 'bi-icon-sm') }} <span>{{ s.vorname }} {{ s.nachname }}</span>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="text-muted small">Keine Kinder in dieser Klasse gefunden.</div>
+                                {% endif %}
+                            {% else %}
+                            <form method="GET" class="row g-3 align-items-end">
+                                <input type="hidden" name="tab" value="dropdown">
+                                <div class="col-lg-8">
+                                    {% set student_select_id = 'akte_schueler_id' %}
+                                    {% set student_select_name = 'schueler_id' %}
+                                    {% set student_select_selected = selected_s_id %}
+                                    {% set student_select_required = false %}
+                                    {% set student_select_placeholder = 'Kind auswählen...' %}
+                                    {% set student_search_placeholder = 'Kind suchen...' %}
+                                    {% include 'includes/student_select_field.html' %}
+                                </div>
+                                <div class="col-lg-4 d-flex flex-wrap gap-2">
+                                    <button type="submit" class="btn btn-primary icon-btn">
+                                        {{ bi('search', 'bi-icon') }} <span>Öffnen</span>
+                                    </button>
+                                    {% if selected_s_id %}
+                                    <a href="{{ url_for('system.schuelerakte', tab='dropdown') }}" class="btn btn-outline-secondary icon-btn">
+                                        {{ bi('x-circle', 'bi-icon') }} <span>Zurücksetzen</span>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </form>
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
                 </div>
-                <div class="col-lg-4 d-flex flex-wrap gap-2">
-                    <button type="submit" class="btn btn-primary icon-btn">
-                        {{ bi('search', 'bi-icon') }} <span>Akte öffnen</span>
-                    </button>
-                    {% if selected_s_id %}
-                    <a href="{{ url_for('system.schuelerakte') }}" class="btn btn-outline-secondary icon-btn">
-                        {{ bi('x-circle', 'bi-icon') }} <span>Zurücksetzen</span>
-                    </a>
-                    {% endif %}
+            </div>
+        </div>
+
+        <div class="akte-panel">
+            <div class="akte-panel-head">
+                <span class="section-label">Überblick</span>
+                <h3 class="mt-2 mb-0">Schnell orientieren</h3>
+            </div>
+            <div class="akte-panel-body">
+                {% if selected_student %}
+                <div class="akte-selected-card">
+                    <div class="akte-selected-head">
+                        <div>
+                            <h3 class="mb-1">{{ selected_student.vorname }} {{ selected_student.nachname }}</h3>
+                            <div class="text-muted">Klasse {{ selected_student.klasse or '-' }}</div>
+                        </div>
+                        <div class="akte-meta-chips">
+                            <span class="akte-meta-chip">
+                                {{ bi('cake2', 'bi-icon-sm') }}
+                                <span>
+                                    {% if selected_student.geburtsdatum %}
+                                    {{ selected_student.geburtsdatum.strftime('%d.%m.%Y') }}
+                                    {% else %}
+                                    kein Geburtsdatum
+                                    {% endif %}
+                                </span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="akte-stat-chips">
+                        <span class="akte-stat-chip">{{ bi('clipboard2-data', 'bi-icon-sm') }} <strong>{{ bogen_summaries|length }}</strong> <span>Bögen</span></span>
+                        <span class="akte-stat-chip">{{ bi('binoculars', 'bi-icon-sm') }} <strong>{{ recent_beobachtungen|length }}</strong> <span>letzte Beobachtungen</span></span>
+                        <span class="akte-stat-chip">{{ bi('folder2-open', 'bi-icon-sm') }} <strong>{{ foerderplaene|length }}</strong> <span>Förderpläne</span></span>
+                        <span class="akte-stat-chip">{{ bi('list-check', 'bi-icon-sm') }} <strong>{{ work_plans|length }}</strong> <span>Arbeitspläne</span></span>
+                        <span class="akte-stat-chip">{{ bi('shield-exclamation', 'bi-icon-sm') }} <strong>{{ erziehungsereignisse|length }}</strong> <span>Ereignisse</span></span>
+                        <span class="akte-stat-chip">{{ bi('chat-left-text', 'bi-icon-sm') }} <strong>{{ elternkontakte|length }}</strong> <span>Elternkontakte</span></span>
+                    </div>
+
+                    <div class="akte-quick-groups">
+                        <div class="akte-quick-group">
+                            <h4 class="d-inline-flex align-items-center gap-2">{{ bi('clipboard-check', 'bi-icon-sm') }} <span>Erfassen</span></h4>
+                            <div class="akte-quick-actions">
+                                <a href="{{ url_for('report.report_schueler', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-info icon-btn">
+                                    {{ bi('clipboard2-data', 'bi-icon-sm') }} <span>Beobachtungen</span>
+                                </a>
+                                <a href="{{ url_for('foerderplan.foerderplan_neu', s_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-dark icon-btn">
+                                    {{ bi('plus-circle', 'bi-icon-sm') }} <span>Förderplan</span>
+                                </a>
+                                <a href="{{ url_for('workplan.workplan_new_page', s_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-success icon-btn">
+                                    {{ bi('plus-circle', 'bi-icon-sm') }} <span>Arbeitsplan</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="akte-quick-group">
+                            <h4 class="d-inline-flex align-items-center gap-2">{{ bi('chat-dots', 'bi-icon-sm') }} <span>Elternkontakte</span></h4>
+                            <div class="akte-quick-actions">
+                                <a href="{{ url_for('erfassung.elternkontakt_notiz', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">
+                                    {{ bi('pencil-square', 'bi-icon-sm') }} <span>Notiz</span>
+                                </a>
+                                <a href="{{ url_for('erfassung.elternkontakt_protokoll', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-warning icon-btn">
+                                    {{ bi('journal-text', 'bi-icon-sm') }} <span>Protokoll</span>
+                                </a>
+                                <a href="{{ url_for('erfassung.elternberatung', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-success icon-btn">
+                                    {{ bi('people', 'bi-icon-sm') }} <span>Elternberatung</span>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="akte-quick-group">
+                            <h4 class="d-inline-flex align-items-center gap-2">{{ bi('box-arrow-up-right', 'bi-icon-sm') }} <span>Öffnen</span></h4>
+                            <div class="akte-quick-actions">
+                                <a href="{{ url_for('foerderplan.foerderplan_list', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-dark icon-btn">
+                                    {{ bi('folder2-open', 'bi-icon-sm') }} <span>Förderpläne</span>
+                                </a>
+                                <a href="{{ url_for('workplan.workplan_list_page', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-success icon-btn">
+                                    {{ bi('list-check', 'bi-icon-sm') }} <span>Arbeitspläne</span>
+                                </a>
+                                <a href="{{ url_for('erfassung.elternkontakte_start', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-secondary icon-btn">
+                                    {{ bi('chat-left-text', 'bi-icon-sm') }} <span>Elternkontakte</span>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-            </form>
+                {% else %}
+                <div class="akte-empty mb-0">
+                    Bitte oben ein Kind auswählen. Danach erscheint hier die kompakte Übersicht.
+                </div>
+                {% endif %}
+            </div>
         </div>
     </div>
 
     {% if selected_student %}
-    <div class="akte-top-grid">
-        <div class="akte-panel">
-            <div class="akte-panel-head">
-                <span class="section-label">Ausgewähltes Kind</span>
-                <h3 class="mt-2 mb-1">{{ selected_student.vorname }} {{ selected_student.nachname }}</h3>
-                <p class="text-muted mb-1">Klasse {{ selected_student.klasse or '-' }}</p>
-                <p class="text-muted mb-0">
-                    Geburtsdatum:
-                    {% if selected_student.geburtsdatum %}
-                    {{ selected_student.geburtsdatum.strftime('%d.%m.%Y') }}
-                    {% else %}
-                    -
-                    {% endif %}
-                </p>
+    <div class="akte-panel">
+        <div class="akte-panel-head d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <div>
+                <span class="section-label">Inhalte</span>
+                <h3 class="mt-2 mb-0">Bereiche der Schülerakte</h3>
             </div>
-            <div class="akte-panel-body">
-                <div class="akte-summary-grid">
-                    <div class="akte-summary-card">
-                        <span class="value">{{ bogen_summaries|length }}</span>
-                        <small class="text-muted">Beobachtungsbögen mit Einträgen</small>
-                    </div>
-                    <div class="akte-summary-card">
-                        <span class="value">{{ recent_beobachtungen|length }}</span>
-                        <small class="text-muted">Letzte Beobachtungen (Ausschnitt)</small>
-                    </div>
-                    <div class="akte-summary-card">
-                        <span class="value">{{ foerderplaene|length }}</span>
-                        <small class="text-muted">Förderpläne</small>
-                    </div>
-                    <div class="akte-summary-card">
-                        <span class="value">{{ elternkontakte|length }}</span>
-                        <small class="text-muted">Elternkontakte (letzte 12)</small>
-                    </div>
-                    <div class="akte-summary-card">
-                        <span class="value">{{ work_plans|length }}</span>
-                        <small class="text-muted">Arbeitspläne</small>
-                    </div>
-                </div>
-            </div>
+            <div class="small text-muted">Die Inhalte sind jetzt in Tabs gebündelt, damit die Seite kürzer und klarer bleibt.</div>
         </div>
+        <div class="akte-panel-body">
+            <ul class="nav nav-tabs akte-record-tabs mb-3" id="akteContentTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="akte-bogen-tab" data-bs-toggle="tab" data-bs-target="#akte-bogen-pane" type="button" role="tab" aria-controls="akte-bogen-pane" aria-selected="true">
+                        {{ bi('clipboard2-data', 'bi-icon-sm') }} <span>Beobachtungsbögen</span>
+                        <span class="badge text-bg-light">{{ bogen_summaries|length }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="akte-foerder-tab" data-bs-toggle="tab" data-bs-target="#akte-foerder-pane" type="button" role="tab" aria-controls="akte-foerder-pane" aria-selected="false">
+                        {{ bi('folder2-open', 'bi-icon-sm') }} <span>Förderplanung</span>
+                        <span class="badge text-bg-light">{{ foerderplaene|length }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="akte-workplan-tab" data-bs-toggle="tab" data-bs-target="#akte-workplan-pane" type="button" role="tab" aria-controls="akte-workplan-pane" aria-selected="false">
+                        {{ bi('list-check', 'bi-icon-sm') }} <span>Arbeitspläne</span>
+                        <span class="badge text-bg-light">{{ work_plans|length }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="akte-eltern-tab" data-bs-toggle="tab" data-bs-target="#akte-eltern-pane" type="button" role="tab" aria-controls="akte-eltern-pane" aria-selected="false">
+                        {{ bi('chat-left-text', 'bi-icon-sm') }} <span>Elternkontakte</span>
+                        <span class="badge text-bg-light">{{ elternkontakte|length }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="akte-erziehung-tab" data-bs-toggle="tab" data-bs-target="#akte-erziehung-pane" type="button" role="tab" aria-controls="akte-erziehung-pane" aria-selected="false">
+                        {{ bi('shield-exclamation', 'bi-icon-sm') }} <span>Ereignisse</span>
+                        <span class="badge text-bg-light">{{ erziehungsereignisse|length }}</span>
+                    </button>
+                </li>
+            </ul>
 
-        <div class="akte-panel">
-            <div class="akte-panel-head">
-                <span class="section-label">Schnellaktionen</span>
-                <h3 class="mt-2 mb-0">Direkt weiterarbeiten</h3>
-            </div>
-            <div class="akte-panel-body">
-                <div class="akte-quick-links">
-                    <a href="{{ url_for('report.report_schueler', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-info text-white icon-btn">
-                        {{ bi('clipboard2-data', 'bi-icon') }} <span>Beobachtungsbogen-Bericht öffnen</span>
-                    </a>
-                    <a href="{{ url_for('foerderplan.foerderplan_list', schueler_id=selected_student.id) }}" class="btn btn-outline-dark icon-btn">
-                        {{ bi('folder2-open', 'bi-icon') }} <span>Förderpläne dieses Kindes</span>
-                    </a>
-                    <a href="{{ url_for('foerderplan.foerderplan_neu', s_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-dark icon-btn">
-                        {{ bi('plus-circle', 'bi-icon') }} <span>Neuen Förderplan erstellen</span>
-                    </a>
-                    <a href="{{ url_for('erfassung.elternkontakte_start', schueler_id=selected_student.id) }}" class="btn btn-outline-primary icon-btn">
-                        {{ bi('chat-left-text', 'bi-icon') }} <span>Elternkontakte filtern</span>
-                    </a>
-                    <a href="{{ url_for('workplan.workplan_list_page', schueler_id=selected_student.id) }}" class="btn btn-outline-success icon-btn">
-                        {{ bi('list-check', 'bi-icon') }} <span>Tab Arbeitspläne öffnen</span>
-                    </a>
-                    <a href="{{ url_for('workplan.workplan_new_page', s_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-success icon-btn">
-                        {{ bi('plus-circle', 'bi-icon') }} <span>Neuen Arbeitsplan erstellen</span>
-                    </a>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="{{ url_for('erfassung.elternkontakt_notiz', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">
-                            {{ bi('pencil-square', 'bi-icon-sm') }} <span>Notiz</span>
-                        </a>
-                        <a href="{{ url_for('erfassung.elternkontakt_protokoll', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-warning icon-btn">
-                            {{ bi('journal-text', 'bi-icon-sm') }} <span>Protokoll</span>
-                        </a>
+            <div class="tab-content" id="akteContentTabsContent">
+                <div class="tab-pane fade show active" id="akte-bogen-pane" role="tabpanel" aria-labelledby="akte-bogen-tab" tabindex="0">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div class="small text-muted">Alle Bögen mit vorhandenen Einträgen plus die letzten Beobachtungen.</div>
+                        <div class="akte-tab-actions">
+                            <a href="{{ url_for('report.report_schueler', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-info icon-btn">
+                                {{ bi('clipboard2-data', 'bi-icon-sm') }} <span>Bericht öffnen</span>
+                            </a>
+                        </div>
                     </div>
-                    <small class="text-muted">Für Beobachtungsbögen wählen Sie im nächsten Schritt noch den Kompetenzbogen.</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="row g-4">
-        <div class="col-xl-6">
-            <div class="akte-panel h-100">
-                <div class="akte-panel-head d-flex justify-content-between align-items-center gap-2">
-                    <div>
-                        <span class="section-label">Beobachtungsbögen</span>
-                        <h3 class="mt-2 mb-0">Vorhandene Einträge</h3>
-                    </div>
-                    <a href="{{ url_for('report.report_schueler', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-info icon-btn">
-                        {{ bi('clipboard2-data', 'bi-icon-sm') }} <span>Bericht</span>
-                    </a>
-                </div>
-                <div class="akte-panel-body">
                     {% if bogen_summaries %}
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0 akte-mini-table">
@@ -229,8 +397,8 @@
                                     <td>{{ row.anzahl_eintraege }}</td>
                                     <td>{{ row.letzte_beobachtung.strftime('%d.%m.%Y') if row.letzte_beobachtung else '-' }}</td>
                                     <td class="text-end">
-                                        <a href="{{ url_for('report.report_schueler', schueler_id=selected_student.id, bogen_id=row.bogen_id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-info icon-btn">
-                                            {{ bi('eye', 'bi-icon-sm') }} <span>Öffnen</span>
+                                        <a href="{{ url_for('report.report_schueler', schueler_id=selected_student.id, bogen_id=row.bogen_id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-info icon-only-btn" title="Bogen öffnen" aria-label="Bogen öffnen">
+                                            {{ bi('eye', 'bi-icon-sm') }}
                                         </a>
                                     </td>
                                 </tr>
@@ -278,26 +446,19 @@
                     </div>
                     {% endif %}
                 </div>
-            </div>
-        </div>
 
-        <div class="col-xl-6">
-            <div class="akte-panel h-100 mb-4">
-                <div class="akte-panel-head d-flex justify-content-between align-items-center gap-2">
-                    <div>
-                        <span class="section-label">Förderplanung</span>
-                        <h3 class="mt-2 mb-0">Förderpläne</h3>
+                <div class="tab-pane fade" id="akte-foerder-pane" role="tabpanel" aria-labelledby="akte-foerder-tab" tabindex="0">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div class="small text-muted">Förderpläne des Kindes inklusive Direktzugriff auf Liste und Neuanlage.</div>
+                        <div class="akte-tab-actions">
+                            <a href="{{ url_for('foerderplan.foerderplan_neu', s_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-primary icon-btn">
+                                {{ bi('plus-circle', 'bi-icon-sm') }} <span>Neu</span>
+                            </a>
+                            <a href="{{ url_for('foerderplan.foerderplan_list', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-dark icon-btn">
+                                {{ bi('filter', 'bi-icon-sm') }} <span>Liste</span>
+                            </a>
+                        </div>
                     </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="{{ url_for('foerderplan.foerderplan_neu', s_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-primary icon-btn">
-                            {{ bi('plus-circle', 'bi-icon-sm') }} <span>Neu</span>
-                        </a>
-                        <a href="{{ url_for('foerderplan.foerderplan_list', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-dark icon-btn">
-                            {{ bi('filter', 'bi-icon-sm') }} <span>Liste</span>
-                        </a>
-                    </div>
-                </div>
-                <div class="akte-panel-body">
                     {% if foerderplaene %}
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0 akte-mini-table">
@@ -322,8 +483,8 @@
                                         {% endif %}
                                     </td>
                                     <td class="text-end">
-                                        <a href="{{ url_for('foerderplan.foerderplan_view', p_id=p.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-btn">
-                                            {{ bi('eye', 'bi-icon-sm') }} <span>Ansehen</span>
+                                        <a href="{{ url_for('foerderplan.foerderplan_view', p_id=p.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-only-btn" title="Förderplan ansehen" aria-label="Förderplan ansehen">
+                                            {{ bi('eye', 'bi-icon-sm') }}
                                         </a>
                                     </td>
                                 </tr>
@@ -342,24 +503,19 @@
                     </div>
                     {% endif %}
                 </div>
-            </div>
 
-            <div class="akte-panel h-100 mb-4">
-                <div class="akte-panel-head d-flex justify-content-between align-items-center gap-2">
-                    <div>
-                        <span class="section-label">Arbeitspläne</span>
-                        <h3 class="mt-2 mb-0">Wochen-/Individualpläne</h3>
+                <div class="tab-pane fade" id="akte-workplan-pane" role="tabpanel" aria-labelledby="akte-workplan-tab" tabindex="0">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div class="small text-muted">Wochen- und Individualpläne mit Schnellzugriff auf Liste und Bearbeitung.</div>
+                        <div class="akte-tab-actions">
+                            <a href="{{ url_for('workplan.workplan_new_page', s_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-success icon-btn">
+                                {{ bi('plus-circle', 'bi-icon-sm') }} <span>Neu</span>
+                            </a>
+                            <a href="{{ url_for('workplan.workplan_list_page', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-success icon-btn">
+                                {{ bi('filter', 'bi-icon-sm') }} <span>Liste</span>
+                            </a>
+                        </div>
                     </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <a href="{{ url_for('workplan.workplan_new_page', s_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-success icon-btn">
-                            {{ bi('plus-circle', 'bi-icon-sm') }} <span>Neu</span>
-                        </a>
-                        <a href="{{ url_for('workplan.workplan_list_page', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-success icon-btn">
-                            {{ bi('filter', 'bi-icon-sm') }} <span>Liste</span>
-                        </a>
-                    </div>
-                </div>
-                <div class="akte-panel-body">
                     {% if work_plans %}
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0 akte-mini-table">
@@ -382,8 +538,8 @@
                                     </td>
                                     <td>{{ wp.tasks|length }}</td>
                                     <td class="text-end">
-                                        <a href="{{ url_for('workplan.workplan_edit_page', plan_id=wp.id) }}" class="btn btn-sm btn-outline-success icon-btn">
-                                            {{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span>
+                                        <a href="{{ url_for('workplan.workplan_child_view_page', plan_id=wp.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-success icon-only-btn" title="Arbeitsplan ansehen" aria-label="Arbeitsplan ansehen">
+                                            {{ bi('eye', 'bi-icon-sm') }}
                                         </a>
                                     </td>
                                 </tr>
@@ -397,19 +553,25 @@
                     </div>
                     {% endif %}
                 </div>
-            </div>
 
-            <div class="akte-panel h-100">
-                <div class="akte-panel-head d-flex justify-content-between align-items-center gap-2">
-                    <div>
-                        <span class="section-label">Elternkontakte</span>
-                        <h3 class="mt-2 mb-0">Dokumentation</h3>
+                <div class="tab-pane fade" id="akte-eltern-pane" role="tabpanel" aria-labelledby="akte-eltern-tab" tabindex="0">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div class="small text-muted">Die letzten Kontakte mit Eltern und Direkteinstiege für neue Einträge.</div>
+                        <div class="akte-tab-actions">
+                            <a href="{{ url_for('erfassung.elternberatung', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-success icon-btn">
+                                {{ bi('people', 'bi-icon-sm') }} <span>Elternberatung</span>
+                            </a>
+                            <a href="{{ url_for('erfassung.elternkontakt_notiz', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">
+                                {{ bi('pencil-square', 'bi-icon-sm') }} <span>Notiz</span>
+                            </a>
+                            <a href="{{ url_for('erfassung.elternkontakt_protokoll', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-warning icon-btn">
+                                {{ bi('journal-text', 'bi-icon-sm') }} <span>Protokoll</span>
+                            </a>
+                            <a href="{{ url_for('erfassung.elternkontakte_start', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-secondary icon-btn">
+                                {{ bi('filter', 'bi-icon-sm') }} <span>Liste</span>
+                            </a>
+                        </div>
                     </div>
-                    <a href="{{ url_for('erfassung.elternkontakte_start', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-primary icon-btn">
-                        {{ bi('filter', 'bi-icon-sm') }} <span>Liste filtern</span>
-                    </a>
-                </div>
-                <div class="akte-panel-body">
                     {% if elternkontakte %}
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0 akte-mini-table">
@@ -434,8 +596,8 @@
                                     </td>
                                     <td class="text-muted">{{ e.betreff or e.mitteilung or '-' }}</td>
                                     <td class="text-end">
-                                        <a href="{{ url_for('erfassung.elternkontakt_view', kontakt_id=e.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-btn">
-                                            {{ bi('eye', 'bi-icon-sm') }} <span>Ansehen</span>
+                                        <a href="{{ url_for('erfassung.elternkontakt_view', kontakt_id=e.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-only-btn" title="Elternkontakt ansehen" aria-label="Elternkontakt ansehen">
+                                            {{ bi('eye', 'bi-icon-sm') }}
                                         </a>
                                     </td>
                                 </tr>
@@ -446,6 +608,63 @@
                     {% else %}
                     <div class="akte-empty">
                         Noch keine Elternkontakte dokumentiert.
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="tab-pane fade" id="akte-erziehung-pane" role="tabpanel" aria-labelledby="akte-erziehung-tab" tabindex="0">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div class="small text-muted">Erfasste Ereignisse, Zuständigkeiten und direkte Zugriffe auf die Fallansicht.</div>
+                        <div class="akte-tab-actions">
+                            <a href="{{ url_for('erziehung.erziehung_new', schueler_id=selected_student.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-danger icon-btn">
+                                {{ bi('plus-circle', 'bi-icon-sm') }} <span>Neu</span>
+                            </a>
+                            <a href="{{ url_for('erziehung.erziehung_list', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-secondary icon-btn">
+                                {{ bi('filter', 'bi-icon-sm') }} <span>Liste</span>
+                            </a>
+                        </div>
+                    </div>
+                    {% if erziehungsereignisse %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 akte-mini-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Datum</th>
+                                    <th>Ereignis</th>
+                                    <th>Status</th>
+                                    <th>Zuständig</th>
+                                    <th class="text-end">Aktion</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for e in erziehungsereignisse[:12] %}
+                                <tr>
+                                    <td>{{ e.datum.strftime('%d.%m.%Y') if e.datum else '-' }}</td>
+                                    <td>
+                                        <div class="fw-semibold">{{ e.event_template.name if e.event_template else 'Ereignis' }}</div>
+                                        <div class="small text-muted">{{ e.ort.name if e.ort else '-' }}</div>
+                                    </td>
+                                    <td>
+                                        {% if e.status == 'abgeschlossen' %}
+                                        <span class="badge bg-success">abgeschlossen</span>
+                                        {% else %}
+                                        <span class="badge bg-warning text-dark">offen</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ e.assigned_user.display_name if e.assigned_user else '-' }}</td>
+                                    <td class="text-end">
+                                        <a href="{{ url_for('erziehung.erziehung_view', event_id=e.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-only-btn" title="Ereignis ansehen" aria-label="Ereignis ansehen">
+                                            {{ bi('eye', 'bi-icon-sm') }}
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="akte-empty">
+                        Noch keine Ereignisse dokumentiert.
                     </div>
                     {% endif %}
                 </div>
@@ -466,4 +685,32 @@
     </div>
     {% endif %}
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var tabsContainer = document.getElementById('akteContentTabs');
+    if (!tabsContainer || typeof bootstrap === 'undefined' || !bootstrap.Tab) {
+        return;
+    }
+
+    var storageKey = 'schuelerakte.activeContentTab';
+    var tabButtons = tabsContainer.querySelectorAll('[data-bs-toggle="tab"]');
+    var storedTarget = window.localStorage.getItem(storageKey);
+
+    if (storedTarget) {
+        var storedButton = tabsContainer.querySelector('[data-bs-target="' + storedTarget + '"]');
+        if (storedButton) {
+            bootstrap.Tab.getOrCreateInstance(storedButton).show();
+        }
+    }
+
+    tabButtons.forEach(function (button) {
+        button.addEventListener('shown.bs.tab', function (event) {
+            var target = event.target.getAttribute('data-bs-target');
+            if (target) {
+                window.localStorage.setItem(storageKey, target);
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

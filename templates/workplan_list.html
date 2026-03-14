@@ -132,11 +132,11 @@
           <td>{{ p.tasks|length }}</td>
           <td>{{ p.created_at.strftime('%d.%m.%Y') if p.created_at else '-' }}</td>
           <td class="text-end">
-            <a class="btn btn-sm btn-outline-primary icon-only-btn" href="{{ url_for('workplan.workplan_edit_page', plan_id=p.id) }}" title="Bearbeiten" aria-label="Bearbeiten">{{ bi('pencil-square', 'bi-icon-sm') }}</a>
+            <a class="btn btn-sm btn-outline-primary icon-only-btn" href="{{ url_for('workplan.workplan_edit_page', plan_id=p.id, next=request.full_path if request.query_string else request.path) }}" title="Bearbeiten" aria-label="Bearbeiten">{{ bi('pencil-square', 'bi-icon-sm') }}</a>
             <a class="btn btn-sm btn-outline-info icon-only-btn" href="{{ '/arbeitsplan/' ~ p.id ~ '/export/odt' }}" title="ODT exportieren" aria-label="ODT exportieren">{{ bi('download', 'bi-icon-sm') }}</a>
             <a class="btn btn-sm btn-outline-danger icon-only-btn" href="{{ '/arbeitsplan/' ~ p.id ~ '/export/pdf' }}" title="PDF exportieren" aria-label="PDF exportieren">{{ bi('file-earmark-pdf', 'bi-icon-sm') }}</a>
-            <a class="btn btn-sm btn-outline-dark icon-only-btn" href="{{ url_for('workplan.workplan_child_view_page', plan_id=p.id) }}" title="Ansicht" aria-label="Ansicht">{{ bi('eye', 'bi-icon-sm') }}</a>
-            <form method="POST" action="{{ url_for('workplan.workplan_delete_page', plan_id=p.id) }}" class="d-inline" onsubmit="return confirm('Arbeitsplan wirklich löschen?');">
+            <a class="btn btn-sm btn-outline-dark icon-only-btn" href="{{ url_for('workplan.workplan_child_view_page', plan_id=p.id, next=request.full_path if request.query_string else request.path) }}" title="Ansicht" aria-label="Ansicht">{{ bi('eye', 'bi-icon-sm') }}</a>
+            <form method="POST" action="{{ url_for('workplan.workplan_delete_page', plan_id=p.id) }}" class="d-inline" data-confirm-title="Arbeitsplan löschen" data-confirm-message="Arbeitsplan wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
               {{ csrf_input() }}
               <input type="hidden" name="tab" value="{{ active_tab }}">
               <input type="hidden" name="view" value="{{ class_view_mode }}">
@@ -186,12 +186,12 @@
           <td>{{ p.tasks|length }}</td>
           <td>{{ p.created_at.strftime('%d.%m.%Y') if p.created_at else '-' }}</td>
           <td class="text-end">
-            <a class="btn btn-sm btn-outline-primary icon-only-btn" href="{{ url_for('workplan.workplan_edit_page', plan_id=p.id) }}" title="Bearbeiten" aria-label="Bearbeiten">{{ bi('pencil-square', 'bi-icon-sm') }}</a>
+            <a class="btn btn-sm btn-outline-primary icon-only-btn" href="{{ url_for('workplan.workplan_edit_page', plan_id=p.id, next=request.full_path if request.query_string else request.path) }}" title="Bearbeiten" aria-label="Bearbeiten">{{ bi('pencil-square', 'bi-icon-sm') }}</a>
             <a class="btn btn-sm btn-outline-info icon-only-btn" href="{{ '/arbeitsplan/' ~ p.id ~ '/export/odt' }}" title="ODT exportieren" aria-label="ODT exportieren">{{ bi('download', 'bi-icon-sm') }}</a>
             <a class="btn btn-sm btn-outline-danger icon-only-btn" href="{{ '/arbeitsplan/' ~ p.id ~ '/export/pdf' }}" title="PDF exportieren" aria-label="PDF exportieren">{{ bi('file-earmark-pdf', 'bi-icon-sm') }}</a>
-            <a class="btn btn-sm btn-outline-success icon-only-btn" href="{{ url_for('workplan.workplan_evaluate_page', plan_id=p.id) }}" title="Evaluieren" aria-label="Evaluieren">{{ bi('check2-square', 'bi-icon-sm') }}</a>
-            <a class="btn btn-sm btn-outline-dark icon-only-btn" href="{{ url_for('workplan.workplan_child_view_page', plan_id=p.id) }}" title="Ansicht" aria-label="Ansicht">{{ bi('eye', 'bi-icon-sm') }}</a>
-            <form method="POST" action="{{ url_for('workplan.workplan_delete_page', plan_id=p.id) }}" class="d-inline" onsubmit="return confirm('Arbeitsplan wirklich löschen?');">
+            <a class="btn btn-sm btn-outline-success icon-only-btn" href="{{ url_for('workplan.workplan_evaluate_page', plan_id=p.id, next=request.full_path if request.query_string else request.path) }}" title="Evaluieren" aria-label="Evaluieren">{{ bi('check2-square', 'bi-icon-sm') }}</a>
+            <a class="btn btn-sm btn-outline-dark icon-only-btn" href="{{ url_for('workplan.workplan_child_view_page', plan_id=p.id, next=request.full_path if request.query_string else request.path) }}" title="Ansicht" aria-label="Ansicht">{{ bi('eye', 'bi-icon-sm') }}</a>
+            <form method="POST" action="{{ url_for('workplan.workplan_delete_page', plan_id=p.id) }}" class="d-inline" data-confirm-title="Arbeitsplan löschen" data-confirm-message="Arbeitsplan wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
               {{ csrf_input() }}
               <input type="hidden" name="tab" value="{{ active_tab }}">
               <input type="hidden" name="view" value="{{ class_view_mode }}">

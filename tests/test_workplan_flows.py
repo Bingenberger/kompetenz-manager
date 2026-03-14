@@ -298,6 +298,30 @@ class WorkPlanFlowsTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.mimetype, 'application/pdf')
 
+    def test_workplan_next_context_is_preserved_across_list_view_edit_and_evaluation(self):
+        self._login('teacher_a', 'pass')
+
+        source_url = f'/arbeitsplaene?tab=own&schueler_id={self.student_a_id}'
+        list_page = self.client.get(source_url)
+        self.assertEqual(list_page.status_code, 200)
+        list_html = list_page.get_data(as_text=True)
+        expected_next_param = 'next=/arbeitsplaene?tab%3Down'
+        self.assertIn(expected_next_param, list_html)
+
+        child_view = self.client.get(
+            f'/arbeitsplan/{self.plan_a_id}/kind?next=/arbeitsplaene?tab=own&schueler_id={self.student_a_id}'
+        )
+        self.assertEqual(child_view.status_code, 200)
+        child_html = child_view.get_data(as_text=True)
+        self.assertIn('/arbeitsplaene?tab=own', child_html)
+
+        evaluate_view = self.client.get(
+            f'/arbeitsplan/{self.plan_a_id}/evaluate?next=/arbeitsplaene?tab=own&schueler_id={self.student_a_id}'
+        )
+        self.assertEqual(evaluate_view.status_code, 200)
+        evaluate_html = evaluate_view.get_data(as_text=True)
+        self.assertIn('/arbeitsplaene?tab=own', evaluate_html)
+
     def test_delete_workplan_from_page(self):
         self._login('teacher_a', 'pass')
         token = self._csrf_token_for_post()

@@ -7,7 +7,19 @@ from werkzeug.security import generate_password_hash
 from authz import admin_required
 from db_utils import get_or_404_session
 from extensions import db
-from models import Beobachtung, Bogen, Item, Schueler, SystemKonfiguration, User, UserKlassenzuordnung
+from models import (
+    Beobachtung,
+    Bogen,
+    ErziehungsEreignisKategorie,
+    ErziehungsEreignisVorlage,
+    ErziehungsKonsequenz,
+    ErziehungsOrt,
+    Item,
+    Schueler,
+    SystemKonfiguration,
+    User,
+    UserKlassenzuordnung,
+)
 from student_selection import get_distinct_klassen
 
 
@@ -44,6 +56,117 @@ def _get_system_konfiguration():
 @admin_required(redirect_endpoint='system.index', message='Zugriff verweigert. Nur der Administrator darf den Admin-Bereich öffnen.')
 def admin_dashboard():
     return render_template('admin_dashboard.html', settings=_get_system_konfiguration())
+
+
+def _erziehung_pool_config(kind):
+    mapping = {
+        'kategorien': {
+            'model': ErziehungsEreignisKategorie,
+            'title': 'Ereigniskategorien',
+            'name_label': 'Kategoriename',
+            'has_category': False,
+        },
+        'ereignisse': {
+            'model': ErziehungsEreignisVorlage,
+            'title': 'Ereignispool',
+            'name_label': 'Ereignis',
+            'has_category': True,
+        },
+        'konsequenzen': {
+            'model': ErziehungsKonsequenz,
+            'title': 'Konsequenzen',
+            'name_label': 'Konsequenz',
+            'has_category': False,
+        },
+        'orte': {
+            'model': ErziehungsOrt,
+            'title': 'Orte',
+            'name_label': 'Ort',
+            'has_category': False,
+        },
+    }
+    return mapping.get(kind)
+
+
+@admin_bp.route('/admin/erziehung')
+@admin_required(redirect_endpoint='system.index', message=None)
+def admin_erziehung_dashboard():
+    return render_template('admin_erziehung_dashboard.html')
+
+
+@admin_bp.route('/admin/erziehung/<string:kind>', methods=['GET', 'POST'])
+@admin_required(redirect_endpoint='admin.admin_erziehung_dashboard', message=None)
+def admin_erziehung_pool(kind):
+    cfg = _erziehung_pool_config(kind)
+    if not cfg:
+        return redirect(url_for('admin.admin_erziehung_dashboard'))
+
+    model = cfg['model']
+    entry_id = (request.args.get('edit') or request.form.get('entry_id') or '').strip()
+    entry = db.session.get(model, int(entry_id)) if entry_id.isdigit() else None
+
+    if request.method == 'POST':
+        name = (request.form.get('name') or '').strip()
+        sort_order = int((request.form.get('sort_order') or '0').strip() or 0)
+        is_active = request.form.get('is_active') == '1'
+        category = None
+
+        if cfg['has_category']:
+            category_raw = (request.form.get('category_id') or '').strip()
+            category = db.session.get(ErziehungsEreignisKategorie, int(category_raw)) if category_raw.isdigit() else None
+
+        if not name:
+            flash('Bitte einen Namen eingeben.')
+        elif cfg['has_category'] and not category:
+            flash('Bitte eine Kategorie auswählen.')
+        else:
+            is_new = not entry
+            if not entry:
+                entry = model()
+            entry.name = name
+            entry.sort_order = sort_order
+            entry.is_active = is_active
+
+            if cfg['has_category']:
+                entry.category_id = category.id
+
+            if is_new:
+                db.session.add(entry)
+            db.session.commit()
+            flash('Eintrag gespeichert.')
+            return redirect(url_for('admin.admin_erziehung_pool', kind=kind))
+
+    categories = ErziehungsEreignisKategorie.query.order_by(ErziehungsEreignisKategorie.sort_order.asc(), ErziehungsEreignisKategorie.name.asc()).all()
+    entries_query = model.query
+    if cfg['has_category']:
+        entries_query = entries_query.join(ErziehungsEreignisKategorie).order_by(
+            ErziehungsEreignisKategorie.sort_order.asc(),
+            ErziehungsEreignisKategorie.name.asc(),
+            model.sort_order.asc(),
+            model.name.asc(),
+        )
+    else:
+        entries_query = entries_query.order_by(model.sort_order.asc(), model.name.asc())
+    entries = entries_query.all()
+    return render_template('admin_erziehung_pool.html', cfg=cfg, entries=entries, entry=entry, categories=categories, kind=kind)
+
+
+@admin_bp.route('/admin/erziehung/<string:kind>/delete/<int:entry_id>', methods=['POST'])
+@admin_required(redirect_endpoint='admin.admin_erziehung_dashboard', message=None)
+def admin_erziehung_pool_delete(kind, entry_id):
+    cfg = _erziehung_pool_config(kind)
+    if not cfg:
+        return redirect(url_for('admin.admin_erziehung_dashboard'))
+
+    entry = db.session.get(cfg['model'], entry_id)
+    if not entry:
+        flash('Eintrag nicht gefunden.')
+        return redirect(url_for('admin.admin_erziehung_pool', kind=kind))
+
+    db.session.delete(entry)
+    db.session.commit()
+    flash('Eintrag gelöscht.')
+    return redirect(url_for('admin.admin_erziehung_pool', kind=kind))
 
 
 @admin_bp.route('/admin/system-settings', methods=['GET', 'POST'])

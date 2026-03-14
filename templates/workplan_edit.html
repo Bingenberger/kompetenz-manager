@@ -20,9 +20,9 @@
     <button class="btn btn-sm btn-primary icon-btn" type="submit" form="plan-meta-save-form">{{ bi('floppy', 'bi-icon-sm') }} <span>Speichen</span></button>
     <a class="btn btn-sm btn-outline-primary icon-btn" href="{{ '/arbeitsplan/' ~ plan.id ~ '/export/odt' }}">{{ bi('download', 'bi-icon-sm') }} <span>ODT</span></a>
     <a class="btn btn-sm btn-outline-danger icon-btn" href="{{ '/arbeitsplan/' ~ plan.id ~ '/export/pdf' }}">{{ bi('file-earmark-pdf', 'bi-icon-sm') }} <span>PDF</span></a>
-    <a class="btn btn-sm btn-outline-success icon-btn" href="{{ url_for('workplan.workplan_evaluate_page', plan_id=plan.id) }}">{{ bi('check2-square', 'bi-icon-sm') }} <span>Evaluation</span></a>
-    <a class="btn btn-sm btn-outline-dark icon-btn" href="{{ url_for('workplan.workplan_child_view_page', plan_id=plan.id) }}">{{ bi('eye', 'bi-icon-sm') }} <span>Ansicht</span></a>
-    <form method="POST" action="{{ url_for('workplan.workplan_delete_page', plan_id=plan.id) }}" class="d-inline" onsubmit="return confirm('Arbeitsplan wirklich löschen?');">
+    <a class="btn btn-sm btn-outline-success icon-btn" href="{{ url_for('workplan.workplan_evaluate_page', plan_id=plan.id, next=next_url if next_url else None) }}">{{ bi('check2-square', 'bi-icon-sm') }} <span>Evaluation</span></a>
+    <a class="btn btn-sm btn-outline-dark icon-btn" href="{{ url_for('workplan.workplan_child_view_page', plan_id=plan.id, next=next_url if next_url else None) }}">{{ bi('eye', 'bi-icon-sm') }} <span>Ansicht</span></a>
+    <form method="POST" action="{{ url_for('workplan.workplan_delete_page', plan_id=plan.id) }}" class="d-inline" data-confirm-title="Arbeitsplan löschen" data-confirm-message="Arbeitsplan wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
       {{ csrf_input() }}
       <button class="btn btn-sm btn-outline-danger icon-btn" type="submit">{{ bi('trash', 'bi-icon-sm') }} <span>Löschen</span></button>
     </form>
@@ -94,7 +94,7 @@
   <input type="hidden" name="periodEnd" value="{{ plan.period_end.isoformat() if plan.period_end else '' }}">
   <input type="hidden" name="notesForChild" value="{{ plan.notes_for_child or '' }}">
   <input type="hidden" name="notesForTeacher" value="{{ plan.notes_for_teacher or '' }}">
-  <input type="hidden" name="redirectTo" value="{{ url_for('workplan.workplan_edit_page', plan_id=plan.id) }}">
+  <input type="hidden" name="redirectTo" value="{{ url_for('workplan.workplan_edit_page', plan_id=plan.id, next=next_url if next_url else None) }}">
 </form>
 
 <form id="plan-meta-save-edit-form" method="POST" action="{{ url_for('workplan.api_work_plans_update', plan_id=plan.id) }}" class="d-none">
@@ -103,7 +103,7 @@
   <input type="hidden" name="periodEnd" value="{{ plan.period_end.isoformat() if plan.period_end else '' }}">
   <input type="hidden" name="notesForChild" value="{{ plan.notes_for_child or '' }}">
   <input type="hidden" name="notesForTeacher" value="{{ plan.notes_for_teacher or '' }}">
-  <input type="hidden" name="redirectTo" value="{{ url_for('workplan.workplan_basics_edit_page', plan_id=plan.id, next=url_for('workplan.workplan_edit_page', plan_id=plan.id)) }}">
+  <input type="hidden" name="redirectTo" value="{{ url_for('workplan.workplan_basics_edit_page', plan_id=plan.id, next=url_for('workplan.workplan_edit_page', plan_id=plan.id, next=next_url if next_url else None)) }}">
 </form>
 
 <div class="surface-panel p-3 mb-3">

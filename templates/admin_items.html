@@ -34,7 +34,11 @@
                 <td class="text-end">
                     <a href="{{ url_for('admin.admin_item_edit', i_id=item.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span></a>
                     <form method="POST" action="{{ url_for('admin.admin_item_delete', i_id=item.id) }}" style="display:inline;" class="ms-1"
-                        onsubmit="return confirm('Soll dieses Item wirklich gelöscht werden? Alle Beobachtungen dazu gehen verloren!')">
+                        data-confirm-title="Item löschen"
+                        data-confirm-message="Soll dieses Item wirklich gelöscht werden? Alle Beobachtungen dazu gehen verloren!"
+                        data-confirm-button="Löschen"
+                        data-confirm-button-class="btn-danger"
+                        data-confirm-variant="delete">
                         {{ csrf_input() }}
                         <button type="submit" class="btn btn-sm btn-outline-danger icon-only-btn" aria-label="Item löschen">{{ bi('trash', 'bi-icon-sm') }}</button>
                     </form>

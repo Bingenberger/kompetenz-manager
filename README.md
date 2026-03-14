@@ -1,4 +1,4 @@
-# Kompetenz-Manager
+# KompetenzKompass
 
 Flask-Anwendung zur Erfassung von Beobachtungen, Berichten und Förderplänen im Schulkontext.
 
@@ -19,6 +19,8 @@ Die App unterstützt Lehrkräfte dabei, Beobachtungen zu einzelnen Kindern syste
 - `Bogen` und `Item`: Beobachtungsbögen mit einzelnen Beobachtungskriterien
 - `Beobachtung`: Bewertung eines Items (inkl. Datum, Anlass, Kommentar, optional Foto)
 - `Elternkontakt`: Dokumentation von Elternkommunikation (Notiz oder Protokoll)
+- `Elternberatung`: Vorbereitung und Durchführung von Elterngesprächen
+- `ErziehungsEreignis` + zugehörige Pool-Modelle: Dokumentation erzieherischer Ereignisse mit Konsequenzen, Ort, Zuständigkeit und Anhängen
 - `Foerdergrundlage`: Grundlagenblatt mit Stärken/Förderbedarf/Absprachen
 - `Foerderplan` + `Foerderinhalt`: Förderplan mit Zielen, Maßnahmen und Evaluation
 - `User` + `UserKlassenzuordnung`: Benutzerverwaltung inkl. Klassenleitung/Fachklassen
@@ -33,6 +35,7 @@ Die App unterstützt Lehrkräfte dabei, Beobachtungen zu einzelnen Kindern syste
   - Klassenzuordnungen für Lehrkräfte pflegen (Klassenleitung/Fachklassen)
   - Schülerstammdaten verwalten
   - Beobachtungsbögen und Items verwalten
+  - Pools für erzieherische Arbeit verwalten (Kategorien, Ereignisse, Orte, Konsequenzen)
   - Systemeinstellungen (Schuljahr, Elternsprechtage) pflegen
 - Lehrkräfte arbeiten primär mit den ihnen zugeordneten Klassen; diese Zuordnung beeinflusst Auswahlhilfen, Dashboard und To-dos.
 
@@ -147,6 +150,33 @@ Für jedes Kind können individuelle Arbeitspläne (z. B. wöchentlich) erstellt
 - zentrale Routen:
   - UI: `/arbeitsplaene`, `/arbeitsplan/neu/<s_id>`, `/arbeitsplan/<id>/bearbeiten`, `/arbeitsplan/<id>/evaluate`
   - API: `/api/work-plans...`, `/api/work-plan-suggestions`, `/api/observations/from-evaluation`
+
+### Erzieherische Arbeit
+
+Für pädagogische Vorfälle gibt es ein eigenes Dokumentationsmodul unter `/erziehung`.
+
+- Stammdaten im Adminbereich:
+  - Ereigniskategorien
+  - Ereignispool
+  - Orte
+  - Konsequenzen
+- Pro Ereignis werden erfasst:
+  - Kind
+  - Datum
+  - Ereignisart aus dem Pool
+  - Ort
+  - freie Beschreibung
+  - Status `offen` oder `abgeschlossen`
+  - zuständige Lehrkraft
+  - markierte Konsequenzen
+  - optional weitere betroffene Kinder
+  - optional Stellungnahme des Kindes
+  - optional Stellungnahmen weiterer Beteiligter
+  - optional verknüpfte Elternkontakte
+  - optionale Anhänge (JPG, PNG, WEBP, PDF)
+- Sichtbarkeit:
+  - Lehrkräfte sehen Ereignisse für Kinder aus eigener Klasse oder zugewiesenem Fachunterricht
+  - `admin` sieht alle Ereignisse
 
 ### Dashboard und To-do-Logik
 

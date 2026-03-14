@@ -2,6 +2,7 @@ import os
 import sqlite3
 from pathlib import Path
 from flask import Flask
+from flask_login import current_user
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
 
@@ -13,9 +14,10 @@ from db_health_checks import (
     warn_if_user_name_columns_missing,
 )
 from extensions import db, login_manager
-from models import User
+from models import Notification, User
 from routes.admin_routes import register_admin_routes
 from routes.auth_routes import register_auth_routes
+from routes.erziehung_routes import register_erziehung_routes
 from routes.erfassung_routes import register_erfassung_routes
 from routes.foerderplan_routes import register_foerderplan_routes
 from routes.report_routes import register_report_routes
@@ -94,8 +96,33 @@ def create_app(config_overrides=None):
     def load_user(user_id):
         return db.session.get(User, int(user_id))
 
+    @app.context_processor
+    def inject_notification_data():
+        if not getattr(current_user, 'is_authenticated', False):
+            return {'header_notifications': [], 'header_unread_notification_count': 0}
+        notifications = (
+            Notification.query
+            .filter(Notification.user_id == current_user.id)
+            .order_by(Notification.is_read.asc(), Notification.created_at.desc(), Notification.id.desc())
+            .limit(12)
+            .all()
+        )
+        unread_count = (
+            Notification.query
+            .filter(
+                Notification.user_id == current_user.id,
+                Notification.is_read.is_(False),
+            )
+            .count()
+        )
+        return {
+            'header_notifications': notifications,
+            'header_unread_notification_count': unread_count,
+        }
+
     register_auth_routes(app)
     register_admin_routes(app)
+    register_erziehung_routes(app)
     register_erfassung_routes(app)
     register_report_routes(app)
     register_foerderplan_routes(app)

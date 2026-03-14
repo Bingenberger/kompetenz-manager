@@ -267,6 +267,58 @@ def _postgres_add_missing_library_template_columns():
             print("Spalte 'class_task_template.icon_name' wurde für PostgreSQL ergänzt.")
         conn.commit()
 
+
+def _sqlite_add_missing_erziehung_event_columns():
+    engine = db.engine
+    if engine.url.get_backend_name() != "sqlite":
+        return
+
+    with engine.connect() as conn:
+        table_exists = conn.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type='table' AND name='erziehungs_ereignis'")
+        ).first()
+        if not table_exists:
+            return
+
+        columns = {
+            row["name"]
+            for row in conn.execute(text("PRAGMA table_info(erziehungs_ereignis)")).mappings().all()
+        }
+        if "consequence_notes" not in columns:
+            conn.execute(text("ALTER TABLE erziehungs_ereignis ADD COLUMN consequence_notes TEXT"))
+            print("Spalte 'erziehungs_ereignis.consequence_notes' wurde ergänzt.")
+        conn.commit()
+
+
+def _postgres_add_missing_erziehung_event_columns():
+    engine = db.engine
+    if engine.url.get_backend_name() not in {"postgresql", "postgres"}:
+        return
+
+    with engine.connect() as conn:
+        table_exists = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_schema = 'public' AND table_name = 'erziehungs_ereignis'"
+            )
+        ).first()
+        if not table_exists:
+            return
+
+        existing = {
+            row[0]
+            for row in conn.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_schema = 'public' AND table_name = 'erziehungs_ereignis'"
+                )
+            ).all()
+        }
+        if "consequence_notes" not in existing:
+            conn.execute(text("ALTER TABLE public.erziehungs_ereignis ADD COLUMN consequence_notes TEXT"))
+            print("Spalte 'erziehungs_ereignis.consequence_notes' wurde für PostgreSQL ergänzt.")
+        conn.commit()
+
 # Wir aktivieren den "App Context", damit wir Zugriff auf die DB-Konfiguration haben
 with app.app_context():
     print("--- Starte Datenbank-Update ---")
@@ -281,9 +333,11 @@ with app.app_context():
     _sqlite_add_missing_workplan_weeks_column()
     _sqlite_add_missing_workplan_task_columns()
     _sqlite_add_missing_library_template_columns()
+    _sqlite_add_missing_erziehung_event_columns()
     _postgres_add_missing_workplan_weeks_column()
     _postgres_add_missing_workplan_task_columns()
     _postgres_add_missing_library_template_columns()
+    _postgres_add_missing_erziehung_event_columns()
     
     print("--- FERTIG! Die Datenbank wurde erweitert. ---")
     print("Ihre alten Daten sind sicher.")

@@ -1,0 +1,291 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .student-button-grid { display:flex; flex-wrap:wrap; gap:.5rem; }
+    .beratung-panel {
+        border-radius: 16px;
+        border: 1px solid rgba(87,117,144,0.12);
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90));
+        box-shadow: 0 10px 24px rgba(31,41,51,0.05);
+    }
+    .beratung-summary-badge {
+        border-radius: 999px;
+        padding: .35rem .65rem;
+    }
+    .beratung-accordion .accordion-button {
+        gap: .65rem;
+        align-items: center;
+    }
+    .beratung-accordion .accordion-button:not(.collapsed) {
+        background: rgba(39,125,161,0.08);
+        color: inherit;
+        box-shadow: none;
+    }
+</style>
+
+<div class="surface-panel p-4 p-md-5 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+        <div>
+            <span class="section-label">Elternberatung</span>
+            <h2 class="mt-2 mb-1">Elterngespräch vorbereiten und durchführen</h2>
+            <p class="text-muted mb-0">Gesprächstermin dokumentieren und dabei Beobachtungsbögen sowie Förderplanung direkt im Blick behalten.</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ next_url if next_url else url_for('system.schuelerakte', schueler_id=selected_s_id, tab=active_tab) }}" class="btn btn-outline-secondary icon-btn">
+                {{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span>
+            </a>
+        </div>
+    </div>
+
+    <div class="beratung-panel p-3 mb-4">
+        <label class="form-label">Kind auswählen</label>
+        <ul class="nav nav-tabs" role="tablist">
+            {% for tab in tab_definitions %}
+            <li class="nav-item" role="presentation">
+                <a class="nav-link {% if active_tab == tab.id %}active{% endif %}" href="{{ url_for('erfassung.elternberatung', tab=tab.id, schueler_id=selected_s_id if selected_s_id else None, next=next_url if next_url else None) }}">
+                    {{ tab.label }}
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+        <div class="pt-3">
+            {% for tab in tab_definitions %}
+                {% if active_tab == tab.id %}
+                    {% if tab.kind == 'class' %}
+                        {% if tab.students %}
+                        <div class="student-button-grid">
+                            {% for s in tab.students %}
+                            <a class="btn btn-sm icon-btn {% if selected_student and selected_student.id == s.id %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('erfassung.elternberatung', tab=tab.id, schueler_id=s.id, next=next_url if next_url else None) }}">
+                                {{ bi('person', 'bi-icon-sm') }} <span>{{ s.vorname }} {{ s.nachname }}</span>
+                            </a>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-muted small">Keine Kinder in dieser Klasse gefunden.</div>
+                        {% endif %}
+                    {% else %}
+                    <form method="GET" class="row g-3 align-items-end">
+                        <input type="hidden" name="tab" value="dropdown">
+                        {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+                        <div class="col-md-8">
+                            {% set student_select_id = 'elternberatung_schueler_id' %}
+                            {% set student_select_name = 'schueler_id' %}
+                            {% set student_select_selected = selected_s_id %}
+                            {% set student_select_required = false %}
+                            {% set student_select_placeholder = 'Kind auswählen...' %}
+                            {% set student_search_placeholder = 'Kind suchen...' %}
+                            {% include 'includes/student_select_field.html' %}
+                        </div>
+                        <div class="col-md-4 d-flex gap-2">
+                            <button type="submit" class="btn btn-primary icon-btn">{{ bi('search', 'bi-icon') }} <span>Anzeigen</span></button>
+                            {% if selected_s_id %}
+                            <a href="{{ url_for('erfassung.elternberatung', tab='dropdown', next=next_url if next_url else None) }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Zurücksetzen</span></a>
+                            {% endif %}
+                        </div>
+                    </form>
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+
+    <form method="POST" class="d-grid gap-4">
+        {{ csrf_input() }}
+        <input type="hidden" name="schueler_id" value="{{ selected_s_id or '' }}">
+        <input type="hidden" name="tab" value="{{ active_tab }}">
+        <input type="hidden" name="next" value="{{ next_url or '' }}">
+
+        <div class="beratung-panel p-4">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Datum</label>
+                    <input type="date" class="form-control" name="datum" value="{{ form_values.datum }}">
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label">Anlass des Elterngesprächs</label>
+                    <input type="text" class="form-control" name="anlass" value="{{ form_values.anlass }}" placeholder="z. B. Lernentwicklung, Förderbedarf, Vorbereitung auf ein Elterngespräch">
+                </div>
+            </div>
+        </div>
+
+        {% if selected_student %}
+        <div class="beratung-panel p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <div>
+                    <span class="section-label">Beobachtungsbögen</span>
+                    <h3 class="mt-2 mb-0">{{ selected_student.vorname }} {{ selected_student.nachname }}</h3>
+                </div>
+                <span class="badge text-bg-light beratung-summary-badge">{{ bogen_rows|length }} ausgefüllte Bögen</span>
+            </div>
+
+            {% if bogen_rows %}
+            <div class="accordion beratung-accordion" id="beratungBogenAccordion">
+                {% for row in bogen_rows %}
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="beratung-bogen-heading-{{ row.bogen.id }}">
+                        <button class="accordion-button {% if loop.index > 1 %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#beratung-bogen-{{ row.bogen.id }}" aria-expanded="{{ 'true' if loop.index == 1 else 'false' }}" aria-controls="beratung-bogen-{{ row.bogen.id }}">
+                            {{ bi('clipboard2-data', 'bi-icon-sm') }}
+                            <span class="fw-semibold">{{ row.bogen.titel }}</span>
+                            <span class="badge text-bg-light">{{ row.item_count }} Kompetenzen</span>
+                            <span class="badge text-bg-light">{{ row.entry_count }} Einträge</span>
+                        </button>
+                    </h2>
+                    <div id="beratung-bogen-{{ row.bogen.id }}" class="accordion-collapse collapse {% if loop.index == 1 %}show{% endif %}" aria-labelledby="beratung-bogen-heading-{{ row.bogen.id }}" data-bs-parent="#beratungBogenAccordion">
+                        <div class="accordion-body">
+                            <div class="accordion beratung-accordion" id="beratung-item-accordion-{{ row.bogen.id }}">
+                                {% for item_row in row.item_rows %}
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header" id="beratung-item-heading-{{ item_row.item.id }}">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#beratung-item-{{ item_row.item.id }}" aria-expanded="false" aria-controls="beratung-item-{{ item_row.item.id }}">
+                                            <span class="fw-semibold">{{ item_row.item.text }}</span>
+                                            <span class="badge text-bg-light">{{ item_row.item.bereich or 'ohne Bereich' }}</span>
+                                            <span class="badge bg-{{ item_row.durchschnitt_color }}" title="Durchschnitt {{ item_row.durchschnitt }}">{{ item_row.durchschnitt_symbol }}</span>
+                                            <span class="badge text-bg-light">{{ item_row.anzahl }} Einträge</span>
+                                        </button>
+                                    </h2>
+                                    <div id="beratung-item-{{ item_row.item.id }}" class="accordion-collapse collapse" aria-labelledby="beratung-item-heading-{{ item_row.item.id }}" data-bs-parent="#beratung-item-accordion-{{ row.bogen.id }}">
+                                        <div class="accordion-body px-0 pb-0">
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-hover align-middle mb-0">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>Datum</th>
+                                                            <th>Anlass</th>
+                                                            <th>Wert</th>
+                                                            <th>Kommentar</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for entry in item_row.eintraege %}
+                                                        <tr>
+                                                            <td>{{ entry.datum.strftime('%d.%m.%Y') if entry.datum else '-' }}</td>
+                                                            <td>{{ entry.anlass or '-' }}</td>
+                                                            <td>
+                                                                {% if entry.wert is not none %}
+                                                                <span class="badge bg-{{ color_map.get(entry.wert, 'secondary') }}">{{ symbol_map.get(entry.wert, entry.wert) }}</span>
+                                                                {% else %}
+                                                                <span class="text-muted">-</span>
+                                                                {% endif %}
+                                                            </td>
+                                                            <td class="text-muted">{{ entry.kommentar or '-' }}</td>
+                                                        </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted">Für dieses Kind liegen noch keine ausgefüllten Bögen vor.</div>
+            {% endif %}
+        </div>
+
+        <div class="beratung-panel p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <div>
+                    <span class="section-label">Förderplanung</span>
+                    <h3 class="mt-2 mb-0">Aktueller Förderkontext</h3>
+                </div>
+            </div>
+
+            <div class="accordion beratung-accordion" id="beratungFoerderAccordion">
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="beratung-active-plan-heading">
+                        <button class="accordion-button {% if not active_plan %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#beratung-active-plan" aria-expanded="{{ 'true' if active_plan else 'false' }}" aria-controls="beratung-active-plan">
+                            {{ bi('folder2-open', 'bi-icon-sm') }}
+                            <span class="fw-semibold">Aktiver Förderplan</span>
+                            {% if active_plan %}
+                            <span class="badge bg-success">aktiv</span>
+                            <span class="badge text-bg-light">{{ active_plan.titel }}</span>
+                            {% else %}
+                            <span class="badge text-bg-light">nicht vorhanden</span>
+                            {% endif %}
+                        </button>
+                    </h2>
+                    <div id="beratung-active-plan" class="accordion-collapse collapse {% if active_plan %}show{% endif %}" aria-labelledby="beratung-active-plan-heading" data-bs-parent="#beratungFoerderAccordion">
+                        <div class="accordion-body">
+                            {% if active_plan %}
+                            {% for inhalt in active_plan.inhalte %}
+                            <div class="border rounded p-3 mb-3">
+                                <div class="fw-semibold mb-2">{{ inhalt.foerderziel }}</div>
+                                <div class="small text-muted mb-1">Ist-Zustand</div>
+                                <div class="mb-2">{{ inhalt.ist_zustand or '-' }}</div>
+                                <div class="small text-muted mb-1">Soll-Zustand</div>
+                                <div class="mb-2">{{ inhalt.soll_zustand or '-' }}</div>
+                                <div class="small text-muted mb-1">Maßnahmen</div>
+                                <div>{{ inhalt.massnahmen or '-' }}</div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <div class="text-muted">Für dieses Kind gibt es aktuell keinen aktiven Förderplan.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="accordion-item">
+                    <h2 class="accordion-header" id="beratung-last-plan-heading">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#beratung-last-plan" aria-expanded="false" aria-controls="beratung-last-plan">
+                            {{ bi('clock-history', 'bi-icon-sm') }}
+                            <span class="fw-semibold">Letzter evaluierter Förderplan</span>
+                            {% if last_evaluated_plan %}
+                            <span class="badge text-bg-light">{{ last_evaluated_plan.titel }}</span>
+                            {% else %}
+                            <span class="badge text-bg-light">nicht vorhanden</span>
+                            {% endif %}
+                        </button>
+                    </h2>
+                    <div id="beratung-last-plan" class="accordion-collapse collapse" aria-labelledby="beratung-last-plan-heading" data-bs-parent="#beratungFoerderAccordion">
+                        <div class="accordion-body">
+                            {% if last_evaluated_plan %}
+                            {% for inhalt in last_evaluated_plan.inhalte %}
+                            <div class="border rounded p-3 mb-3">
+                                <div class="fw-semibold mb-2">{{ inhalt.foerderziel }}</div>
+                                <div class="small text-muted mb-1">Ist-Zustand</div>
+                                <div class="mb-2">{{ inhalt.ist_zustand or '-' }}</div>
+                                <div class="small text-muted mb-1">Soll-Zustand</div>
+                                <div class="mb-2">{{ inhalt.soll_zustand or '-' }}</div>
+                                <div class="small text-muted mb-1">Maßnahmen</div>
+                                <div>{{ inhalt.massnahmen or '-' }}</div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <div class="text-muted">Es gibt noch keinen evaluierten Förderplan.</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="beratung-panel p-4">
+            <div class="row g-3">
+                <div class="col-12">
+                    <label class="form-label">Weitere Beratungspunkte</label>
+                    <textarea class="form-control" name="weitere_beratungspunkte" rows="5" placeholder="Weitere Themen für Vorbereitung und Durchführung des Gesprächs ...">{{ form_values.weitere_beratungspunkte }}</textarea>
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Vereinbarungen</label>
+                    <textarea class="form-control" name="vereinbarungen" rows="5" placeholder="Was wurde vereinbart?">{{ form_values.vereinbarungen }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-end gap-2">
+            <button type="submit" class="btn btn-primary icon-btn" {% if not selected_student %}disabled{% endif %}>
+                {{ bi('save', 'bi-icon') }} <span>Speichern</span>
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

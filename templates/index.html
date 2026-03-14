@@ -107,7 +107,7 @@
     }
     .hero-stats {
         display: grid;
-        grid-template-columns: repeat(3, minmax(0,1fr));
+        grid-template-columns: repeat(4, minmax(0,1fr));
         gap: .75rem;
     }
     .hero-stat {
@@ -194,7 +194,7 @@
         color: #5a4a1d;
     }
     @media (max-width: 991px) {
-        .hero-stats { grid-template-columns: 1fr; }
+        .hero-stats { grid-template-columns: repeat(2, minmax(0,1fr)); }
     }
     @media (max-width: 767px) {
         .action-grid { grid-template-columns: 1fr; }
@@ -224,7 +224,7 @@
     <div class="row g-3 align-items-stretch">
         <div class="col-lg-7">
             <div class="d-flex flex-wrap gap-2 mb-3">
-                <span class="hero-chip">{{ bi('building', 'bi-icon-sm') }} Kompetenz-Manager</span>
+                <span class="hero-chip">{{ bi('compass', 'bi-icon-sm') }} KompetenzKompass</span>
                 {% if school_year %}
                 <span class="hero-chip">{{ bi('calendar3', 'bi-icon-sm') }} Schuljahr {{ school_year }}</span>
                 {% endif %}
@@ -251,12 +251,16 @@
                     <span class="label">Kinder in {% if hero_klasse %}Klasse {{ hero_klasse }}{% else %}der Klasse{% endif %}</span>
                 </div>
                 <div class="hero-stat">
-                    <span class="value">{{ hero_stats.beobachtungsboegen_ausgefuellt }}</span>
-                    <span class="label">Ausgefüllte Beobachtungsbögen</span>
-                </div>
-                <div class="hero-stat">
                     <span class="value">{{ hero_stats.aktive_foerderplaene }}</span>
                     <span class="label">Aktive Förderpläne</span>
+                </div>
+                <div class="hero-stat">
+                    <span class="value">{{ hero_stats.aktive_arbeitsplaene }}</span>
+                    <span class="label">Aktive Arbeitspläne</span>
+                </div>
+                <div class="hero-stat">
+                    <span class="value">{{ hero_stats.offene_erziehungsfaelle }}</span>
+                    <span class="label">Offene Fälle</span>
                 </div>
             </div>
         </div>
@@ -293,7 +297,7 @@
 </div>
 
 <div class="row g-4">
-    <div class="col-lg-7">
+    <div class="col-lg-6">
         <div class="d-flex flex-column gap-4">
             <div class="stack-card fade-in fade-in-delay-1">
                 <div class="stack-head d-flex justify-content-between align-items-center">
@@ -304,34 +308,27 @@
                     <small class="text-muted">4 Arbeitsmodi</small>
                 </div>
                 <div class="stack-body">
-                    <div class="action-grid">
-                        <a href="{{ url_for('erfassung.erfassen_einzel') }}" class="action-tile accent-orange">
-                            <span class="icon-wrap icon-orange">{{ bi('lightning-charge', 'bi-icon-md') }}</span>
-                            <span class="tile-eyebrow">Schnell</span>
-                            <div class="tile-title">Notiz zwischendurch</div>
-                            <p class="tile-copy">Spontane Beobachtung mit Bewertung, Kommentar und Foto.</p>
+                    <div class="row g-2">
+                        <div class="col-sm-6">
+                        <a href="{{ url_for('erfassung.erfassen_einzel') }}" class="btn btn-warning btn-lg icon-btn justify-content-center w-100">
+                            {{ bi('lightning-charge', 'bi-icon') }} <span>Schnelleintrag</span>
                         </a>
-
-                        <a href="{{ url_for('erfassung.reihe_start') }}" class="action-tile accent-blue">
-                            <span class="icon-wrap icon-blue">{{ bi('people', 'bi-icon-md') }}</span>
-                            <span class="tile-eyebrow">Klasse</span>
-                            <div class="tile-title">Klassen-Durchlauf</div>
-                            <p class="tile-copy">Ein Item nacheinander für alle Schülerinnen und Schüler.</p>
+                        </div>
+                        <div class="col-sm-6">
+                        <a href="{{ url_for('erfassung.reihe_start') }}" class="btn btn-primary btn-lg icon-btn justify-content-center w-100">
+                            {{ bi('people', 'bi-icon') }} <span>Klassen-Durchlauf</span>
                         </a>
-
-                        <a href="{{ url_for('erfassung.erfassen_schueler') }}" class="action-tile accent-green">
-                            <span class="icon-wrap icon-green">{{ bi('person', 'bi-icon-md') }}</span>
-                            <span class="tile-eyebrow">Ein Kind</span>
-                            <div class="tile-title">Ganzer Bogen</div>
-                            <p class="tile-copy">Alle Items eines Bogens gesammelt für ein Kind bewerten.</p>
+                        </div>
+                        <div class="col-sm-6">
+                        <a href="{{ url_for('erfassung.erfassen_schueler') }}" class="btn btn-success btn-lg icon-btn justify-content-center w-100">
+                            {{ bi('person', 'bi-icon') }} <span>Ganzer Bogen</span>
                         </a>
-
-                        <a href="{{ url_for('erfassung.multi_start') }}" class="action-tile accent-red">
-                            <span class="icon-wrap icon-red">{{ bi('rocket-takeoff', 'bi-icon-md') }}</span>
-                            <span class="tile-eyebrow">Mehrfach</span>
-                            <div class="tile-title">Multi-Item Durchlauf</div>
-                            <p class="tile-copy">Mehrere Kompetenzen pro Kind in einem Durchgang erfassen.</p>
+                        </div>
+                        <div class="col-sm-6">
+                        <a href="{{ url_for('erfassung.multi_start') }}" class="btn btn-danger btn-lg icon-btn justify-content-center w-100">
+                            {{ bi('rocket-takeoff', 'bi-icon') }} <span>Multi-Item Durchlauf</span>
                         </a>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -348,10 +345,23 @@
                     </a>
                 </div>
             </div>
+
+            <div class="stack-card fade-in fade-in-delay-3" style="border-color: rgba(249,65,68,0.24);">
+                <div class="stack-head" style="background: linear-gradient(90deg, rgba(249,65,68,0.14), rgba(243,114,44,0.08)); border-radius: 16px 16px 0 0;">
+                    <span class="section-label" style="background: rgba(249,65,68,0.10); border-color: rgba(249,65,68,0.18); color:#7c2d12;">Erzieherische Arbeit</span>
+                    <h3 class="mt-2 mb-0">Ereignisse & Konsequenzen</h3>
+                </div>
+                <div class="stack-body d-grid gap-3">
+                    <p class="text-muted mb-0">Ereignisse zu Kindern dokumentieren, Zuständigkeiten festlegen, Konsequenzen markieren und Anhänge verknüpfen.</p>
+                    <a href="{{ url_for('erziehung.erziehung_list') }}" class="btn btn-outline-danger btn-lg icon-btn justify-content-center">
+                        {{ bi('shield-exclamation', 'bi-icon') }} <span>Modul öffnen</span>
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
-    <div class="col-lg-5">
+    <div class="col-lg-6">
         <div class="d-flex flex-column gap-4">
             <div class="stack-card fade-in fade-in-delay-2" style="border-color: rgba(39,125,161,0.20);">
                 <div class="stack-head" style="background: linear-gradient(90deg, rgba(39,125,161,0.10), rgba(77,144,142,0.08)); border-radius: 16px 16px 0 0;">
@@ -369,6 +379,9 @@
                         </a>
                         <a href="{{ url_for('erfassung.elternkontakt_protokoll') }}" class="btn btn-outline-dark icon-btn">
                             {{ bi('journal-text', 'bi-icon-sm') }} <span>Protokoll</span>
+                        </a>
+                        <a href="{{ url_for('erfassung.elternberatung') }}" class="btn btn-outline-success icon-btn">
+                            {{ bi('people', 'bi-icon-sm') }} <span>Beratung</span>
                         </a>
                     </div>
                 </div>

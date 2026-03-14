@@ -1,0 +1,25 @@
+{% if child_contacts %}
+<div class="check-grid">
+    {% for kontakt in child_contacts %}
+    <div class="check-card d-flex align-items-start gap-2">
+        <input class="form-check-input mt-1" type="checkbox" name="elternkontakt_ids" value="{{ kontakt.id }}" {% if kontakt.id|string in selected_contact_ids or kontakt.id in selected_contact_ids %}checked{% endif %}>
+        <span class="flex-grow-1">
+            <span class="d-block">{{ kontakt.datum.strftime('%d.%m.%Y') }} - {{ kontakt.eintrag_typ|capitalize }}</span>
+            <br>
+            <small class="text-muted">{{ kontakt.betreff or kontakt.mitteilung or kontakt.gespraechsanlass or 'ohne Kurztext' }}</small>
+        </span>
+        <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary icon-only-btn"
+            title="Elternkontakt ansehen"
+            aria-label="Elternkontakt ansehen"
+            data-overlay-launch
+            data-overlay-url="{{ url_for('erfassung.elternkontakt_view', kontakt_id=kontakt.id, next=request.full_path if request.query_string else request.path, overlay=1) }}">
+            {% from "includes/icons.html" import bi %}{{ bi('eye', 'bi-icon-sm') }}
+        </button>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="text-muted">Für dieses Kind sind noch keine Elternkontakte vorhanden.</div>
+{% endif %}

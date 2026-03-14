@@ -30,6 +30,8 @@
             grid-template-columns: repeat(2, minmax(0, 1fr));
         }
     }
+    .student-button-grid { display:flex; flex-wrap:wrap; gap:.5rem; }
+    .selection-button-grid { display:flex; flex-wrap:wrap; gap:.5rem; }
 </style>
 
 <div class="quick-entry-shell">
@@ -46,39 +48,163 @@
         </div>
 
         <hr class="soft-divider">
+        {% if not selected_student %}
+        <div class="surface-panel p-3 mb-3">
+            <label class="form-label">1. Kind auswählen</label>
+            <ul class="nav nav-tabs" role="tablist">
+                {% for tab in tab_definitions %}
+                <li class="nav-item" role="presentation">
+                    <a class="nav-link {% if active_tab == tab.id %}active{% endif %}" href="{{ url_for('erfassung.erfassen_einzel', tab=tab.id, next=next_url if next_url else None) }}">
+                        {{ tab.label }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+            <div class="pt-3">
+                {% for tab in tab_definitions %}
+                    {% if active_tab == tab.id %}
+                        {% if tab.kind == 'class' %}
+                            {% if tab.students %}
+                            <div class="student-button-grid">
+                                {% for s in tab.students %}
+                                <a class="btn btn-sm icon-btn {% if selected_student and selected_student.id == s.id %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('erfassung.erfassen_einzel', tab=tab.id, schueler_id=s.id, next=next_url if next_url else None) }}">
+                                    {{ bi('person', 'bi-icon-sm') }} <span>{{ s.vorname }} {{ s.nachname }}</span>
+                                </a>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <div class="text-muted small">Keine Kinder in dieser Klasse gefunden.</div>
+                            {% endif %}
+                        {% else %}
+                            {% set student_select_id = 'einzel_schueler_id' %}
+                            {% set student_select_name = 'schueler_id' %}
+                            {% set student_select_selected = selected_s_id %}
+                            {% set student_select_required = true %}
+                            {% set student_select_placeholder = 'Schüler wählen...' %}
+                            {% set student_search_placeholder = 'Kind suchen...' %}
+                            <form method="GET" class="row g-3 align-items-end">
+                                <input type="hidden" name="tab" value="dropdown">
+                                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+                                <div class="col-md-8">{% include 'includes/student_select_field.html' %}</div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-primary icon-btn" type="submit">{{ bi('search', 'bi-icon') }} <span>Auswählen</span></button>
+                                </div>
+                            </form>
+                        {% endif %}
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% else %}
+        <div class="surface-panel p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                <div>
+                    <div class="small text-muted">1. Kind</div>
+                    <div class="fw-semibold">{{ selected_student.vorname }} {{ selected_student.nachname }} ({{ selected_student.klasse or '-' }})</div>
+                </div>
+                <a class="btn btn-sm btn-outline-secondary icon-btn" href="{{ url_for('erfassung.erfassen_einzel', tab=active_tab, next=next_url if next_url else None) }}">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Kind wechseln</span></a>
+            </div>
+        </div>
+
+        {% if not selected_bogen %}
+        <div class="surface-panel p-3 mb-3">
+            <label class="form-label">2. Bogen auswählen</label>
+            <div class="selection-button-grid mb-3">
+                {% for b in boegen %}
+                <a class="btn btn-sm btn-outline-primary icon-btn" href="{{ url_for('erfassung.erfassen_einzel', tab=active_tab, schueler_id=selected_s_id, bogen_id=b.id, next=next_url if next_url else None) }}">
+                    {{ bi('journal-text', 'bi-icon-sm') }} <span>{{ b.titel }}</span>
+                </a>
+                {% endfor %}
+            </div>
+            <form method="GET" class="row g-2 align-items-end">
+                <input type="hidden" name="tab" value="{{ active_tab }}">
+                <input type="hidden" name="schueler_id" value="{{ selected_s_id }}">
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+                <div class="col-md-8">
+                    <label class="form-label small text-muted">Alternativ per Dropdown</label>
+                    <select name="bogen_id" class="form-select" onchange="if(this.value){this.form.submit();}">
+                        <option value="">Bogen wählen...</option>
+                        {% for b in boegen %}
+                        <option value="{{ b.id }}">{{ b.titel }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted">Wird nach Auswahl direkt geöffnet.</small>
+                </div>
+            </form>
+        </div>
+        {% else %}
+        <div class="surface-panel p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                <div>
+                    <div class="small text-muted">2. Bogen</div>
+                    <div class="fw-semibold">{{ selected_bogen.titel }}</div>
+                </div>
+                <a class="btn btn-sm btn-outline-secondary icon-btn" href="{{ url_for('erfassung.erfassen_einzel', tab=active_tab, schueler_id=selected_s_id, next=next_url if next_url else None) }}">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Bogen wechseln</span></a>
+            </div>
+        </div>
+
+        {% if not selected_item %}
+        <div class="surface-panel p-3 mb-3">
+            <label class="form-label">3. Bereich auswählen</label>
+            {% if bereiche %}
+            <div class="selection-button-grid mb-3">
+                {% for bereich in bereiche %}
+                <a class="btn btn-sm icon-btn {% if selected_bereich == bereich %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('erfassung.erfassen_einzel', tab=active_tab, schueler_id=selected_s_id, bogen_id=selected_bogen_id, bereich=bereich, next=next_url if next_url else None) }}">
+                    {{ bi('grid-3x3-gap', 'bi-icon-sm') }} <span>{{ bereich }}</span>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-muted small mb-3">Dieser Bogen hat keine Bereiche.</div>
+            {% endif %}
+
+            <label class="form-label">4. Kompetenz auswählen</label>
+            <form method="GET" class="row g-3 align-items-end">
+                <input type="hidden" name="tab" value="{{ active_tab }}">
+                <input type="hidden" name="schueler_id" value="{{ selected_s_id }}">
+                <input type="hidden" name="bogen_id" value="{{ selected_bogen_id }}">
+                {% if selected_bereich %}<input type="hidden" name="bereich" value="{{ selected_bereich }}">{% endif %}
+                {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+                <div class="col-md-9">
+                    <select name="item_id" class="form-select" required {% if bereiche and not selected_bereich %}disabled{% endif %} onchange="if(this.value){this.form.submit();}">
+                        <option value="">Kompetenz wählen...</option>
+                        {% for item in competency_items %}
+                        <option value="{{ item.id }}">{{ item.bereich }} | {{ item.text }}</option>
+                        {% endfor %}
+                    </select>
+                    {% if bereiche and not selected_bereich %}
+                    <div class="small text-muted mt-1">Bitte zuerst oben einen Bereich wählen.</div>
+                    {% endif %}
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <a class="btn btn-outline-secondary icon-btn" href="{{ url_for('erfassung.erfassen_einzel', tab=active_tab, schueler_id=selected_s_id, next=next_url if next_url else None) }}">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+                </div>
+            </form>
+        </div>
+        {% else %}
+        <div class="surface-panel p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+                <div>
+                    <div class="small text-muted">3. Kompetenz</div>
+                    <div class="fw-semibold">{{ selected_item.bereich }} | {{ selected_item.text }}</div>
+                </div>
+                <a class="btn btn-sm btn-outline-secondary icon-btn" href="{{ url_for('erfassung.erfassen_einzel', tab=active_tab, schueler_id=selected_s_id, bogen_id=selected_bogen_id, next=next_url if next_url else None) }}">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Kompetenz wechseln</span></a>
+            </div>
+        </div>
 
         <form method="POST" enctype="multipart/form-data">
             {{ csrf_input() }}
             {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
-
-            <div class="row g-3">
-                <div class="col-md-6">
-                    <label class="form-label">Schüler auswählen</label>
-                    {% set student_select_id = 'einzel_schueler_id' %}
-                    {% set student_select_name = 'schueler_id' %}
-                    {% set student_select_required = true %}
-                    {% set student_select_placeholder = 'Schüler wählen...' %}
-                    {% set student_search_placeholder = 'Kind suchen...' %}
-                    {% include 'includes/student_select_field.html' %}
-                </div>
-
-                <div class="col-md-6">
-                    <label class="form-label">Kompetenz auswählen</label>
-                    <select name="item_id" class="form-select" required>
-                        <option disabled selected value="">Kompetenz wählen...</option>
-                        {% for b in boegen %}
-                        <optgroup label="{{ b.titel }}">
-                            {% for item in b.items %}
-                            <option value="{{ item.id }}">{{ item.text }}</option>
-                            {% endfor %}
-                        </optgroup>
-                        {% endfor %}
-                    </select>
-                </div>
-            </div>
+            <input type="hidden" name="tab" value="{{ active_tab }}">
+            <input type="hidden" name="schueler_id" value="{{ selected_s_id }}">
+            <input type="hidden" name="bogen_id" value="{{ selected_bogen_id }}">
+            <input type="hidden" name="bereich" value="{{ selected_bereich }}">
+            <input type="hidden" name="item_id" value="{{ selected_item_id }}">
 
             <div class="mt-4">
-                <label class="form-label">Bewertung</label>
+                <label class="form-label">4. Bewertung</label>
                 {% set rating_name = 'wert' %}
                 {% set rating_id_prefix = 'opt' %}
                 {% set rating_layout_class = 'rating-grid' %}
@@ -104,10 +230,14 @@
             </div>
 
             <div class="d-flex flex-wrap gap-2 mt-4">
+                <a class="btn btn-outline-secondary btn-lg icon-btn" href="{{ url_for('erfassung.erfassen_einzel', tab=active_tab, schueler_id=selected_s_id, bogen_id=selected_bogen_id, next=next_url if next_url else None) }}">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
                 <button type="submit" class="btn btn-success btn-lg icon-btn">{{ bi('floppy', 'bi-icon') }} <span>Speichern</span></button>
                 <a href="{{ next_url if next_url else url_for('system.index') }}" class="btn btn-outline-secondary btn-lg icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
             </div>
         </form>
+        {% endif %}
+        {% endif %}
+        {% endif %}
     </div>
 </div>
 {% endblock %}

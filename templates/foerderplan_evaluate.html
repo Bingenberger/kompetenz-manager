@@ -22,6 +22,23 @@
         border-radius: 10px;
         padding: .8rem;
     }
+    .goal-status-switch {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: .45rem;
+    }
+    .goal-status-switch .btn {
+        min-height: 44px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-weight: 600;
+        line-height: 1.2;
+        font-size: .92rem;
+        padding: .45rem .6rem;
+    }
 </style>
 <div class="mb-4 page-title-row">
     <span class="section-label">Förderplanung</span>
@@ -67,12 +84,13 @@
 
                     <div class="mb-3">
                         <label class="form-label fw-bold">Status des Ziels</label>
-                        <select name="status_{{ item.id }}" class="form-select">
-                            <option value="0" {% if item.status_id==0 %}selected{% endif %}>Offen / In Arbeit</option>
-                            <option value="1" {% if item.status_id==1 %}selected{% endif %}>Ziel erreicht</option>
-                            <option value="2" {% if item.status_id==2 %}selected{% endif %}>Nicht erreicht /
-                                Weiterführen</option>
-                        </select>
+                        <div class="goal-status-switch" role="group" aria-label="Status des Ziels">
+                            <input class="btn-check" type="radio" name="status_{{ item.id }}" id="status_{{ item.id }}_1" value="1" {% if item.status_id == 1 %}checked{% endif %}>
+                            <label class="btn btn-outline-success" for="status_{{ item.id }}_1">Ziel erreicht</label>
+
+                            <input class="btn-check" type="radio" name="status_{{ item.id }}" id="status_{{ item.id }}_2" value="2" {% if item.status_id != 1 %}checked{% endif %}>
+                            <label class="btn btn-outline-warning" for="status_{{ item.id }}_2">Ziel nicht erreicht - weiterführen</label>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -83,11 +101,13 @@
     <div class="surface-panel p-4 mb-5">
         <div class="card-body">
             <label class="form-label">Gesamtstatus des Plans</label>
-            <select name="plan_status" class="form-select mb-3">
-                <option value="aktiv" {% if plan.status=='aktiv' %}selected{% endif %}>Aktiv (Laufend)</option>
-                <option value="geschlossen" {% if plan.status=='geschlossen' %}selected{% endif %}>Geschlossen
-                    (Archiviert)</option>
-            </select>
+            <div class="goal-status-switch mb-3" role="group" aria-label="Gesamtstatus des Plans">
+                <input class="btn-check" type="radio" name="plan_status" id="plan_status_aktiv" value="aktiv" {% if plan.status=='aktiv' %}checked{% endif %}>
+                <label class="btn btn-outline-primary" for="plan_status_aktiv">Aktiv</label>
+
+                <input class="btn-check" type="radio" name="plan_status" id="plan_status_geschlossen" value="geschlossen" {% if plan.status=='geschlossen' %}checked{% endif %}>
+                <label class="btn btn-outline-secondary" for="plan_status_geschlossen">Geschlossen</label>
+            </div>
 
             <button type="submit" class="btn btn-success btn-lg w-100 icon-btn justify-content-center">{{ bi('floppy', 'bi-icon') }} <span>Auswertung speichern</span></button>
             <a href="{{ next_url if next_url else url_for('foerderplan.foerderplan_list') }}" class="btn btn-outline-secondary w-100 mt-2 icon-btn justify-content-center">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>

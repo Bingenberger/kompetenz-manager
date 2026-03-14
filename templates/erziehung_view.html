@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .event-log-badge {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: .25rem .6rem;
+        font-size: .78rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .event-log-created { background: rgba(39,125,161,0.12); color: #1d5f7a; }
+    .event-log-status { background: rgba(249,199,79,0.18); color: #7a5a00; }
+    .event-log-content { background: rgba(67,170,139,0.14); color: #216b58; }
+    .event-log-links { background: rgba(87,117,144,0.14); color: #40566e; }
+    .event-log-attachment-add { background: rgba(144,190,109,0.16); color: #476629; }
+    .event-log-attachment-delete { background: rgba(249,65,68,0.14); color: #9f272b; }
+    .overlay-frame {
+        width: 100%;
+        min-height: 72vh;
+        border: 0;
+        border-radius: 12px;
+        background: #fff;
+    }
+</style>
+<div class="surface-panel p-4 p-md-5 fade-in">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 page-title-row mb-4">
+        <div>
+            <span class="section-label">Erzieherische Arbeit</span>
+            <h2 class="mt-2 mb-1">{{ event.event_template.name if event.event_template else 'Ereignis' }}</h2>
+            <p class="text-muted mb-0">{{ event.student.vorname }} {{ event.student.nachname }}{% if event.event_template and event.event_template.category %} · {{ event.event_template.category.name }}{% endif %}</p>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            <a href="{{ url_for('erziehung.erziehung_edit', event_id=event.id, next=next_url) }}" class="btn btn-primary icon-btn">{{ bi('pencil-square', 'bi-icon') }} <span>Bearbeiten</span></a>
+            <form method="POST" action="{{ url_for('erziehung.erziehung_delete', event_id=event.id) }}" class="d-inline" data-confirm-title="Ereignis löschen" data-confirm-message="Ereignis wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
+                {{ csrf_input() }}
+                <input type="hidden" name="next" value="{{ next_url if next_url else url_for('erziehung.erziehung_list') }}">
+                <button type="submit" class="btn btn-outline-danger icon-btn">{{ bi('trash', 'bi-icon') }} <span>Löschen</span></button>
+            </form>
+            <a href="{{ next_url if next_url else url_for('erziehung.erziehung_list') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8">
+            <div class="surface-panel p-4 h-100">
+                <h3 class="h5 mb-3">Beschreibung</h3>
+                <p class="mb-0" style="white-space: pre-wrap;">{{ event.beschreibung }}</p>
+            </div>
+        </div>
+        <div class="col-lg-4">
+            <div class="surface-panel p-4 h-100">
+                <h3 class="h5 mb-3">Rahmendaten</h3>
+                <dl class="row mb-0">
+                    <dt class="col-5">Datum</dt><dd class="col-7">{{ event.datum.strftime('%d.%m.%Y') }}</dd>
+                    <dt class="col-5">Ort</dt><dd class="col-7">{{ event.ort.name if event.ort else '-' }}</dd>
+                    <dt class="col-5">Status</dt><dd class="col-7">{{ event.status }}</dd>
+                    <dt class="col-5">Zuständig</dt><dd class="col-7">{{ event.assigned_user.display_name if event.assigned_user else '-' }}</dd>
+                    <dt class="col-5">Erfasst von</dt><dd class="col-7">{{ event.created_by_user.display_name if event.created_by_user else '-' }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-lg-6">
+            <div class="surface-panel p-4 h-100">
+                <h3 class="h5 mb-3">Konsequenzen</h3>
+                {% if event.selected_consequences %}
+                <ul class="mb-0">
+                    {% for row in event.selected_consequences %}
+                    <li>{{ row.consequence.name if row.consequence else '-' }}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-muted">Keine Konsequenzen hinterlegt.</div>
+                {% endif %}
+                {% if event.consequence_notes %}
+                <div class="mt-3 pt-3 border-top">
+                    <div class="small text-muted mb-1">Beschreibung</div>
+                    <div style="white-space: pre-wrap;">{{ event.consequence_notes }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="surface-panel p-4 h-100">
+                <h3 class="h5 mb-3">Betroffene Kinder</h3>
+                {% if event.affected_students %}
+                <ul class="mb-0">
+                    {% for row in event.affected_students %}
+                    <li>{{ row.student.vorname }} {{ row.student.nachname }}{% if row.student.klasse %} ({{ row.student.klasse }}){% endif %}</li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-muted">Keine weiteren betroffenen Kinder dokumentiert.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-lg-6">
+            <div class="surface-panel p-4 h-100">
+                <h3 class="h5 mb-3">Stellungnahme des Kindes</h3>
+                <p class="mb-0" style="white-space: pre-wrap;">{{ event.child_statement or 'Keine Stellungnahme erfasst.' }}</p>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="surface-panel p-4 h-100">
+                <h3 class="h5 mb-3">Stellungnahmen weiterer Beteiligter</h3>
+                <p class="mb-0" style="white-space: pre-wrap;">{{ event.others_statement or 'Keine Stellungnahme erfasst.' }}</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mt-1">
+        <div class="col-lg-6">
+            <div class="surface-panel p-4 h-100">
+                <h3 class="h5 mb-3">Verknüpfte Elternkontakte</h3>
+                {% if event.linked_parent_contacts %}
+                <ul class="mb-0">
+                    {% for row in event.linked_parent_contacts %}
+                    <li>
+                        <a href="{{ url_for('erfassung.elternkontakt_view', kontakt_id=row.kontakt.id, next=request.full_path if request.query_string else request.path) }}">
+                            {{ row.kontakt.datum.strftime('%d.%m.%Y') }} - {{ row.kontakt.eintrag_typ|capitalize }}
+                        </a>
+                        {% if row.kontakt.betreff or row.kontakt.mitteilung %}
+                        <span class="text-muted">· {{ row.kontakt.betreff or row.kontakt.mitteilung }}</span>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-muted">Keine Elternkontakte verknüpft.</div>
+                {% endif %}
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="surface-panel p-4 h-100">
+                <h3 class="h5 mb-3">Anhänge</h3>
+                {% if event.attachments %}
+                <ul class="mb-0">
+                    {% for attachment in event.attachments %}
+                    {% set attachment_static_path = attachment.file_path if attachment.file_path.startswith('uploads/') else 'uploads/' ~ attachment.file_path.lstrip('/') %}
+                    <li>
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-outline-secondary"
+                            data-attachment-overlay-launch
+                            data-attachment-url="{{ url_for('static', filename=attachment_static_path) }}">
+                            {{ attachment.original_name or attachment.file_path }}
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="text-muted">Keine Anhänge vorhanden.</div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="surface-panel p-4 mt-4">
+        <h3 class="h5 mb-3">Änderungsprotokoll</h3>
+        {% if event.logs %}
+        <div class="d-grid gap-3">
+            {% for log in event.logs %}
+            <div class="border rounded-3 p-3 bg-light-subtle">
+                <div class="d-flex flex-wrap justify-content-between gap-2 mb-1">
+                    <span class="event-log-badge {% if log.action == 'created' %}event-log-created{% elif log.action == 'status_changed' %}event-log-status{% elif log.action == 'content_changed' %}event-log-content{% elif log.action == 'links_changed' %}event-log-links{% elif log.action == 'attachment_added' %}event-log-attachment-add{% elif log.action == 'attachment_deleted' %}event-log-attachment-delete{% endif %}">
+                        {% if log.action == 'created' %}
+                            Angelegt
+                        {% elif log.action == 'status_changed' %}
+                            Statusänderung
+                        {% elif log.action == 'content_changed' %}
+                            Fachliche Änderung
+                        {% elif log.action == 'links_changed' %}
+                            Verknüpfungen geändert
+                        {% elif log.action == 'attachment_added' %}
+                            Anhang hinzugefügt
+                        {% elif log.action == 'attachment_deleted' %}
+                            Anhang gelöscht
+                        {% else %}
+                            {{ log.action }}
+                        {% endif %}
+                    </span>
+                    <span class="text-muted small">{{ log.created_at.strftime('%d.%m.%Y %H:%M') }}</span>
+                </div>
+                <div class="small text-muted mb-2">von {{ log.user.display_name if log.user else 'Unbekannt' }}</div>
+                <div style="white-space: pre-wrap;">{{ log.details or '-' }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-muted">Noch keine Änderungen protokolliert.</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="modal fade" id="attachmentOverlay" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="h5 mb-0">Anhang ansehen</h3>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body">
+                <iframe class="overlay-frame" src="about:blank" title="Anhang" data-attachment-frame></iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var modalEl = document.getElementById('attachmentOverlay');
+  if (!modalEl || typeof bootstrap === 'undefined') return;
+  var modal = new bootstrap.Modal(modalEl);
+  var frame = modalEl.querySelector('[data-attachment-frame]');
+  document.querySelectorAll('[data-attachment-overlay-launch]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var url = button.getAttribute('data-attachment-url');
+      if (!url || !frame) return;
+      frame.src = url;
+      modal.show();
+    });
+  });
+  modalEl.addEventListener('hidden.bs.modal', function () {
+    if (frame) frame.src = 'about:blank';
+  });
+});
+</script>
+{% endblock %}

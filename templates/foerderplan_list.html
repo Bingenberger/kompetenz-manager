@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% from "includes/icons.html" import bi %}
 {% block content %}
+<style>
+    .student-button-grid { display:flex; flex-wrap:wrap; gap:.5rem; }
+</style>
 <div class="d-flex justify-content-between align-items-center mb-4 page-title-row">
     <div>
         <span class="section-label">Förderplanung</span>
@@ -11,6 +14,58 @@
 </div>
 
 <div class="surface-panel p-3 mb-3">
+    <label class="form-label">Kind auswählen</label>
+    <ul class="nav nav-tabs mb-3" role="tablist">
+        {% for tab in tab_definitions %}
+        <li class="nav-item" role="presentation">
+            <a class="nav-link {% if active_tab == tab.id %}active{% endif %}" href="{{ url_for('foerderplan.foerderplan_list', tab=tab.id, schueler_id=selected_s_id if selected_s_id else None) }}">
+                {{ tab.label }}
+            </a>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <div class="mb-3">
+        {% for tab in tab_definitions %}
+            {% if active_tab == tab.id %}
+                {% if tab.kind == 'class' %}
+                    {% if tab.students %}
+                    <div class="student-button-grid">
+                        {% for s in tab.students %}
+                        <a class="btn btn-sm icon-btn {% if selected_student and selected_student.id == s.id %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('foerderplan.foerderplan_list', tab=tab.id, schueler_id=s.id) }}">
+                            {{ bi('person', 'bi-icon-sm') }} <span>{{ s.vorname }} {{ s.nachname }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-muted small">Keine Kinder in dieser Klasse gefunden.</div>
+                    {% endif %}
+                {% else %}
+                <form method="GET" class="row g-3 align-items-end">
+                    <input type="hidden" name="tab" value="dropdown">
+                    <div class="col-lg-8">
+                        {% set student_select_id = 'foerderplan_list_schueler_id' %}
+                        {% set student_select_name = 'schueler_id' %}
+                        {% set student_select_selected = selected_s_id %}
+                        {% set student_select_required = false %}
+                        {% set student_select_placeholder = 'Kind auswählen...' %}
+                        {% set student_search_placeholder = 'Kind suchen...' %}
+                        {% include 'includes/student_select_field.html' %}
+                    </div>
+                    <div class="col-lg-4 d-flex flex-wrap gap-2">
+                        <button type="submit" class="btn btn-primary icon-btn">{{ bi('search', 'bi-icon') }} <span>Anzeigen</span></button>
+                        {% if selected_s_id %}
+                        <a href="{{ url_for('foerderplan.foerderplan_list', tab='dropdown') }}" class="btn btn-outline-secondary icon-btn">
+                            {{ bi('x-circle', 'bi-icon') }} <span>Zurücksetzen</span>
+                        </a>
+                        {% endif %}
+                    </div>
+                </form>
+                {% endif %}
+            {% endif %}
+        {% endfor %}
+    </div>
+
     <div class="d-flex flex-wrap align-items-center gap-2">
         <span class="section-label mb-0">Anzeige</span>
         {% if filter_info.is_admin %}
@@ -33,7 +88,7 @@
         <a href="{{ url_for('foerderplan.foerdergrundlage_edit', s_id=filter_info.selected_schueler.id) }}" class="btn btn-sm btn-outline-primary icon-btn">
             {{ bi('file-earmark-text', 'bi-icon-sm') }} <span>Grundlagenblatt</span>
         </a>
-        <a href="{{ url_for('foerderplan.foerderplan_list') }}" class="btn btn-sm btn-outline-secondary icon-btn ms-1">
+        <a href="{{ url_for('foerderplan.foerderplan_list', tab=active_tab) }}" class="btn btn-sm btn-outline-secondary icon-btn ms-1">
             {{ bi('x-circle', 'bi-icon-sm') }} <span>Filter aufheben</span>
         </a>
         {% endif %}
@@ -65,9 +120,9 @@
                     {% endif %}
                 </td>
                 <td class="text-end">
-                    <a href="{{ url_for('foerderplan.foerderplan_view', p_id=p.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-info text-white me-1 icon-btn">{{ bi('eye', 'bi-icon-sm') }} <span>Ansehen</span></a>
+                    <a href="{{ url_for('foerderplan.foerderplan_view', p_id=p.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-info text-white icon-only-btn" title="Förderplan ansehen" aria-label="Förderplan ansehen">{{ bi('eye', 'bi-icon-sm') }}</a>
                     {% if p.status != 'geschlossen' %}
-                    <a href="{{ url_for('foerderplan.foerderplan_evaluate', p_id=p.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-warning icon-btn">{{ bi('journal-text', 'bi-icon-sm') }} <span>Evaluieren</span></a>
+                    <a href="{{ url_for('foerderplan.foerderplan_evaluate', p_id=p.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-warning icon-only-btn" title="Förderplan evaluieren" aria-label="Förderplan evaluieren">{{ bi('journal-text', 'bi-icon-sm') }}</a>
                     {% endif %}
                 </td>
             </tr>

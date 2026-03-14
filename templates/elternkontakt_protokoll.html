@@ -31,6 +31,9 @@
                 {% if next_url %}
                 <input type="hidden" name="next" value="{{ next_url }}">
                 {% endif %}
+                {% if overlay_mode %}
+                <input type="hidden" name="overlay" value="1">
+                {% endif %}
 
                 <div class="row g-3 mb-3">
                     <div class="col-md-5">

@@ -3,14 +3,19 @@ import secrets
 from datetime import timedelta
 
 import pandas as pd
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import func
 from werkzeug.security import generate_password_hash
 
 from extensions import db
-from models import Bogen, Beobachtung, Elternkontakt, Foerderplan, Item, Schueler, SystemKonfiguration, User, WorkPlan
-from student_selection import get_grouped_student_choices_for_user, get_prioritized_students_for_user, get_user_klassenkontext
+from models import Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan
+from student_selection import (
+    get_grouped_student_choices_for_user,
+    get_prioritized_students_for_user,
+    get_tabbed_student_selection_for_user,
+    get_user_klassenkontext,
+)
 from time_utils import utc_now
 
 system_bp = Blueprint('system', __name__)
@@ -66,6 +71,15 @@ def _todo_sort_key(todo):
     title = (todo.get('title') or '').lower()
     return (priority, due_ord, title)
 
+
+def _get_notification_or_404(notification_id):
+    notification = db.session.get(Notification, notification_id)
+    if not notification:
+        abort(404)
+    if notification.user_id != current_user.id and current_user.username != 'admin':
+        abort(403)
+    return notification
+
 @system_bp.route('/')
 @login_required
 def index():
@@ -80,6 +94,8 @@ def index():
         'kinder_in_klasse': 0,
         'beobachtungsboegen_ausgefuellt': 0,
         'aktive_foerderplaene': 0,
+        'aktive_arbeitsplaene': 0,
+        'offene_erziehungsfaelle': 0,
     }
 
     todos = []
@@ -113,6 +129,26 @@ def index():
             .filter(
                 Schueler.klasse == fokus_klasse,
                 Foerderplan.status == 'aktiv',
+            )
+            .count()
+        )
+
+        stats['aktive_arbeitsplaene'] = (
+            WorkPlan.query
+            .join(Schueler, WorkPlan.student_id == Schueler.id)
+            .filter(
+                Schueler.klasse == fokus_klasse,
+                WorkPlan.status.in_(['draft', 'active']),
+            )
+            .count()
+        )
+
+        stats['offene_erziehungsfaelle'] = (
+            ErziehungsEreignis.query
+            .join(Schueler, ErziehungsEreignis.student_id == Schueler.id)
+            .filter(
+                Schueler.klasse == fokus_klasse,
+                ErziehungsEreignis.status == 'offen',
             )
             .count()
         )
@@ -315,6 +351,30 @@ def index():
                 'due_date': kontakt.naechster_termin,
             })
 
+        offene_faelle = (
+            ErziehungsEreignis.query
+            .join(Schueler, ErziehungsEreignis.student_id == Schueler.id)
+            .filter(
+                Schueler.klasse == fokus_klasse,
+                ErziehungsEreignis.status == 'offen',
+            )
+            .order_by(ErziehungsEreignis.datum.asc(), ErziehungsEreignis.id.asc())
+            .limit(3)
+            .all()
+        )
+        for fall in offene_faelle:
+            schueler_name = f"{fall.student.vorname or ''} {fall.student.nachname or ''}".strip() or 'Kind'
+            ereignis_name = fall.event_template.name if fall.event_template else 'Ereignis'
+            zustaendig = fall.assigned_user.display_name if fall.assigned_user else 'noch nicht zugewiesen'
+            todos.append({
+                'title': f'Offener Fall: {schueler_name}',
+                'detail': f"{ereignis_name} vom {fall.datum.strftime('%d.%m.%Y')} · Zuständig: {zustaendig}",
+                'variant': 'danger' if not fall.assigned_user_id else 'warning',
+                'url': url_for('erziehung.erziehung_view', event_id=fall.id, next=url_for('system.index')),
+                'priority': 15 if not fall.assigned_user_id else 22,
+                'due_date': fall.datum,
+            })
+
         if stats['beobachtungsboegen_ausgefuellt'] == 0:
             todos.append({
                 'title': 'Erste Beobachtungsbögen erfassen',
@@ -357,25 +417,20 @@ def index():
 @system_bp.route('/schuelerakte')
 @login_required
 def schuelerakte():
-    schueler_liste = get_prioritized_students_for_user(current_user)
-    schueler_groups = get_grouped_student_choices_for_user(current_user)
-
-    selected_s_id = (request.args.get('schueler_id') or '').strip()
-    if not selected_s_id and schueler_liste:
-        selected_s_id = str(schueler_liste[0].id)
-
-    selected_student = None
-    if selected_s_id:
-        try:
-            s_id_int = int(selected_s_id)
-            selected_student = next((s for s in schueler_liste if s.id == s_id_int), None)
-            if not selected_student:
-                selected_s_id = ''
-        except ValueError:
-            selected_s_id = ''
+    selection = get_tabbed_student_selection_for_user(
+        current_user,
+        selected_s_id=(request.args.get('schueler_id') or '').strip(),
+        requested_tab=(request.args.get('tab') or '').strip(),
+        auto_select_first=True,
+    )
+    schueler_liste = selection['students']
+    schueler_groups = selection['groups']
+    selected_s_id = selection['selected_s_id']
+    selected_student = selection['selected_student']
 
     foerderplaene = []
     work_plans = []
+    erziehungsereignisse = []
     elternkontakte = []
     bogen_summaries = []
     recent_beobachtungen = []
@@ -391,6 +446,12 @@ def schuelerakte():
             WorkPlan.query
             .filter(WorkPlan.student_id == selected_student.id)
             .order_by(WorkPlan.created_at.desc())
+            .all()
+        )
+        erziehungsereignisse = (
+            ErziehungsEreignis.query
+            .filter(ErziehungsEreignis.student_id == selected_student.id)
+            .order_by(ErziehungsEreignis.datum.desc(), ErziehungsEreignis.id.desc())
             .all()
         )
 
@@ -439,10 +500,13 @@ def schuelerakte():
         'schuelerakte.html',
         schueler=schueler_liste,
         schueler_groups=schueler_groups,
+        tab_definitions=selection['tab_definitions'],
+        active_tab=selection['active_tab'],
         selected_s_id=selected_s_id,
         selected_student=selected_student,
         foerderplaene=foerderplaene,
         work_plans=work_plans,
+        erziehungsereignisse=erziehungsereignisse,
         elternkontakte=elternkontakte,
         bogen_summaries=bogen_summaries,
         recent_beobachtungen=recent_beobachtungen,
@@ -735,6 +799,34 @@ def setup():
         return f"Datenbank erstellt und Testdaten angelegt! <a href='{url_for('system.index')}'>Zum Start</a>"
 
     return f"Datenbank existiert schon. <a href='{url_for('system.index')}'>Zum Start</a>"
+
+
+@system_bp.route('/benachrichtigungen/<int:notification_id>/open')
+@login_required
+def notification_open(notification_id):
+    notification = _get_notification_or_404(notification_id)
+    notification.is_read = True
+    db.session.commit()
+    return redirect(notification.target_url or url_for('system.index'))
+
+
+@system_bp.route('/benachrichtigungen/<int:notification_id>/delete', methods=['POST'])
+@login_required
+def notification_delete(notification_id):
+    notification = _get_notification_or_404(notification_id)
+    db.session.delete(notification)
+    db.session.commit()
+    flash('Benachrichtigung gelöscht.')
+    return redirect((request.form.get('next') or '').strip() or url_for('system.index'))
+
+
+@system_bp.route('/benachrichtigungen/delete-all', methods=['POST'])
+@login_required
+def notification_delete_all():
+    Notification.query.filter_by(user_id=current_user.id).delete()
+    db.session.commit()
+    flash('Benachrichtigungen gelöscht.')
+    return redirect((request.form.get('next') or '').strip() or url_for('system.index'))
 
 
 def register_system_routes(app):

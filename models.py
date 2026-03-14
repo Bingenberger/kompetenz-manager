@@ -142,6 +142,136 @@ class Elternkontakt(db.Model):
     user = db.relationship('User', backref='elternkontakte')
 
 
+class Elternberatung(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    datum = db.Column(db.Date, nullable=False, default=lambda: utc_now().date())
+    anlass = db.Column(db.Text, nullable=True)
+    weitere_beratungspunkte = db.Column(db.Text, nullable=True)
+    vereinbarungen = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+
+    schueler_id = db.Column(db.Integer, db.ForeignKey('schueler.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    schueler = db.relationship('Schueler', backref='elternberatungen')
+    user = db.relationship('User', backref='elternberatungen')
+
+
+class Notification(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, index=True)
+    title = db.Column(db.String(200), nullable=False)
+    message = db.Column(db.Text, nullable=True)
+    target_url = db.Column(db.String(255), nullable=True)
+    is_read = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    user = db.relationship('User', backref='notifications')
+
+
+class ErziehungsEreignisKategorie(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False, unique=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+
+class ErziehungsEreignisVorlage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    category_id = db.Column(db.Integer, db.ForeignKey('erziehungs_ereignis_kategorie.id'), nullable=False, index=True)
+    name = db.Column(db.String(160), nullable=False)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+    category = db.relationship('ErziehungsEreignisKategorie', backref='event_templates')
+
+
+class ErziehungsOrt(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False, unique=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+
+class ErziehungsKonsequenz(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(160), nullable=False, unique=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+
+class ErziehungsEreignis(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    datum = db.Column(db.Date, nullable=False, default=lambda: utc_now().date())
+    beschreibung = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), nullable=False, default='offen')
+    consequence_notes = db.Column(db.Text, nullable=True)
+    child_statement = db.Column(db.Text, nullable=True)
+    others_statement = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+
+    student_id = db.Column(db.Integer, db.ForeignKey('schueler.id'), nullable=False, index=True)
+    event_template_id = db.Column(db.Integer, db.ForeignKey('erziehungs_ereignis_vorlage.id'), nullable=False, index=True)
+    ort_id = db.Column(db.Integer, db.ForeignKey('erziehungs_ort.id'), nullable=False, index=True)
+    assigned_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+
+    student = db.relationship('Schueler', foreign_keys=[student_id], backref='erziehungsereignisse')
+    event_template = db.relationship('ErziehungsEreignisVorlage', backref='events')
+    ort = db.relationship('ErziehungsOrt', backref='events')
+    assigned_user = db.relationship('User', foreign_keys=[assigned_user_id], backref='assigned_erziehungsereignisse')
+    created_by_user = db.relationship('User', foreign_keys=[created_by_user_id], backref='created_erziehungsereignisse')
+
+
+class ErziehungsEreignisLog(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('erziehungs_ereignis.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    action = db.Column(db.String(50), nullable=False)
+    details = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    event = db.relationship('ErziehungsEreignis', backref=db.backref('logs', order_by='desc(ErziehungsEreignisLog.created_at)', lazy=True))
+    user = db.relationship('User')
+
+
+class ErziehungsEreignisBetroffenesKind(db.Model):
+    event_id = db.Column(db.Integer, db.ForeignKey('erziehungs_ereignis.id'), primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('schueler.id'), primary_key=True)
+
+    event = db.relationship('ErziehungsEreignis', backref='affected_students')
+    student = db.relationship('Schueler')
+
+
+class ErziehungsEreignisKonsequenz(db.Model):
+    event_id = db.Column(db.Integer, db.ForeignKey('erziehungs_ereignis.id'), primary_key=True)
+    consequence_id = db.Column(db.Integer, db.ForeignKey('erziehungs_konsequenz.id'), primary_key=True)
+
+    event = db.relationship('ErziehungsEreignis', backref='selected_consequences')
+    consequence = db.relationship('ErziehungsKonsequenz')
+
+
+class ErziehungsEreignisElternkontakt(db.Model):
+    event_id = db.Column(db.Integer, db.ForeignKey('erziehungs_ereignis.id'), primary_key=True)
+    kontakt_id = db.Column(db.Integer, db.ForeignKey('elternkontakt.id'), primary_key=True)
+
+    event = db.relationship('ErziehungsEreignis', backref='linked_parent_contacts')
+    kontakt = db.relationship('Elternkontakt')
+
+
+class ErziehungsEreignisAnhang(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    event_id = db.Column(db.Integer, db.ForeignKey('erziehungs_ereignis.id'), nullable=False, index=True)
+    file_path = db.Column(db.String(255), nullable=False)
+    original_name = db.Column(db.String(255), nullable=True)
+    mime_type = db.Column(db.String(80), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    event = db.relationship('ErziehungsEreignis', backref='attachments')
+
+
 class SystemKonfiguration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     schuljahr = db.Column(db.String(20), nullable=True)

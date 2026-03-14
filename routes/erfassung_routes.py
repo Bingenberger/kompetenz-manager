@@ -4,14 +4,16 @@ import json
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, send_file, session, url_for
 from flask_login import current_user, login_required
+from sqlalchemy import func
 
 from extensions import db
-from models import Beobachtung, Bogen, Elternkontakt, Item, Schueler
+from models import Beobachtung, Bogen, Elternberatung, Elternkontakt, Foerderplan, Item, Schueler
 from odt_export import convert_odt_bytes_to_pdf, render_odt_from_ott_template
 from student_selection import (
     get_distinct_klassen,
     get_grouped_student_choices_for_user,
     get_prioritized_students_for_user,
+    get_tabbed_student_selection_for_user,
     get_user_klassenkontext,
 )
 from time_utils import utc_now
@@ -59,6 +61,86 @@ def _safe_next_url(candidate, fallback_url):
     if value.startswith('/') and not value.startswith('//'):
         return value
     return fallback_url
+
+
+def _build_bogen_entries_for_student(student_id):
+    boegen = (
+        Bogen.query
+        .join(Item, Item.bogen_id == Bogen.id)
+        .join(Beobachtung, Beobachtung.item_id == Item.id)
+        .filter(Beobachtung.schueler_id == student_id)
+        .distinct()
+        .order_by(Bogen.titel.asc())
+        .all()
+    )
+    symbol_map = {1: '-', 2: 'o', 3: '+', 4: '++'}
+    color_map = {1: 'danger', 2: 'warning', 3: 'success', 4: 'success'}
+    bogen_rows = []
+
+    for bogen in boegen:
+        item_rows = []
+        items = Item.query.filter_by(bogen_id=bogen.id).order_by(Item.bereich.asc(), Item.text.asc()).all()
+        for item in items:
+            eintraege = (
+                Beobachtung.query
+                .filter_by(schueler_id=student_id, item_id=item.id)
+                .order_by(Beobachtung.datum.desc())
+                .all()
+            )
+            if not eintraege:
+                continue
+            werte = [e.wert for e in eintraege if e.wert is not None]
+            durchschnitt = round(sum(werte) / len(werte), 1) if werte else 0
+            rounded_score = min(4, max(1, int(durchschnitt + 0.5))) if werte else None
+            item_rows.append({
+                'item': item,
+                'eintraege': eintraege,
+                'anzahl': len(eintraege),
+                'durchschnitt': durchschnitt,
+                'durchschnitt_symbol': symbol_map.get(rounded_score, '-') if rounded_score else '-',
+                'durchschnitt_color': color_map.get(rounded_score, 'secondary') if rounded_score else 'secondary',
+            })
+
+        if item_rows:
+            bogen_rows.append({
+                'bogen': bogen,
+                'item_rows': item_rows,
+                'item_count': len(item_rows),
+                'entry_count': sum(row['anzahl'] for row in item_rows),
+            })
+
+    return {
+        'bogen_rows': bogen_rows,
+        'symbol_map': symbol_map,
+        'color_map': color_map,
+    }
+
+
+def _get_consultation_plan_context(student_id):
+    active_plan = (
+        Foerderplan.query
+        .filter(
+            Foerderplan.schueler_id == student_id,
+            Foerderplan.status == 'aktiv',
+        )
+        .order_by(Foerderplan.datum_erstellung.desc(), Foerderplan.id.desc())
+        .first()
+    )
+    last_evaluated_plan = (
+        Foerderplan.query
+        .filter(
+            Foerderplan.schueler_id == student_id,
+            Foerderplan.datum_evaluation.isnot(None),
+        )
+        .order_by(Foerderplan.datum_evaluation.desc(), Foerderplan.id.desc())
+        .first()
+    )
+    if active_plan and last_evaluated_plan and active_plan.id == last_evaluated_plan.id:
+        last_evaluated_plan = None
+    return {
+        'active_plan': active_plan,
+        'last_evaluated_plan': last_evaluated_plan,
+    }
 
 
 @erfassung_bp.route('/erfassen/reihe/start', methods=['GET', 'POST'])
@@ -168,15 +250,89 @@ def reihe_next():
 def erfassen_schueler():
     s_id = request.args.get('schueler_id')
     b_id = request.args.get('bogen_id')
+    tab = (request.args.get('tab') or '').strip()
+    start_requested = (request.args.get('start') or request.form.get('start') or '').strip() == '1'
     next_url = (request.args.get('next') or request.form.get('next') or '').strip()
 
-    if not s_id or not b_id:
+    if not s_id or not b_id or not start_requested:
+        selection = get_tabbed_student_selection_for_user(
+            current_user,
+            selected_s_id=s_id,
+            requested_tab=tab,
+            auto_select_first=False,
+        )
+        selected_bogen = None
+        selected_b_id = (request.args.get('bogen_id') or '').strip()
+        if selected_b_id:
+            try:
+                selected_bogen = db.session.get(Bogen, int(selected_b_id))
+            except (TypeError, ValueError):
+                selected_bogen = None
+                selected_b_id = ''
+
+        bogen_stats = None
+        if selection['selected_student'] and selected_bogen:
+            total_entries = (
+                db.session.query(func.count(Beobachtung.id))
+                .join(Item, Beobachtung.item_id == Item.id)
+                .filter(
+                    Beobachtung.schueler_id == selection['selected_student'].id,
+                    Item.bogen_id == selected_bogen.id,
+                )
+                .scalar()
+            ) or 0
+
+            item_count = (
+                db.session.query(func.count(Item.id))
+                .filter(Item.bogen_id == selected_bogen.id)
+                .scalar()
+            ) or 0
+
+            last_complete_day = None
+            if item_count > 0:
+                last_complete_day = (
+                    db.session.query(func.date(Beobachtung.datum).label('d'))
+                    .join(Item, Beobachtung.item_id == Item.id)
+                    .filter(
+                        Beobachtung.schueler_id == selection['selected_student'].id,
+                        Item.bogen_id == selected_bogen.id,
+                        Beobachtung.anlass == 'ganzer Bogen',
+                    )
+                    .group_by(func.date(Beobachtung.datum))
+                    .having(func.count(func.distinct(Beobachtung.item_id)) >= item_count)
+                    .order_by(func.date(Beobachtung.datum).desc())
+                    .first()
+                )
+
+            bogen_stats = {
+                'total_entries': int(total_entries),
+                'last_complete_day': (last_complete_day[0] if last_complete_day else None),
+            }
+            raw_day = bogen_stats['last_complete_day']
+            if raw_day:
+                try:
+                    if hasattr(raw_day, 'strftime'):
+                        bogen_stats['last_complete_day_display'] = raw_day.strftime('%d.%m.%Y')
+                    else:
+                        bogen_stats['last_complete_day_display'] = datetime.strptime(str(raw_day), '%Y-%m-%d').strftime('%d.%m.%Y')
+                except (TypeError, ValueError):
+                    bogen_stats['last_complete_day_display'] = str(raw_day)
+            else:
+                bogen_stats['last_complete_day_display'] = None
+
         return render_template(
             'batch_schueler.html',
             step=1,
-            schueler=get_prioritized_students_for_user(current_user),
-            schueler_groups=get_grouped_student_choices_for_user(current_user),
-            boegen=Bogen.query.all(),
+            schueler=selection['students'],
+            schueler_groups=selection['groups'],
+            tab_definitions=selection['tab_definitions'],
+            active_tab=selection['active_tab'],
+            selected_s_id=selection['selected_s_id'],
+            selected_student=selection['selected_student'],
+            boegen=Bogen.query.order_by(Bogen.titel.asc()).all(),
+            selected_b_id=selected_b_id,
+            selected_bogen=selected_bogen,
+            bogen_stats=bogen_stats,
             next_url=next_url,
         )
 
@@ -187,7 +343,12 @@ def erfassen_schueler():
         for i in items:
             wert = request.form.get(f'wert_{i.id}')
             if wert:
-                b = Beobachtung(schueler_id=schueler.id, item_id=i.id, wert=int(wert))
+                b = Beobachtung(
+                    schueler_id=schueler.id,
+                    item_id=i.id,
+                    wert=int(wert),
+                    anlass='ganzer Bogen',
+                )
                 db.session.add(b)
         db.session.commit()
         flash('Bogen gespeichert!')
@@ -199,15 +360,34 @@ def erfassen_schueler():
 @erfassung_bp.route('/erfassen/einzel', methods=['GET', 'POST'])
 @login_required
 def erfassen_einzel():
+    tab = (request.args.get('tab') or '').strip()
     next_url = (request.args.get('next') or request.form.get('next') or '').strip()
+    selected_bogen_id = (request.args.get('bogen_id') or request.form.get('bogen_id') or '').strip()
+    selected_bereich = (request.args.get('bereich') or request.form.get('bereich') or '').strip()
+    selected_item_id = (request.args.get('item_id') or request.form.get('item_id') or '').strip()
     if request.method == 'POST':
+        schueler_id = (request.form.get('schueler_id') or '').strip()
+        item_id = (request.form.get('item_id') or '').strip()
+        wert = (request.form.get('wert') or '').strip()
+        if not schueler_id or not item_id or not wert:
+            flash('Bitte Kind, Kompetenz und Bewertung auswählen.')
+            return redirect(url_for(
+                'erfassung.erfassen_einzel',
+                tab=(request.form.get('tab') or tab or None),
+                schueler_id=schueler_id or None,
+                bogen_id=(request.form.get('bogen_id') or '').strip() or None,
+                bereich=(request.form.get('bereich') or '').strip() or None,
+                item_id=item_id or None,
+                next=next_url or None,
+            ))
+
         foto = request.files.get('foto')
         filename = speichere_upload_bild(foto)
 
         b = Beobachtung(
-            schueler_id=request.form.get('schueler_id'),
-            item_id=request.form.get('item_id'),
-            wert=request.form.get('wert'),
+            schueler_id=schueler_id,
+            item_id=item_id,
+            wert=wert,
             kommentar=request.form.get('kommentar'),
             foto_pfad=filename,
         )
@@ -216,11 +396,61 @@ def erfassen_einzel():
         flash('Beobachtung gespeichert!')
         return redirect(_safe_next_url(next_url, url_for('system.index')))
 
+    selection = get_tabbed_student_selection_for_user(
+        current_user,
+        selected_s_id=(request.args.get('schueler_id') or '').strip(),
+        requested_tab=tab,
+        auto_select_first=False,
+    )
+
+    boegen = Bogen.query.order_by(Bogen.titel.asc()).all()
+    selected_bogen = None
+    if selected_bogen_id:
+        try:
+            b_id_int = int(selected_bogen_id)
+            selected_bogen = next((b for b in boegen if b.id == b_id_int), None)
+            if not selected_bogen:
+                selected_bogen_id = ''
+        except ValueError:
+            selected_bogen_id = ''
+
+    competency_items = []
+    if selected_bogen:
+        competency_items = sorted(selected_bogen.items, key=lambda x: ((x.bereich or '').lower(), (x.text or '').lower()))
+    bereiche = sorted({(i.bereich or '').strip() for i in competency_items if (i.bereich or '').strip()}, key=lambda x: x.lower())
+    if selected_bereich and selected_bereich not in bereiche:
+        selected_bereich = ''
+
+    filtered_competency_items = competency_items
+    if selected_bereich:
+        filtered_competency_items = [i for i in competency_items if (i.bereich or '').strip() == selected_bereich]
+
+    selected_item = None
+    if selected_item_id and filtered_competency_items:
+        try:
+            i_id_int = int(selected_item_id)
+            selected_item = next((i for i in filtered_competency_items if i.id == i_id_int), None)
+            if not selected_item:
+                selected_item_id = ''
+        except ValueError:
+            selected_item_id = ''
+
     return render_template(
         'einzel.html',
-        schueler=get_prioritized_students_for_user(current_user),
-        schueler_groups=get_grouped_student_choices_for_user(current_user),
-        boegen=Bogen.query.all(),
+        schueler=selection['students'],
+        schueler_groups=selection['groups'],
+        tab_definitions=selection['tab_definitions'],
+        active_tab=selection['active_tab'],
+        selected_student=selection['selected_student'],
+        selected_s_id=selection['selected_s_id'],
+        boegen=boegen,
+        selected_bogen_id=selected_bogen_id,
+        selected_bogen=selected_bogen,
+        competency_items=filtered_competency_items,
+        bereiche=bereiche,
+        selected_bereich=selected_bereich,
+        selected_item_id=selected_item_id,
+        selected_item=selected_item,
         next_url=next_url,
     )
 
@@ -340,8 +570,15 @@ def multi_next():
 @erfassung_bp.route('/erfassen/elternkontakte')
 @login_required
 def elternkontakte_start():
-    selected_s_id = (request.args.get('schueler_id') or '').strip()
-    schueler = get_prioritized_students_for_user(current_user)
+    tab = (request.args.get('tab') or '').strip()
+    selection = get_tabbed_student_selection_for_user(
+        current_user,
+        selected_s_id=(request.args.get('schueler_id') or '').strip(),
+        requested_tab=tab,
+        auto_select_first=False,
+    )
+    selected_s_id = selection['selected_s_id']
+    schueler = selection['students']
     recent_contacts_query = Elternkontakt.query.join(Schueler).order_by(Elternkontakt.datum.desc())
     if selected_s_id:
         try:
@@ -352,9 +589,109 @@ def elternkontakte_start():
     return render_template(
         'elternkontakte_start.html',
         schueler=schueler,
-        schueler_groups=get_grouped_student_choices_for_user(current_user),
+        schueler_groups=selection['groups'],
+        tab_definitions=selection['tab_definitions'],
+        active_tab=selection['active_tab'],
+        selected_student=selection['selected_student'],
         recent_contacts=recent_contacts,
         selected_s_id=selected_s_id,
+    )
+
+
+@erfassung_bp.route('/erfassen/elternberatung', methods=['GET', 'POST'])
+@login_required
+def elternberatung():
+    next_url = (request.args.get('next') or request.form.get('next') or '').strip()
+    selected_s_id = (request.args.get('schueler_id') or request.form.get('schueler_id') or '').strip()
+    tab = (request.args.get('tab') or request.form.get('tab') or '').strip()
+
+    selection = get_tabbed_student_selection_for_user(
+        current_user,
+        selected_s_id=selected_s_id,
+        requested_tab=tab,
+        auto_select_first=False,
+    )
+    selected_student = selection['selected_student']
+
+    if request.method == 'POST':
+        datum_raw = (request.form.get('datum') or '').strip()
+        anlass = (request.form.get('anlass') or '').strip()
+        weitere_beratungspunkte = (request.form.get('weitere_beratungspunkte') or '').strip()
+        vereinbarungen = (request.form.get('vereinbarungen') or '').strip()
+
+        if not selected_student:
+            flash('Bitte zuerst ein Kind auswählen.')
+        elif not datum_raw:
+            flash('Bitte ein Datum für das Elterngespräch eingeben.')
+        else:
+            try:
+                datum_obj = datetime.strptime(datum_raw, '%Y-%m-%d').date()
+            except ValueError:
+                flash('Das Datum ist ungültig.')
+            else:
+                beratung = Elternberatung(
+                    schueler_id=selected_student.id,
+                    user_id=getattr(current_user, 'id', None),
+                    datum=datum_obj,
+                    anlass=anlass,
+                    weitere_beratungspunkte=weitere_beratungspunkte,
+                    vereinbarungen=vereinbarungen,
+                )
+                db.session.add(beratung)
+                db.session.commit()
+                flash('Dokumentation zum Elterngespräch gespeichert.')
+                return redirect(url_for('erfassung.elternberatung_view', beratung_id=beratung.id, next=next_url))
+
+    bogen_context = {'bogen_rows': [], 'symbol_map': {}, 'color_map': {}}
+    plan_context = {'active_plan': None, 'last_evaluated_plan': None}
+    if selected_student:
+        bogen_context = _build_bogen_entries_for_student(selected_student.id)
+        plan_context = _get_consultation_plan_context(selected_student.id)
+
+    return render_template(
+        'elternberatung_form.html',
+        selected_student=selected_student,
+        tab_definitions=selection['tab_definitions'],
+        active_tab=selection['active_tab'],
+        selected_s_id=selection['selected_s_id'],
+        schueler=selection['students'],
+        schueler_groups=selection['groups'],
+        form_values={
+            'datum': request.form.get('datum') or utc_now().date().isoformat(),
+            'anlass': request.form.get('anlass') or '',
+            'weitere_beratungspunkte': request.form.get('weitere_beratungspunkte') or '',
+            'vereinbarungen': request.form.get('vereinbarungen') or '',
+        },
+        bogen_rows=bogen_context['bogen_rows'],
+        symbol_map=bogen_context['symbol_map'],
+        color_map=bogen_context['color_map'],
+        active_plan=plan_context['active_plan'],
+        last_evaluated_plan=plan_context['last_evaluated_plan'],
+        next_url=next_url,
+    )
+
+
+@erfassung_bp.route('/erfassen/elternberatung/view/<int:beratung_id>')
+@login_required
+def elternberatung_view(beratung_id):
+    next_url = (request.args.get('next') or '').strip()
+    beratung = db.session.get(Elternberatung, beratung_id)
+    if not beratung:
+        abort(404)
+
+    bogen_context = _build_bogen_entries_for_student(beratung.schueler_id)
+    plan_context = _get_consultation_plan_context(beratung.schueler_id)
+
+    return render_template(
+        'elternberatung_view.html',
+        beratung=beratung,
+        selected_student=beratung.schueler,
+        bogen_rows=bogen_context['bogen_rows'],
+        symbol_map=bogen_context['symbol_map'],
+        color_map=bogen_context['color_map'],
+        active_plan=plan_context['active_plan'],
+        last_evaluated_plan=plan_context['last_evaluated_plan'],
+        next_url=next_url,
     )
 
 
@@ -445,6 +782,7 @@ def _build_elternkontakt_protokoll_export_payload(kontakt):
 def elternkontakt_notiz():
     schueler_liste = get_prioritized_students_for_user(current_user)
     next_url = (request.args.get('next') or request.form.get('next') or '').strip()
+    overlay_mode = (request.args.get('overlay') or request.form.get('overlay') or '').strip() == '1'
 
     if request.method == 'POST':
         schueler_id = request.form.get('schueler_id')
@@ -461,6 +799,7 @@ def elternkontakt_notiz():
                 schueler_groups=get_grouped_student_choices_for_user(current_user),
                 selected_s_id=schueler_id,
                 next_url=next_url,
+                overlay_mode=overlay_mode,
             )
 
         kontakt = Elternkontakt(
@@ -475,6 +814,8 @@ def elternkontakt_notiz():
         db.session.add(kontakt)
         db.session.commit()
         flash('Elternkontakt-Notiz gespeichert.')
+        if overlay_mode:
+            return render_template('overlay_close.html', payload={'type': 'parent-contact-created', 'kontaktId': kontakt.id})
         return redirect(_safe_next_url(next_url, url_for('erfassung.elternkontakte_start')))
 
     return render_template(
@@ -483,6 +824,7 @@ def elternkontakt_notiz():
         schueler_groups=get_grouped_student_choices_for_user(current_user),
         selected_s_id=request.args.get('schueler_id'),
         next_url=next_url,
+        overlay_mode=overlay_mode,
     )
 
 
@@ -491,6 +833,7 @@ def elternkontakt_notiz():
 def elternkontakt_protokoll():
     schueler_liste = get_prioritized_students_for_user(current_user)
     next_url = (request.args.get('next') or request.form.get('next') or '').strip()
+    overlay_mode = (request.args.get('overlay') or request.form.get('overlay') or '').strip() == '1'
 
     if request.method == 'POST':
         schueler_id = request.form.get('schueler_id')
@@ -504,6 +847,7 @@ def elternkontakt_protokoll():
                 schueler_groups=get_grouped_student_choices_for_user(current_user),
                 selected_s_id=schueler_id,
                 next_url=next_url,
+                overlay_mode=overlay_mode,
             )
 
         kontakt = Elternkontakt(
@@ -525,6 +869,8 @@ def elternkontakt_protokoll():
         db.session.add(kontakt)
         db.session.commit()
         flash('Elterngesprächsprotokoll gespeichert.')
+        if overlay_mode:
+            return render_template('overlay_close.html', payload={'type': 'parent-contact-created', 'kontaktId': kontakt.id})
         return redirect(_safe_next_url(next_url, url_for('erfassung.elternkontakte_start')))
 
     return render_template(
@@ -533,6 +879,7 @@ def elternkontakt_protokoll():
         schueler_groups=get_grouped_student_choices_for_user(current_user),
         selected_s_id=request.args.get('schueler_id'),
         next_url=next_url,
+        overlay_mode=overlay_mode,
     )
 
 
@@ -547,6 +894,7 @@ def elternkontakt_view(kontakt_id):
         kontakt=kontakt,
         can_edit=_can_edit_elternkontakt(kontakt),
         next_url=(request.args.get('next') or '').strip(),
+        overlay_mode=(request.args.get('overlay') or '').strip() == '1',
     )
 
 
