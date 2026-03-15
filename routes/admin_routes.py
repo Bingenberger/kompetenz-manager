@@ -207,16 +207,21 @@ def admin_system_settings():
 )
 def admin_users():
     if request.method == 'POST':
-        username = request.form.get('username')
+        username = (request.form.get('username') or '').strip()
         vorname = (request.form.get('vorname') or '').strip() or None
         nachname = (request.form.get('nachname') or '').strip() or None
         password = request.form.get('password')
+        role = (request.form.get('role') or 'teacher').strip().lower()
+        if role not in {'admin', 'teacher'}:
+            role = 'teacher'
 
-        if User.query.filter_by(username=username).first():
+        if not username:
+            flash('Bitte einen Benutzernamen eingeben.')
+        elif User.query.filter_by(username=username).first():
             flash('Benutzername existiert bereits!')
         else:
             hashed_pw = generate_password_hash(password)
-            new_user = User(username=username, vorname=vorname, nachname=nachname, password_hash=hashed_pw)
+            new_user = User(username=username, vorname=vorname, nachname=nachname, password_hash=hashed_pw, role=role)
             db.session.add(new_user)
             db.session.commit()
             flash(f'Benutzer {username} angelegt.')
@@ -242,7 +247,7 @@ def admin_users():
 def admin_user_delete(user_id):
     user_to_delete = get_or_404_session(User, user_id)
 
-    if user_to_delete.username == 'admin':
+    if user_to_delete.is_admin:
         flash('Der Haupt-Administrator kann nicht gelöscht werden.')
     else:
         UserKlassenzuordnung.query.filter_by(user_id=user_to_delete.id).delete()
@@ -262,8 +267,19 @@ def admin_user_edit(user_id):
     if request.method == 'POST':
         user.vorname = (request.form.get('vorname') or '').strip() or None
         user.nachname = (request.form.get('nachname') or '').strip() or None
+        requested_role = (request.form.get('role') or user.role or 'teacher').strip().lower()
+        if requested_role not in {'admin', 'teacher'}:
+            requested_role = user.role or 'teacher'
+
+        if user.is_admin and requested_role != 'admin':
+            admin_count = User.query.filter_by(role='admin').count()
+            if admin_count <= 1:
+                flash('Der letzte Administrator kann nicht auf Lehrkraft zurückgesetzt werden.')
+                return render_template('admin_user_edit.html', user=user, next_url=next_url)
+
+        user.role = requested_role
         db.session.commit()
-        flash(f'Klarname für {user.username} gespeichert.')
+        flash(f'Benutzerdaten für {user.username} gespeichert.')
         return redirect(_safe_next_url(next_url, url_for('admin.admin_users')))
 
     return render_template('admin_user_edit.html', user=user, next_url=next_url)

@@ -4,7 +4,7 @@
 <div class="toolbar-shell">
     <div>
         <span class="section-label">Administration</span>
-        <h2 class="h4 mt-2 mb-0">Klarname bearbeiten</h2>
+        <h2 class="h4 mt-2 mb-0">Benutzer bearbeiten</h2>
     </div>
     <div class="toolbar-actions">
         <a href="{{ next_url if next_url else url_for('admin.admin_users') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span></a>
@@ -17,7 +17,7 @@
             <div class="mb-4">
                 <span class="section-label">Benutzer</span>
                 <h3 class="mt-2 mb-1">{{ user.username }}</h3>
-                <p class="text-muted mb-0">Hier kann nur der Klarname geändert werden. Klassenzuordnungen bleiben im separaten Bereich.</p>
+                <p class="text-muted mb-0">Klarname und Rolle können hier geändert werden. Klassenzuordnungen bleiben im separaten Bereich.</p>
             </div>
 
             <form method="POST">
@@ -31,6 +31,13 @@
                     <div class="col-md-6">
                         <label class="form-label">Nachname</label>
                         <input type="text" name="nachname" class="form-control" value="{{ user.nachname or '' }}">
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Rolle</label>
+                        <select name="role" class="form-select">
+                            <option value="teacher" {% if user.role != 'admin' %}selected{% endif %}>Lehrkraft</option>
+                            <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                        </select>
                     </div>
                 </div>
 

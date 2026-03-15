@@ -1,6 +1,7 @@
 import os
 import shutil
 import uuid
+from pathlib import Path
 
 from flask import current_app
 from PIL import Image, ImageOps
@@ -9,6 +10,62 @@ ALLOWED_WORKPLAN_MIMETYPES = {'image/jpeg', 'image/png', 'image/webp'}
 WORKPLAN_MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 ALLOWED_ERZIEHUNG_MIMETYPES = {'image/jpeg', 'image/png', 'image/webp', 'application/pdf'}
 ERZIEHUNG_MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+
+
+def _normalize_relative_upload_path(rel_path):
+    raw = (rel_path or '').replace('\\', '/').strip().lstrip('/')
+    if raw.startswith('uploads/'):
+        raw = raw[len('uploads/'):]
+    normalized = os.path.normpath(raw).replace('\\', '/')
+    if normalized in {'', '.', '..'} or normalized.startswith('../'):
+        return None
+    return normalized
+
+
+def get_legacy_upload_root():
+    return Path(current_app.root_path) / 'static' / 'uploads'
+
+
+def get_protected_upload_root():
+    configured = current_app.config.get('PROTECTED_UPLOAD_FOLDER')
+    if configured:
+        return Path(configured)
+    return Path(current_app.instance_path) / 'protected_uploads'
+
+
+def ensure_upload_roots():
+    get_legacy_upload_root().mkdir(parents=True, exist_ok=True)
+    get_protected_upload_root().mkdir(parents=True, exist_ok=True)
+
+
+def protected_upload_path_for_rel(rel_path):
+    normalized = _normalize_relative_upload_path(rel_path)
+    if not normalized:
+        return None
+    return get_protected_upload_root() / normalized
+
+
+def legacy_upload_path_for_rel(rel_path):
+    normalized = _normalize_relative_upload_path(rel_path)
+    if not normalized:
+        return None
+    return get_legacy_upload_root() / normalized
+
+
+def resolve_existing_upload_path(rel_path):
+    normalized = _normalize_relative_upload_path(rel_path)
+    if not normalized:
+        return None
+
+    protected = protected_upload_path_for_rel(normalized)
+    if protected and protected.is_file():
+        return protected
+
+    legacy = legacy_upload_path_for_rel(normalized)
+    if legacy and legacy.is_file():
+        return legacy
+
+    return None
 
 
 def komprimiere_und_speichere(file_storage, ziel_pfad):
@@ -36,9 +93,10 @@ def speichere_upload_bild(file_storage):
     if not file_storage or file_storage.filename == '':
         return None
 
+    ensure_upload_roots()
     filename = f"{uuid.uuid4().hex}.jpg"
-    speicher_pfad = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-    if komprimiere_und_speichere(file_storage, speicher_pfad):
+    speicher_pfad = get_protected_upload_root() / filename
+    if komprimiere_und_speichere(file_storage, str(speicher_pfad)):
         return filename
     return None
 
@@ -58,13 +116,14 @@ def speichere_upload_workplan_bild(file_storage):
     if size > WORKPLAN_MAX_UPLOAD_BYTES:
         return None
 
+    ensure_upload_roots()
     rel_dir = 'workplan'
-    abs_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], rel_dir)
-    os.makedirs(abs_dir, exist_ok=True)
+    abs_dir = get_protected_upload_root() / rel_dir
+    abs_dir.mkdir(parents=True, exist_ok=True)
 
     filename = f"{uuid.uuid4().hex}.jpg"
-    abs_path = os.path.join(abs_dir, filename)
-    if komprimiere_und_speichere(file_storage, abs_path):
+    abs_path = abs_dir / filename
+    if komprimiere_und_speichere(file_storage, str(abs_path)):
         return f"{rel_dir}/{filename}"
     return None
 
@@ -84,20 +143,21 @@ def speichere_upload_erziehung_anhang(file_storage):
     if size > ERZIEHUNG_MAX_UPLOAD_BYTES:
         return None, None
 
+    ensure_upload_roots()
     rel_dir = 'erziehung'
-    abs_dir = os.path.join(current_app.config['UPLOAD_FOLDER'], rel_dir)
-    os.makedirs(abs_dir, exist_ok=True)
+    abs_dir = get_protected_upload_root() / rel_dir
+    abs_dir.mkdir(parents=True, exist_ok=True)
 
     if mimetype == 'application/pdf':
         filename = f"{uuid.uuid4().hex}.pdf"
-        abs_path = os.path.join(abs_dir, filename)
+        abs_path = abs_dir / filename
         file_storage.stream.seek(0)
         with open(abs_path, 'wb') as target:
             shutil.copyfileobj(file_storage.stream, target)
         return f"{rel_dir}/{filename}", mimetype
 
     filename = f"{uuid.uuid4().hex}.jpg"
-    abs_path = os.path.join(abs_dir, filename)
-    if komprimiere_und_speichere(file_storage, abs_path):
+    abs_path = abs_dir / filename
+    if komprimiere_und_speichere(file_storage, str(abs_path)):
         return f"{rel_dir}/{filename}", 'image/jpeg'
     return None, None

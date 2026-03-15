@@ -50,6 +50,7 @@ class User(UserMixin, db.Model):
     vorname = db.Column(db.String(100), nullable=True)
     nachname = db.Column(db.String(100), nullable=True)
     password_hash = db.Column(db.String(200))
+    role = db.Column(db.String(20), nullable=False, default='teacher')
 
     @property
     def full_name(self):
@@ -59,6 +60,10 @@ class User(UserMixin, db.Model):
     @property
     def display_name(self):
         return self.full_name or self.username
+
+    @property
+    def is_admin(self):
+        return (self.role or '').strip().lower() == 'admin'
 
 
 class UserKlassenzuordnung(db.Model):
@@ -168,6 +173,21 @@ class Notification(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
 
     user = db.relationship('User', backref='notifications')
+
+
+class AuthRateLimit(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    scope = db.Column(db.String(20), nullable=False)
+    scope_key = db.Column(db.String(255), nullable=False)
+    failure_count = db.Column(db.Integer, nullable=False, default=0)
+    first_failed_at = db.Column(db.DateTime, nullable=True)
+    last_failed_at = db.Column(db.DateTime, nullable=True)
+    locked_until = db.Column(db.DateTime, nullable=True)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        db.UniqueConstraint('scope', 'scope_key', name='uq_auth_rate_limit_scope_key'),
+    )
 
 
 class ErziehungsEreignisKategorie(db.Model):

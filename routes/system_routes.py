@@ -1,15 +1,16 @@
 import os
 import secrets
+import mimetypes
 from datetime import timedelta
 
 import pandas as pd
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import func
 from werkzeug.security import generate_password_hash
 
 from extensions import db
-from models import Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan
+from models import Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, ErziehungsEreignisAnhang, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan, WorkPlanTaskAttachment
 from student_selection import (
     get_grouped_student_choices_for_user,
     get_prioritized_students_for_user,
@@ -17,6 +18,7 @@ from student_selection import (
     get_user_klassenkontext,
 )
 from time_utils import utc_now
+from uploads import resolve_existing_upload_path
 
 system_bp = Blueprint('system', __name__)
 
@@ -76,9 +78,26 @@ def _get_notification_or_404(notification_id):
     notification = db.session.get(Notification, notification_id)
     if not notification:
         abort(404)
-    if notification.user_id != current_user.id and current_user.username != 'admin':
+    if notification.user_id != current_user.id and not current_user.is_admin:
         abort(403)
     return notification
+
+
+def _is_admin(user):
+    return bool(user and getattr(user, 'is_admin', False))
+
+
+def _send_upload_or_404(rel_path, download_name=None, mimetype=None):
+    resolved_path = resolve_existing_upload_path(rel_path)
+    if not resolved_path:
+        abort(404)
+    guessed_type, _ = mimetypes.guess_type(str(resolved_path))
+    return send_file(
+        resolved_path,
+        mimetype=mimetype or guessed_type or 'application/octet-stream',
+        download_name=download_name,
+        conditional=True,
+    )
 
 @system_bp.route('/')
 @login_required
@@ -769,14 +788,22 @@ def setup():
     if os.environ.get('ALLOW_SETUP_ROUTE') != '1':
         return "Setup-Route ist deaktiviert.", 403
 
+    setup_token = (os.environ.get('SETUP_ROUTE_TOKEN') or '').strip()
+    if not setup_token:
+        return "Setup-Token fehlt. Route bleibt deaktiviert.", 403
+
+    request_token = (request.args.get('token') or '').strip()
+    if not request_token or not secrets.compare_digest(request_token, setup_token):
+        return "Ungueltiger Setup-Token.", 403
+
     if request.remote_addr not in {'127.0.0.1', '::1'}:
         return "Setup ist nur lokal auf dem Server erlaubt.", 403
 
     db.create_all()
-    if not User.query.filter_by(username='admin').first():
+    if not User.query.filter_by(role='admin').first():
         setup_password = os.environ.get('SETUP_ADMIN_PASSWORD') or secrets.token_urlsafe(12)
         hashed_pw = generate_password_hash(setup_password)
-        admin = User(username='admin', password_hash=hashed_pw)
+        admin = User(username='admin', password_hash=hashed_pw, role='admin')
         db.session.add(admin)
         db.session.commit()
         return (
@@ -801,7 +828,63 @@ def setup():
     return f"Datenbank existiert schon. <a href='{url_for('system.index')}'>Zum Start</a>"
 
 
-@system_bp.route('/benachrichtigungen/<int:notification_id>/open')
+@system_bp.route('/media/beobachtung/<int:beobachtung_id>')
+@login_required
+def media_beobachtung(beobachtung_id):
+    observation = db.session.get(Beobachtung, beobachtung_id)
+    if not observation or not observation.foto_pfad:
+        abort(404)
+    return _send_upload_or_404(
+        observation.foto_pfad,
+        download_name=f'beobachtung-{beobachtung_id}.jpg',
+    )
+
+
+@system_bp.route('/media/workplan-attachment/<string:attachment_id>')
+@login_required
+def media_workplan_attachment(attachment_id):
+    attachment = db.session.get(WorkPlanTaskAttachment, attachment_id)
+    if not attachment:
+        abort(404)
+
+    task = attachment.task
+    plan = task.work_plan if task else None
+    if not plan:
+        abort(404)
+
+    if not _is_admin(current_user) and plan.created_by_user_id != current_user.id:
+        abort(403)
+
+    return _send_upload_or_404(
+        attachment.file_path,
+        download_name=attachment.caption or f'arbeitsplan-{attachment.id}.jpg',
+    )
+
+
+@system_bp.route('/media/erziehung-attachment/<int:attachment_id>')
+@login_required
+def media_erziehung_attachment(attachment_id):
+    attachment = db.session.get(ErziehungsEreignisAnhang, attachment_id)
+    if not attachment:
+        abort(404)
+
+    event = attachment.event
+    if not event:
+        abort(404)
+
+    if not _is_admin(current_user):
+        accessible_ids = {student.id for student in get_prioritized_students_for_user(current_user)}
+        if event.student_id not in accessible_ids:
+            abort(403)
+
+    return _send_upload_or_404(
+        attachment.file_path,
+        download_name=attachment.original_name or attachment.file_path.rsplit('/', 1)[-1],
+        mimetype=attachment.mime_type or None,
+    )
+
+
+@system_bp.route('/benachrichtigungen/<int:notification_id>/open', methods=['POST'])
 @login_required
 def notification_open(notification_id):
     notification = _get_notification_or_404(notification_id)

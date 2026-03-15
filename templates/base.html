@@ -795,11 +795,14 @@
                         {% for notification in header_notifications %}
                         <div class="px-3 py-2 border-bottom {% if not notification.is_read %}bg-light-subtle{% endif %}">
                             <div class="d-flex gap-2 align-items-start">
-                                <a href="{{ url_for('system.notification_open', notification_id=notification.id) }}" class="text-decoration-none text-reset flex-grow-1">
-                                    <div class="fw-semibold">{{ notification.title }}</div>
-                                    {% if notification.message %}<div class="small text-muted">{{ notification.message }}</div>{% endif %}
-                                    <div class="small text-muted">{{ notification.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
-                                </a>
+                                <form method="POST" action="{{ url_for('system.notification_open', notification_id=notification.id) }}" class="m-0 flex-grow-1">
+                                    {{ csrf_input() }}
+                                    <button type="submit" class="btn btn-link text-decoration-none text-reset flex-grow-1 text-start p-0 border-0 bg-transparent w-100">
+                                        <div class="fw-semibold">{{ notification.title }}</div>
+                                        {% if notification.message %}<div class="small text-muted">{{ notification.message }}</div>{% endif %}
+                                        <div class="small text-muted">{{ notification.created_at.strftime('%d.%m.%Y %H:%M') }}</div>
+                                    </button>
+                                </form>
                                 <form method="POST" action="{{ url_for('system.notification_delete', notification_id=notification.id) }}" class="m-0">
                                     {{ csrf_input() }}
                                     <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
@@ -819,10 +822,13 @@
             <span class="d-none d-sm-inline">{{ current_user.display_name }}</span>
         </a>
 
-        {% if current_user.username == 'admin' %}
+        {% if current_user.is_admin %}
         <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-sm btn-light icon-only-btn" title="Verwaltung" aria-label="Verwaltung">{{ bi('gear', 'bi-icon') }}</a>
         {% endif %}
-        <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light icon-btn">{{ bi('box-arrow-right', 'bi-icon-sm') }} <span>Abmelden</span></a>
+        <form method="POST" action="{{ url_for('auth.logout') }}" class="m-0">
+            {{ csrf_input() }}
+            <button type="submit" class="btn btn-sm btn-outline-light icon-btn">{{ bi('box-arrow-right', 'bi-icon-sm') }} <span>Abmelden</span></button>
+        </form>
     </div>
     {% endif %}
   </div>

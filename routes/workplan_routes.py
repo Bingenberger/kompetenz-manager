@@ -449,6 +449,7 @@ def _serialize_task(task):
         {
             'id': attachment.id,
             'filePath': attachment.file_path,
+            'fileUrl': url_for('system.media_workplan_attachment', attachment_id=attachment.id),
             'caption': attachment.caption,
             'createdAt': attachment.created_at.isoformat() if attachment.created_at else None,
         }
@@ -1143,6 +1144,7 @@ def api_work_plan_add_attachment(plan_id, task_id):
     return _response({'attachment': {
         'id': attachment.id,
         'filePath': attachment.file_path,
+        'fileUrl': url_for('system.media_workplan_attachment', attachment_id=attachment.id),
         'caption': attachment.caption,
     }}, flash_message='Foto hinzugefügt.')
 

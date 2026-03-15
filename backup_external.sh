@@ -98,11 +98,17 @@ backup_postgres() {
 
 backup_uploads() {
   local uploads_dir="$APP_DIR/static/uploads"
+  local protected_uploads_dir="$APP_DIR/instance/protected_uploads"
   if [[ -d "$uploads_dir" ]]; then
-    log "Sichere Uploads/Fotos"
-    tar -czf "$TARGET_DIR/uploads.tar.gz" -C "$APP_DIR/static" uploads
-  else
-    log "Uploads-Ordner nicht gefunden, überspringe"
+    log "Sichere Legacy-Uploads/Fotos"
+    tar -czf "$TARGET_DIR/uploads_legacy.tar.gz" -C "$APP_DIR/static" uploads
+  fi
+  if [[ -d "$protected_uploads_dir" ]]; then
+    log "Sichere geschützte Uploads/Fotos"
+    tar -czf "$TARGET_DIR/uploads_protected.tar.gz" -C "$APP_DIR/instance" protected_uploads
+  fi
+  if [[ ! -d "$uploads_dir" && ! -d "$protected_uploads_dir" ]]; then
+    log "Keine Upload-Ordner gefunden, überspringe"
   fi
 }
 

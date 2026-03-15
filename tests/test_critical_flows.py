@@ -14,6 +14,7 @@ from werkzeug.security import generate_password_hash
 from app import create_app
 from extensions import db
 from models import (
+    AuthRateLimit,
     Beobachtung,
     Bogen,
     Elternberatung,
@@ -50,12 +51,16 @@ class CriticalFlowsTestCase(unittest.TestCase):
             'SECRET_KEY': 'test-secret',
             'SQLALCHEMY_DATABASE_URI': f"sqlite:///{self.db_path}",
             'UPLOAD_FOLDER': self.upload_dir,
+            'LOGIN_RATE_LIMIT_IP_ATTEMPTS': 4,
+            'LOGIN_RATE_LIMIT_USER_ATTEMPTS': 3,
+            'LOGIN_RATE_LIMIT_WINDOW_MINUTES': 10,
+            'LOGIN_RATE_LIMIT_LOCKOUT_MINUTES': 15,
         })
         self.client = self.app.test_client()
 
         with self.app.app_context():
             db.create_all()
-            db.session.add(User(username='admin', password_hash=generate_password_hash('adminpass')))
+            db.session.add(User(username='admin', password_hash=generate_password_hash('adminpass'), role='admin'))
             db.session.add(User(username='kollege', password_hash=generate_password_hash('kollegepass')))
             schueler = Schueler(vorname='Max', nachname='Test', klasse='4a')
             db.session.add(schueler)
@@ -90,6 +95,39 @@ class CriticalFlowsTestCase(unittest.TestCase):
         response = self._login('admin', 'adminpass')
         self.assertEqual(response.status_code, 302)
         self.assertTrue(response.headers['Location'].endswith('/'))
+
+    def test_admin_access_depends_on_role_not_only_username(self):
+        with self.app.app_context():
+            pseudo_admin = User(username='fakeadmin', password_hash=generate_password_hash('pw1234'), role='teacher')
+            db.session.add(pseudo_admin)
+            db.session.commit()
+
+        response = self._login('fakeadmin', 'pw1234')
+        self.assertEqual(response.status_code, 302)
+
+        admin_page = self.client.get('/admin', follow_redirects=False)
+        self.assertEqual(admin_page.status_code, 302)
+
+    def test_login_rate_limit_locks_after_repeated_failures(self):
+        for _ in range(3):
+            response = self._login('admin', 'falsch')
+            self.assertEqual(response.status_code, 200)
+
+        locked_response = self._login('admin', 'adminpass')
+        self.assertEqual(locked_response.status_code, 429)
+        self.assertIn('Zu viele Anmeldeversuche', locked_response.get_data(as_text=True))
+
+        with self.app.app_context():
+            self.assertGreater(AuthRateLimit.query.count(), 0)
+
+    def test_setup_route_requires_token(self):
+        with patch.dict(os.environ, {'ALLOW_SETUP_ROUTE': '1'}, clear=False):
+            response = self.client.get('/setup')
+        self.assertEqual(response.status_code, 403)
+
+        with patch.dict(os.environ, {'ALLOW_SETUP_ROUTE': '1', 'SETUP_ROUTE_TOKEN': 'abc123'}, clear=False):
+            response = self.client.get('/setup?token=falsch')
+            self.assertEqual(response.status_code, 403)
 
     def test_admin_can_delete_user(self):
         login_response = self._login('admin', 'adminpass')
@@ -143,6 +181,55 @@ class CriticalFlowsTestCase(unittest.TestCase):
             kollege = db.session.get(User, user_id)
             self.assertEqual(kollege.vorname, 'Karin')
             self.assertEqual(kollege.nachname, 'Beispiel')
+
+    def test_admin_can_change_user_role_but_not_demote_last_admin(self):
+        login_response = self._login('admin', 'adminpass')
+        self.assertEqual(login_response.status_code, 302)
+
+        with self.app.app_context():
+            admin = User.query.filter_by(username='admin').first()
+            admin_id = admin.id
+            kollege = User.query.filter_by(username='kollege').first()
+            self.assertIsNotNone(kollege)
+            kollege_id = kollege.id
+
+        edit_page = self.client.get(f'/admin/users/edit/{admin_id}')
+        token = self._get_csrf(edit_page)
+        response = self.client.post(
+            f'/admin/users/edit/{admin_id}',
+            data={
+                '_csrf_token': token,
+                'vorname': 'Admin',
+                'nachname': 'System',
+                'role': 'teacher',
+            },
+            follow_redirects=True,
+        )
+        self.assertEqual(response.status_code, 200)
+
+        with self.app.app_context():
+            admin = db.session.get(User, admin_id)
+            self.assertEqual(admin.role, 'admin')
+
+        edit_page = self.client.get(f'/admin/users/edit/{kollege_id}')
+        self.assertEqual(edit_page.status_code, 200)
+        token = self._get_csrf(edit_page)
+
+        response = self.client.post(
+            f'/admin/users/edit/{kollege_id}',
+            data={
+                '_csrf_token': token,
+                'vorname': 'Karin',
+                'nachname': 'Beispiel',
+                'role': 'admin',
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 302)
+
+        with self.app.app_context():
+            kollege = db.session.get(User, kollege_id)
+            self.assertEqual(kollege.role, 'admin')
 
     def test_non_admin_cannot_delete_student_masterdata(self):
         login_response = self._login('kollege', 'kollegepass')
@@ -1212,8 +1299,13 @@ class CriticalFlowsTestCase(unittest.TestCase):
         home = self.client.get('/')
         self.assertEqual(home.status_code, 200)
         self.assertIn('Benachrichtigungen', home.get_data(as_text=True))
+        token = self._get_csrf(home)
 
-        open_response = self.client.get(f'/benachrichtigungen/{notification_id}/open', follow_redirects=False)
+        open_response = self.client.post(
+            f'/benachrichtigungen/{notification_id}/open',
+            data={'_csrf_token': token},
+            follow_redirects=False,
+        )
         self.assertEqual(open_response.status_code, 302)
 
         with self.app.app_context():

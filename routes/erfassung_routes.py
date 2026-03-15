@@ -580,12 +580,36 @@ def elternkontakte_start():
     selected_s_id = selection['selected_s_id']
     schueler = selection['students']
     recent_contacts_query = Elternkontakt.query.join(Schueler).order_by(Elternkontakt.datum.desc())
+    recent_consultations_query = Elternberatung.query.join(Schueler).order_by(Elternberatung.datum.desc(), Elternberatung.id.desc())
     if selected_s_id:
         try:
             recent_contacts_query = recent_contacts_query.filter(Elternkontakt.schueler_id == int(selected_s_id))
+            recent_consultations_query = recent_consultations_query.filter(Elternberatung.schueler_id == int(selected_s_id))
         except ValueError:
             selected_s_id = ''
     recent_contacts = recent_contacts_query.limit(24).all()
+    recent_consultations = recent_consultations_query.limit(24).all()
+    recent_entries = []
+    for kontakt in recent_contacts:
+        recent_entries.append({
+            'kind': 'kontakt',
+            'sort_date': kontakt.datum,
+            'obj': kontakt,
+        })
+    for beratung in recent_consultations:
+        recent_entries.append({
+            'kind': 'beratung',
+            'sort_date': beratung.datum,
+            'obj': beratung,
+        })
+    recent_entries.sort(
+        key=lambda row: (
+            row['sort_date'] or utc_now().date(),
+            getattr(row['obj'], 'id', 0),
+        ),
+        reverse=True,
+    )
+    recent_entries = recent_entries[:24]
     return render_template(
         'elternkontakte_start.html',
         schueler=schueler,
@@ -593,7 +617,7 @@ def elternkontakte_start():
         tab_definitions=selection['tab_definitions'],
         active_tab=selection['active_tab'],
         selected_student=selection['selected_student'],
-        recent_contacts=recent_contacts,
+        recent_entries=recent_entries,
         selected_s_id=selected_s_id,
     )
 
@@ -749,7 +773,7 @@ def _can_edit_elternkontakt(kontakt):
     # Protokolle nur Ersteller oder Admin bearbeitbar; Notizen koennen von allen eingeloggt bearbeitet werden.
     if kontakt.eintrag_typ != 'protokoll':
         return True
-    if current_user.username == 'admin':
+    if current_user.is_admin:
         return True
     return bool(kontakt.user_id and kontakt.user_id == current_user.id)
 

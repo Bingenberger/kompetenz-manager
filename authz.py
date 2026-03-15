@@ -6,14 +6,13 @@ from flask_login import current_user, login_required
 
 def admin_required(redirect_endpoint='system.index', message='Zugriff verweigert.'):
     """
-    Kombiniert Login-Pflicht mit einer einfachen Admin-Prüfung über den Benutzernamen.
-    Beibehaltung der bestehenden Rollenlogik ohne DB-Schema-Änderung.
+    Kombiniert Login-Pflicht mit einer Admin-Prüfung über das Rollenfeld.
     """
     def decorator(view_func):
         @wraps(view_func)
         @login_required
         def wrapped(*args, **kwargs):
-            if current_user.username != 'admin':
+            if not getattr(current_user, 'is_admin', False):
                 if message:
                     flash(message)
                 return redirect(url_for(redirect_endpoint))

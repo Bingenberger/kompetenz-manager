@@ -253,7 +253,7 @@
                             </td>
                             <td>
                                 {% if entry.foto_pfad %}
-                                {% set photo_url = url_for('static', filename='uploads/' + entry.foto_pfad) %}
+                                {% set photo_url = url_for('system.media_beobachtung', beobachtung_id=entry.id) %}
                                 <button
                                     type="button"
                                     class="btn btn-sm btn-outline-primary icon-btn entry-media-open"

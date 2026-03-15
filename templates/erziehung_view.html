@@ -144,13 +144,12 @@
                 {% if event.attachments %}
                 <ul class="mb-0">
                     {% for attachment in event.attachments %}
-                    {% set attachment_static_path = attachment.file_path if attachment.file_path.startswith('uploads/') else 'uploads/' ~ attachment.file_path.lstrip('/') %}
                     <li>
                         <button
                             type="button"
                             class="btn btn-sm btn-outline-secondary"
                             data-attachment-overlay-launch
-                            data-attachment-url="{{ url_for('static', filename=attachment_static_path) }}">
+                            data-attachment-url="{{ url_for('system.media_erziehung_attachment', attachment_id=attachment.id) }}">
                             {{ attachment.original_name or attachment.file_path }}
                         </button>
                     </li>

@@ -22,6 +22,31 @@
         color: inherit;
         box-shadow: none;
     }
+    .entry-media-modal .modal-dialog {
+        max-width: min(1000px, 96vw);
+    }
+    .entry-media-stage {
+        background: #0d1117;
+        border-radius: 12px;
+        min-height: 280px;
+        max-height: 70vh;
+        overflow: auto;
+        display: flex;
+        align-items: flex-start;
+        justify-content: flex-start;
+        padding: .5rem;
+    }
+    .entry-media-stage img {
+        display: block;
+        width: 100%;
+        max-width: none;
+        height: auto;
+        border-radius: 8px;
+        background: #111;
+    }
+    .entry-media-controls .form-range {
+        min-width: 130px;
+    }
 </style>
 
 <div class="surface-panel p-4 p-md-5 fade-in">
@@ -124,14 +149,14 @@
                 {% for row in bogen_rows %}
                 <div class="accordion-item">
                     <h2 class="accordion-header" id="beratung-bogen-heading-{{ row.bogen.id }}">
-                        <button class="accordion-button {% if loop.index > 1 %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#beratung-bogen-{{ row.bogen.id }}" aria-expanded="{{ 'true' if loop.index == 1 else 'false' }}" aria-controls="beratung-bogen-{{ row.bogen.id }}">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#beratung-bogen-{{ row.bogen.id }}" aria-expanded="false" aria-controls="beratung-bogen-{{ row.bogen.id }}">
                             {{ bi('clipboard2-data', 'bi-icon-sm') }}
                             <span class="fw-semibold">{{ row.bogen.titel }}</span>
                             <span class="badge text-bg-light">{{ row.item_count }} Kompetenzen</span>
                             <span class="badge text-bg-light">{{ row.entry_count }} Einträge</span>
                         </button>
                     </h2>
-                    <div id="beratung-bogen-{{ row.bogen.id }}" class="accordion-collapse collapse {% if loop.index == 1 %}show{% endif %}" aria-labelledby="beratung-bogen-heading-{{ row.bogen.id }}" data-bs-parent="#beratungBogenAccordion">
+                    <div id="beratung-bogen-{{ row.bogen.id }}" class="accordion-collapse collapse" aria-labelledby="beratung-bogen-heading-{{ row.bogen.id }}" data-bs-parent="#beratungBogenAccordion">
                         <div class="accordion-body">
                             <div class="accordion beratung-accordion" id="beratung-item-accordion-{{ row.bogen.id }}">
                                 {% for item_row in row.item_rows %}
@@ -154,6 +179,7 @@
                                                             <th>Anlass</th>
                                                             <th>Wert</th>
                                                             <th>Kommentar</th>
+                                                            <th>Foto</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -169,6 +195,22 @@
                                                                 {% endif %}
                                                             </td>
                                                             <td class="text-muted">{{ entry.kommentar or '-' }}</td>
+                                                            <td>
+                                                                {% if entry.foto_pfad %}
+                                                                {% set photo_url = url_for('system.media_beobachtung', beobachtung_id=entry.id) %}
+                                                                <button
+                                                                    type="button"
+                                                                    class="btn btn-sm btn-outline-primary icon-btn entry-media-open"
+                                                                    data-bs-toggle="modal"
+                                                                    data-bs-target="#entryMediaModal"
+                                                                    data-photo-url="{{ photo_url }}"
+                                                                    data-photo-title="{{ item_row.item.text }} • {{ entry.datum.strftime('%d.%m.%Y') if entry.datum else '-' }}">
+                                                                    {{ bi('camera', 'bi-icon-sm') }} <span>Bild</span>
+                                                                </button>
+                                                                {% else %}
+                                                                <span class="text-muted">-</span>
+                                                                {% endif %}
+                                                            </td>
                                                         </tr>
                                                         {% endfor %}
                                                     </tbody>
@@ -200,7 +242,7 @@
             <div class="accordion beratung-accordion" id="beratungFoerderAccordion">
                 <div class="accordion-item">
                     <h2 class="accordion-header" id="beratung-active-plan-heading">
-                        <button class="accordion-button {% if not active_plan %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#beratung-active-plan" aria-expanded="{{ 'true' if active_plan else 'false' }}" aria-controls="beratung-active-plan">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#beratung-active-plan" aria-expanded="false" aria-controls="beratung-active-plan">
                             {{ bi('folder2-open', 'bi-icon-sm') }}
                             <span class="fw-semibold">Aktiver Förderplan</span>
                             {% if active_plan %}
@@ -211,7 +253,7 @@
                             {% endif %}
                         </button>
                     </h2>
-                    <div id="beratung-active-plan" class="accordion-collapse collapse {% if active_plan %}show{% endif %}" aria-labelledby="beratung-active-plan-heading" data-bs-parent="#beratungFoerderAccordion">
+                    <div id="beratung-active-plan" class="accordion-collapse collapse" aria-labelledby="beratung-active-plan-heading" data-bs-parent="#beratungFoerderAccordion">
                         <div class="accordion-body">
                             {% if active_plan %}
                             {% for inhalt in active_plan.inhalte %}
@@ -288,4 +330,98 @@
         </div>
     </form>
 </div>
+
+<div class="modal fade entry-media-modal" id="entryMediaModal" tabindex="-1" aria-labelledby="entryMediaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title" id="entryMediaModalLabel">Bildvorschau</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2 entry-media-controls">
+                    <div class="small text-muted">Tippen/Klicken zum Öffnen, per Regler oder Mausrad zoomen.</div>
+                    <div class="d-flex align-items-center gap-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="entryMediaZoomOut">-</button>
+                        <input type="range" class="form-range m-0" id="entryMediaZoomRange" min="1" max="4" step="0.1" value="1" aria-label="Zoom">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="entryMediaZoomIn">+</button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="entryMediaZoomReset">100%</button>
+                    </div>
+                </div>
+                <div class="entry-media-stage" id="entryMediaStage">
+                    <img id="entryMediaImage" src="" alt="Bildvorschau">
+                </div>
+                <div class="small text-muted mt-2" id="entryMediaHint"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modalEl = document.getElementById('entryMediaModal');
+    if (!modalEl) return;
+
+    const imgEl = document.getElementById('entryMediaImage');
+    const titleEl = document.getElementById('entryMediaModalLabel');
+    const hintEl = document.getElementById('entryMediaHint');
+    const stageEl = document.getElementById('entryMediaStage');
+    const zoomRange = document.getElementById('entryMediaZoomRange');
+    const zoomInBtn = document.getElementById('entryMediaZoomIn');
+    const zoomOutBtn = document.getElementById('entryMediaZoomOut');
+    const zoomResetBtn = document.getElementById('entryMediaZoomReset');
+    let currentZoom = 1;
+
+    function applyZoom(nextZoom) {
+        currentZoom = Math.max(1, Math.min(4, Number(nextZoom) || 1));
+        zoomRange.value = String(currentZoom);
+        imgEl.style.width = (currentZoom * 100) + '%';
+    }
+
+    function resetView() {
+        applyZoom(1);
+        stageEl.scrollTop = 0;
+        stageEl.scrollLeft = 0;
+    }
+
+    modalEl.addEventListener('show.bs.modal', function (event) {
+        const trigger = event.relatedTarget;
+        if (!trigger) return;
+        const photoUrl = trigger.getAttribute('data-photo-url') || '';
+        const photoTitle = trigger.getAttribute('data-photo-title') || 'Bildvorschau';
+        imgEl.src = photoUrl;
+        imgEl.alt = photoTitle;
+        titleEl.textContent = photoTitle;
+        hintEl.textContent = 'Bei Zoom > 100% kann das Bild im Fenster verschoben/gescrollt werden.';
+        resetView();
+    });
+
+    modalEl.addEventListener('hidden.bs.modal', function () {
+        imgEl.src = '';
+        imgEl.alt = 'Bildvorschau';
+        titleEl.textContent = 'Bildvorschau';
+        hintEl.textContent = '';
+        resetView();
+    });
+
+    zoomRange.addEventListener('input', function () {
+        applyZoom(zoomRange.value);
+    });
+    zoomInBtn.addEventListener('click', function () {
+        applyZoom(currentZoom + 0.1);
+    });
+    zoomOutBtn.addEventListener('click', function () {
+        applyZoom(currentZoom - 0.1);
+    });
+    zoomResetBtn.addEventListener('click', function () {
+        resetView();
+    });
+
+    stageEl.addEventListener('wheel', function (event) {
+        if (!event.ctrlKey && !event.metaKey) return;
+        event.preventDefault();
+        applyZoom(currentZoom + (event.deltaY < 0 ? 0.1 : -0.1));
+    }, { passive: false });
+});
+</script>
 {% endblock %}

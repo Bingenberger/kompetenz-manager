@@ -30,7 +30,7 @@ FOERDERGRUNDLAGE_TEMPLATE = 'odt_templates/Deckblatt_Foerderplan.ott'
 
 
 def _can_manage_foerderplan(plan):
-    if current_user.username == 'admin':
+    if current_user.is_admin:
         return True
     return bool(plan.creator_user_id and plan.creator_user_id == current_user.id)
 
@@ -461,7 +461,7 @@ def foerderplan_list():
         auto_select_first=False,
     )
     filter_info = {
-        "is_admin": current_user.username == 'admin',
+        "is_admin": current_user.is_admin,
         "klassenleitung": None,
         "selected_s_id": selection["selected_s_id"],
         "selected_schueler": selection["selected_student"],

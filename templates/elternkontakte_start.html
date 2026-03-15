@@ -167,7 +167,7 @@
                 {% else %}
                 <span class="text-muted small">Kein Kind ausgewählt: es werden alle Einträge gezeigt.</span>
                 {% endif %}
-                <span class="badge bg-info">{{ recent_contacts|length }} Einträge</span>
+                <span class="badge bg-info">{{ recent_entries|length }} Einträge</span>
             </div>
         </div>
         <div class="table-responsive">
@@ -183,29 +183,49 @@
                     </tr>
                 </thead>
                 <tbody>
-                    {% for e in recent_contacts %}
+                    {% for row in recent_entries %}
                     <tr>
-                        <td>{{ e.datum.strftime('%d.%m.%Y') }}</td>
-                        <td>{{ e.schueler.nachname }}, {{ e.schueler.vorname }}</td>
+                        <td>{{ row.obj.datum.strftime('%d.%m.%Y') }}</td>
+                        <td>{{ row.obj.schueler.nachname }}, {{ row.obj.schueler.vorname }}</td>
                         <td>
-                            {% if e.eintrag_typ == 'protokoll' %}
+                            {% if row.kind == 'beratung' %}
+                            <span class="badge bg-success">Elternberatung</span>
+                            {% elif row.obj.eintrag_typ == 'protokoll' %}
                             <span class="badge bg-warning">Protokoll</span>
                             {% else %}
                             <span class="badge bg-info">Notiz</span>
                             {% endif %}
                         </td>
-                        <td>{{ e.kontaktform or '-' }}</td>
-                        <td class="text-muted">{{ e.betreff or e.mitteilung or '-' }}</td>
+                        <td>
+                            {% if row.kind == 'beratung' %}
+                            Vorbereitung / Durchführung
+                            {% else %}
+                            {{ row.obj.kontaktform or '-' }}
+                            {% endif %}
+                        </td>
+                        <td class="text-muted">
+                            {% if row.kind == 'beratung' %}
+                            {{ row.obj.anlass or row.obj.weitere_beratungspunkte or row.obj.vereinbarungen or '-' }}
+                            {% else %}
+                            {{ row.obj.betreff or row.obj.mitteilung or '-' }}
+                            {% endif %}
+                        </td>
                         <td class="text-end">
                             <div class="d-inline-flex flex-wrap gap-2 justify-content-end">
-                                <a href="{{ url_for('erfassung.elternkontakt_view', kontakt_id=e.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-only-btn" title="Elternkontakt ansehen" aria-label="Elternkontakt ansehen">
+                                {% if row.kind == 'beratung' %}
+                                <a href="{{ url_for('erfassung.elternberatung_view', beratung_id=row.obj.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-only-btn" title="Elternberatung ansehen" aria-label="Elternberatung ansehen">
                                     {{ bi('eye', 'bi-icon-sm') }}
                                 </a>
+                                {% else %}
+                                <a href="{{ url_for('erfassung.elternkontakt_view', kontakt_id=row.obj.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-only-btn" title="Elternkontakt ansehen" aria-label="Elternkontakt ansehen">
+                                    {{ bi('eye', 'bi-icon-sm') }}
+                                </a>
+                                {% endif %}
                             </div>
                         </td>
                     </tr>
                     {% endfor %}
-                    {% if not recent_contacts %}
+                    {% if not recent_entries %}
                     <tr>
                         <td colspan="6" class="text-center text-muted py-4">Noch keine Elternkontakte erfasst.</td>
                     </tr>

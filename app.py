@@ -5,6 +5,7 @@ from flask import Flask
 from flask_login import current_user
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from csrf_protection import register_csrf
 from db_health_checks import (
@@ -74,9 +75,28 @@ def create_app(config_overrides=None):
     app.config['REMEMBER_COOKIE_NAME'] = os.environ.get('REMEMBER_COOKIE_NAME', 'kompetenz_manager_remember')
     app.config['SQLALCHEMY_DATABASE_URI'] = _normalized_database_url(os.environ.get('DATABASE_URL')) or _default_sqlite_uri()
     app.config['UPLOAD_FOLDER'] = 'static/uploads'
+    app.config['PROTECTED_UPLOAD_FOLDER'] = os.environ.get('PROTECTED_UPLOAD_FOLDER') or str(Path(app.instance_path) / 'protected_uploads')
+    is_debug = os.environ.get('FLASK_DEBUG') == '1'
+    app.config['SESSION_COOKIE_HTTPONLY'] = True
+    app.config['REMEMBER_COOKIE_HTTPONLY'] = True
+    app.config['SESSION_COOKIE_SAMESITE'] = os.environ.get('SESSION_COOKIE_SAMESITE', 'Lax')
+    app.config['REMEMBER_COOKIE_SAMESITE'] = os.environ.get('REMEMBER_COOKIE_SAMESITE', 'Lax')
+    app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', '0' if is_debug else '1') == '1'
+    app.config['REMEMBER_COOKIE_SECURE'] = os.environ.get('REMEMBER_COOKIE_SECURE', '0' if is_debug else '1') == '1'
+    app.config['PREFERRED_URL_SCHEME'] = os.environ.get('PREFERRED_URL_SCHEME', 'https' if not is_debug else 'http')
 
     if config_overrides:
         app.config.update(config_overrides)
+
+    if os.environ.get('TRUST_REVERSE_PROXY', '0') == '1':
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app,
+            x_for=int(os.environ.get('PROXY_FIX_X_FOR', '1')),
+            x_proto=int(os.environ.get('PROXY_FIX_X_PROTO', '1')),
+            x_host=int(os.environ.get('PROXY_FIX_X_HOST', '1')),
+            x_port=int(os.environ.get('PROXY_FIX_X_PORT', '1')),
+            x_prefix=int(os.environ.get('PROXY_FIX_X_PREFIX', '0')),
+        )
 
     engine_options = {'pool_pre_ping': True}
     if str(app.config.get('SQLALCHEMY_DATABASE_URI', '')).startswith('sqlite:'):
@@ -88,6 +108,7 @@ def create_app(config_overrides=None):
 
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     os.makedirs(app.instance_path, exist_ok=True)
+    os.makedirs(app.config['PROTECTED_UPLOAD_FOLDER'], exist_ok=True)
 
     db.init_app(app)
     register_csrf(app)

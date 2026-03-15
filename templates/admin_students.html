@@ -35,7 +35,7 @@
                 <td>{{ s.vorname }}</td>
                 <td>{{ s.geburtsdatum.strftime('%d.%m.%Y') if s.geburtsdatum else '-' }}</td>
                 <td class="text-end">
-                    {% if current_user.username == 'admin' %}
+                    {% if current_user.is_admin %}
                     <a href="{{ url_for('admin.admin_student_edit', s_id=s.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span></a>
                     <form method="POST" action="{{ url_for('admin.admin_student_delete', s_id=s.id) }}" style="display:inline;" class="ms-1" data-confirm-title="Kind endgültig löschen" data-confirm-message="ACHTUNG: Soll {{ s.vorname }} wirklich gelöscht werden? Alle Beobachtungen und Fotos dieses Kindes werden unwiderruflich gelöscht." data-confirm-button="Endgültig löschen" data-confirm-button-class="btn-dark" data-confirm-variant="final">
                         {{ csrf_input() }}

@@ -28,6 +28,41 @@ def _sqlite_add_missing_user_name_columns():
             conn.execute(text("ALTER TABLE user ADD COLUMN nachname VARCHAR(100)"))
             print("Spalte 'user.nachname' wurde ergänzt.")
 
+        if "role" not in columns:
+            conn.execute(text("ALTER TABLE user ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'teacher'"))
+            conn.execute(text("UPDATE user SET role = 'admin' WHERE lower(username) = 'admin'"))
+            print("Spalte 'user.role' wurde ergänzt.")
+
+        conn.commit()
+
+
+def _postgres_add_missing_user_role_column():
+    engine = db.engine
+    if engine.url.get_backend_name() not in {"postgresql", "postgres"}:
+        return
+
+    with engine.connect() as conn:
+        table_exists = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.tables "
+                "WHERE table_schema = 'public' AND table_name = 'user'"
+            )
+        ).first()
+        if not table_exists:
+            return
+
+        column_exists = conn.execute(
+            text(
+                "SELECT 1 FROM information_schema.columns "
+                "WHERE table_schema = 'public' "
+                "AND table_name = 'user' "
+                "AND column_name = 'role'"
+            )
+        ).first()
+        if not column_exists:
+            conn.execute(text("ALTER TABLE public.\"user\" ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'teacher'"))
+            conn.execute(text("UPDATE public.\"user\" SET role = 'admin' WHERE lower(username) = 'admin'"))
+            print("Spalte 'user.role' wurde für PostgreSQL ergänzt.")
         conn.commit()
 
 
@@ -328,6 +363,7 @@ with app.app_context():
     # Bestehende Tabellen (User, Schueler, Beobachtungen) bleiben unberührt!
     db.create_all()
     _sqlite_add_missing_user_name_columns()
+    _postgres_add_missing_user_role_column()
     _sqlite_add_missing_foerderplan_creator_column()
     _sqlite_add_missing_schueler_geburtsdatum_column()
     _sqlite_add_missing_workplan_weeks_column()

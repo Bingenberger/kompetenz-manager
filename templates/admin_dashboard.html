@@ -18,7 +18,7 @@
                     <div class="display-4 mb-3">{{ bi('people', 'bi-icon-xl') }}</div>
                     <h3 class="h4">Kollegium</h3>
                     <p class="text-muted">Lehrkräfte verwalten und Konten pflegen.</p>
-                    {% if current_user.username == 'admin' %}
+                    {% if current_user.is_admin %}
                     <a href="{{ url_for('admin.admin_users') }}" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('people', 'bi-icon-sm') }} <span>Verwalten</span></a>
                     {% else %}
                     <button class="btn btn-secondary w-100" disabled>Nur Admin</button>

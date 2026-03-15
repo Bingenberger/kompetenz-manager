@@ -260,7 +260,6 @@
                     </thead>
                         <tbody>
                         {% for attachment in event.attachments %}
-                        {% set attachment_static_path = attachment.file_path if attachment.file_path.startswith('uploads/') else 'uploads/' ~ attachment.file_path.lstrip('/') %}
                         <tr>
                             <td>
                                 <button
@@ -268,7 +267,7 @@
                                     class="btn btn-sm btn-outline-secondary attachment-link-btn"
                                     data-overlay-launch
                                     data-overlay-title="Anhang ansehen"
-                                    data-overlay-url="{{ url_for('static', filename=attachment_static_path) }}">
+                                    data-overlay-url="{{ url_for('system.media_erziehung_attachment', attachment_id=attachment.id) }}">
                                     {{ attachment.original_name or attachment.file_path }}
                                 </button>
                             </td>

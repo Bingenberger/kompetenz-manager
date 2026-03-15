@@ -23,7 +23,8 @@
                 <li class="list-group-item d-flex justify-content-between align-items-center">
                     <div>
                         <strong>{{ user.username }}</strong>
-                        {% if user.username == 'admin' %}<span class="badge bg-primary ms-2">Admin</span>{% endif %}
+                        {% if user.is_admin %}<span class="badge bg-primary ms-2">Admin</span>{% endif %}
+                        {% if not user.is_admin %}<span class="badge bg-secondary ms-2">Lehrkraft</span>{% endif %}
                         {% if user.full_name %}
                         <div class="small text-muted">{{ user.full_name }}</div>
                         {% endif %}
@@ -81,6 +82,13 @@
                     <div class="mb-3">
                         <label class="form-label">Start-Passwort</label>
                         <input type="text" name="password" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rolle</label>
+                        <select name="role" class="form-select">
+                            <option value="teacher" selected>Lehrkraft</option>
+                            <option value="admin">Admin</option>
+                        </select>
                     </div>
                     <p class="small text-muted mb-3">Klassenzuordnungen können nach dem Anlegen über „Klassen zuordnen“ gepflegt werden.</p>
                     <button type="submit" class="btn btn-success w-100 icon-btn justify-content-center">{{ bi('person-plus', 'bi-icon') }} <span>Anlegen</span></button>
