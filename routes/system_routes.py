@@ -11,8 +11,10 @@ from werkzeug.security import generate_password_hash
 
 from extensions import db
 from models import Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, ErziehungsEreignisAnhang, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan, WorkPlanTaskAttachment
+from odt_export import build_odt_document, convert_odt_bytes_to_pdf
 from school_year import observation_period_start
 from search import search as run_search
+from student_record import collect_record, filename_stem, record_blocks
 from student_selection import (
     get_grouped_student_choices_for_user,
     get_prioritized_students_for_user,
@@ -557,6 +559,54 @@ def schuelerakte():
         elternkontakte=elternkontakte,
         bogen_summaries=bogen_summaries,
         recent_beobachtungen=recent_beobachtungen,
+    )
+
+
+def _build_student_record_document(schueler):
+    """Baut das ODT der vollstaendigen Akte und liefert Puffer samt Dateiname."""
+    jetzt = utc_now()
+    record = collect_record(schueler)
+    blocks = record_blocks(record, jetzt.strftime('%d.%m.%Y'))
+    return build_odt_document(blocks), filename_stem(schueler, jetzt)
+
+
+@system_bp.route('/schuelerakte/export/odt/<int:s_id>')
+@login_required
+def schuelerakte_export_odt(s_id):
+    schueler = db.session.get(Schueler, s_id)
+    if not schueler:
+        abort(404)
+
+    odt_buffer, stem = _build_student_record_document(schueler)
+    return send_file(
+        odt_buffer,
+        as_attachment=True,
+        download_name=f'{stem}.odt',
+        mimetype='application/vnd.oasis.opendocument.text',
+    )
+
+
+@system_bp.route('/schuelerakte/export/pdf/<int:s_id>')
+@login_required
+def schuelerakte_export_pdf(s_id):
+    schueler = db.session.get(Schueler, s_id)
+    if not schueler:
+        abort(404)
+
+    next_url = url_for('system.schuelerakte', schueler_id=s_id)
+    odt_buffer, stem = _build_student_record_document(schueler)
+    try:
+        pdf_buffer = convert_odt_bytes_to_pdf(odt_buffer)
+    except RuntimeError as exc:
+        # LibreOffice fehlt oder bricht ab - das ODT bleibt der Weg.
+        flash(f'PDF-Export fehlgeschlagen: {exc}. Der ODT-Export funktioniert unabhängig davon.')
+        return redirect(next_url)
+
+    return send_file(
+        pdf_buffer,
+        as_attachment=True,
+        download_name=f'{stem}.pdf',
+        mimetype='application/pdf',
     )
 
 

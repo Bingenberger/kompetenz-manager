@@ -345,6 +345,7 @@ Ausfuehrliche Beschreibung:
 - `cleanup_orphan_uploads.py`: entfernt Uploads ohne Datenbankbezug
 - `competency_matrix.py`: Berechnung der Klassenuebersicht
 - `search.py`: Suche ueber Kinder, Kompetenzen und Boegen
+- `student_record.py`: Zusammenstellung der vollstaendigen Schuelerakte fuer den Export
 - `deploy/`: Service- und Betriebsdateien
 - `static/vendor/`: lokal ausgelieferte Fremdbestandteile (Bootstrap, Schriften) inkl. Anleitung zum Aktualisieren
 - `odt_templates/`: Exportvorlagen

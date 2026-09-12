@@ -248,6 +248,19 @@
                             <div class="text-muted">Klasse {{ selected_student.klasse or '-' }}</div>
                         </div>
                         <div class="akte-meta-chips">
+                            <span class="akte-meta-chip d-flex gap-1 p-0 border-0 bg-transparent">
+                                <a href="{{ url_for('system.schuelerakte_export_pdf', s_id=selected_student.id) }}"
+                                   class="btn btn-sm btn-outline-secondary icon-btn"
+                                   title="Vollständige Akte als PDF – für Schulwechsel und Auskunft nach Art. 15 DSGVO">
+                                    {{ bi('file-earmark-pdf', 'bi-icon-sm') }} <span>Gesamtakte PDF</span>
+                                </a>
+                                <a href="{{ url_for('system.schuelerakte_export_odt', s_id=selected_student.id) }}"
+                                   class="btn btn-sm btn-outline-secondary icon-only-btn"
+                                   title="Vollständige Akte als ODT zum Weiterbearbeiten"
+                                   aria-label="Gesamtakte als ODT">
+                                    {{ bi('file-earmark-text', 'bi-icon-sm') }}
+                                </a>
+                            </span>
                             <span class="akte-meta-chip">
                                 {{ bi('cake2', 'bi-icon-sm') }}
                                 <span>

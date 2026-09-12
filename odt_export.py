@@ -285,3 +285,195 @@ def convert_odt_bytes_to_pdf(odt_bytes, soffice_cmd="soffice", timeout_seconds=2
             details = (proc.stderr or proc.stdout or "").strip()
             raise RuntimeError(f"PDF-Konvertierung fehlgeschlagen. {details}".strip())
         raise RuntimeError("PDF-Konvertierung fehlgeschlagen.")
+
+
+# ---------------------------------------------------------------------------
+# Dokumente ohne Vorlage bauen
+#
+# Die vorlagenbasierten Exporte fuellen Platzhalter in einer .ott-Datei. Fuer
+# ein Dokument aus mehreren Abschnitten unterschiedlicher und im Vorhinein
+# unbekannter Laenge - die vollstaendige Schuelerakte - traegt das nicht: eine
+# Vorlage mit festen Bloecken liesse Ueberschriften ohne Inhalt stehen.
+# ---------------------------------------------------------------------------
+
+_DOC_NAMESPACES = (
+    'xmlns:office="urn:oasis:names:tc:opendocument:xmlns:office:1.0"'
+    ' xmlns:style="urn:oasis:names:tc:opendocument:xmlns:style:1.0"'
+    ' xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"'
+    ' xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"'
+    ' xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"'
+)
+
+_DOC_STYLES_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<office:document-styles {ns} office:version="1.2">
+ <office:styles>
+  <style:style style:name="Standard" style:family="paragraph">
+   <style:text-properties style:font-name="Liberation Sans" fo:font-size="10pt"/>
+  </style:style>
+ </office:styles>
+ <office:automatic-styles>
+  <style:page-layout style:name="pm1">
+   <style:page-layout-properties fo:page-width="21cm" fo:page-height="29.7cm"
+     style:print-orientation="portrait" fo:margin-top="2cm" fo:margin-bottom="2cm"
+     fo:margin-left="2cm" fo:margin-right="2cm"/>
+  </style:page-layout>
+ </office:automatic-styles>
+ <office:master-styles>
+  <style:master-page style:name="Standard" style:page-layout-name="pm1"/>
+ </office:master-styles>
+</office:document-styles>
+""".format(ns=_DOC_NAMESPACES)
+
+_DOC_AUTOMATIC_STYLES = """
+  <style:style style:name="Titel" style:family="paragraph">
+   <style:paragraph-properties fo:margin-bottom="0.2cm" fo:keep-with-next="always"/>
+   <style:text-properties fo:font-size="18pt" fo:font-weight="bold"/>
+  </style:style>
+  <style:style style:name="H1" style:family="paragraph">
+   <style:paragraph-properties fo:margin-top="0.7cm" fo:margin-bottom="0.2cm"
+     fo:keep-with-next="always" fo:border-bottom="0.06pt solid #808080" fo:padding-bottom="0.1cm"/>
+   <style:text-properties fo:font-size="13pt" fo:font-weight="bold"/>
+  </style:style>
+  <style:style style:name="H2" style:family="paragraph">
+   <style:paragraph-properties fo:margin-top="0.4cm" fo:margin-bottom="0.1cm" fo:keep-with-next="always"/>
+   <style:text-properties fo:font-size="11pt" fo:font-weight="bold"/>
+  </style:style>
+  <style:style style:name="Text" style:family="paragraph">
+   <style:paragraph-properties fo:margin-bottom="0.15cm"/>
+   <style:text-properties fo:font-size="10pt"/>
+  </style:style>
+  <style:style style:name="Klein" style:family="paragraph">
+   <style:paragraph-properties fo:margin-bottom="0.15cm"/>
+   <style:text-properties fo:font-size="8.5pt" fo:color="#5f7387"/>
+  </style:style>
+  <style:style style:name="Tab" style:family="table">
+   <style:table-properties style:width="17cm" table:align="left" fo:margin-bottom="0.3cm"/>
+  </style:style>
+  <style:style style:name="TabSpalte" style:family="table-column">
+   <style:table-column-properties style:use-optimal-column-width="true"/>
+  </style:style>
+  <style:style style:name="Zelle" style:family="table-cell">
+   <style:table-cell-properties fo:border="0.06pt solid #b0bec5" fo:padding="0.12cm"/>
+  </style:style>
+  <style:style style:name="ZelleKopf" style:family="table-cell">
+   <style:table-cell-properties fo:border="0.06pt solid #b0bec5" fo:padding="0.12cm"
+     fo:background-color="#eef4f7"/>
+  </style:style>
+  <style:style style:name="ZellText" style:family="paragraph">
+   <style:text-properties fo:font-size="9.5pt"/>
+  </style:style>
+  <style:style style:name="ZellKopfText" style:family="paragraph">
+   <style:text-properties fo:font-size="9.5pt" fo:font-weight="bold"/>
+  </style:style>
+"""
+
+
+def _doc_paragraph(text, style="Text"):
+    return f'<text:p text:style-name="{style}">{_xml_text(text)}</text:p>'
+
+
+def _doc_heading(text, level=1):
+    style = {1: "H1", 2: "H2"}.get(level, "H2")
+    return (
+        f'<text:h text:style-name="{style}" text:outline-level="{level}">'
+        f'{_xml_text(text)}</text:h>'
+    )
+
+
+def _doc_cell(value, head=False):
+    cell_style = "ZelleKopf" if head else "Zelle"
+    text_style = "ZellKopfText" if head else "ZellText"
+    return (
+        f'<table:table-cell table:style-name="{cell_style}" office:value-type="string">'
+        f'<text:p text:style-name="{text_style}">{_xml_text(value)}</text:p>'
+        f'</table:table-cell>'
+    )
+
+
+def _doc_table(rows, head=None, name="T"):
+    if not rows and not head:
+        return ""
+    spalten = len(head) if head else max(len(row) for row in rows)
+    teile = [f'<table:table table:name="{name}" table:style-name="Tab">']
+    teile.append(
+        f'<table:table-column table:style-name="TabSpalte" table:number-columns-repeated="{spalten}"/>'
+    )
+    if head:
+        teile.append('<table:table-header-rows><table:table-row>')
+        teile.extend(_doc_cell(zelle, head=True) for zelle in head)
+        teile.append('</table:table-row></table:table-header-rows>')
+    for row in rows:
+        teile.append('<table:table-row>')
+        # Kurze Zeilen auffuellen, sonst verschiebt sich die Tabelle.
+        werte = list(row) + [''] * (spalten - len(row))
+        teile.extend(_doc_cell(zelle) for zelle in werte[:spalten])
+        teile.append('</table:table-row>')
+    teile.append('</table:table>')
+    return "".join(teile)
+
+
+def build_odt_document(blocks):
+    """Baut ein ODT aus einer Folge von Bloecken und gibt BytesIO zurueck.
+
+    Unterstuetzte Bloecke, jeweils als dict mit 'type':
+
+        heading    text, level (1 oder 2)
+        paragraph  text, optional style ('Text', 'Klein', 'Titel')
+        fields     rows als Liste von (Bezeichnung, Wert)
+        table      head als Liste, rows als Liste von Listen
+    """
+    body = []
+    tabellen = 0
+
+    for block in blocks or []:
+        art = block.get("type")
+        if art == "heading":
+            body.append(_doc_heading(block.get("text", ""), block.get("level", 1)))
+        elif art == "paragraph":
+            body.append(_doc_paragraph(block.get("text", ""), block.get("style", "Text")))
+        elif art == "fields":
+            tabellen += 1
+            zeilen = [
+                [bezeichnung, wert] for bezeichnung, wert in (block.get("rows") or [])
+            ]
+            body.append(_doc_table(zeilen, name=f"F{tabellen}"))
+        elif art == "table":
+            tabellen += 1
+            body.append(_doc_table(
+                block.get("rows") or [], head=block.get("head"), name=f"T{tabellen}",
+            ))
+        else:
+            raise ValueError(f"Unbekannter Blocktyp: {art!r}")
+
+    content = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        f'<office:document-content {_DOC_NAMESPACES} office:version="1.2">'
+        f'<office:automatic-styles>{_DOC_AUTOMATIC_STYLES}</office:automatic-styles>'
+        f'<office:body><office:text>{"".join(body)}</office:text></office:body>'
+        '</office:document-content>'
+    )
+
+    manifest = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<manifest:manifest'
+        ' xmlns:manifest="urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"'
+        ' manifest:version="1.2">'
+        f'<manifest:file-entry manifest:full-path="/" manifest:media-type="{ODT_MIMETYPE}"/>'
+        '<manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/>'
+        '<manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/>'
+        '</manifest:manifest>'
+    )
+
+    output = BytesIO()
+    with zipfile.ZipFile(output, "w") as dst:
+        # mimetype muss der erste Eintrag und unkomprimiert sein, sonst erkennen
+        # Leser das Format nicht.
+        dst.writestr(
+            zipfile.ZipInfo("mimetype"), ODT_MIMETYPE, compress_type=zipfile.ZIP_STORED,
+        )
+        dst.writestr("META-INF/manifest.xml", manifest, compress_type=zipfile.ZIP_DEFLATED)
+        dst.writestr("styles.xml", _DOC_STYLES_XML, compress_type=zipfile.ZIP_DEFLATED)
+        dst.writestr("content.xml", content, compress_type=zipfile.ZIP_DEFLATED)
+
+    output.seek(0)
+    return output

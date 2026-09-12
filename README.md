@@ -18,6 +18,7 @@ Die Anwendung ist fuer den praktischen Schulalltag gebaut: klassische Server-Tem
 - Suche in der Navigationsleiste ueber Kinder, Kompetenzen und Boegen
 - Erzieherische Ereignisse mit Konsequenzen, Zustaendigkeit, Anhaengen und Journal
 - PDF- und ODT-Exporte an mehreren Stellen
+- Vollstaendige Schuelerakte als ein Dokument, fuer Schulwechsel und Auskunft nach Art. 15 DSGVO
 
 ## Module
 
@@ -57,6 +58,14 @@ Die Anwendung ist fuer den praktischen Schulalltag gebaut: klassische Server-Tem
 ### Schuelerakte
 
 - Gebuendelte Sicht auf Beobachtungen, Foerderplanung, Arbeitsplaene, Elternkontakte und Ereignisse
+
+### Export der Gesamtakte
+
+- Alle zu einem Kind gespeicherten Inhalte in einem ODT- oder PDF-Dokument
+- Ohne Begrenzung und ohne Schuljahresfilter: die Ansicht zeigt die letzten Eintraege, der Auszug alle
+- Grunddaten, Foerdergrundlage, Beobachtungen je Bogen, Foerderplaene, Arbeitsplaene, Elternkontakte, Beratungen und Ereignisse
+- Uploads werden als vorhanden vermerkt, nicht eingebettet
+- Nicht enthalten: das Aenderungsprotokoll der Ereignisse, das Bearbeitungen von Lehrkraeften festhaelt
 
 ### Suche
 
