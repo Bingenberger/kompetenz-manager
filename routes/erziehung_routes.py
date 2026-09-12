@@ -647,11 +647,11 @@ def erziehung_delete(event_id):
         anhang.file_path for anhang in event.attachments if anhang.file_path
     ]
 
-    ErziehungsEreignisLog.query.filter_by(event_id=event.id).delete()
-    ErziehungsEreignisBetroffenesKind.query.filter_by(event_id=event.id).delete()
-    ErziehungsEreignisKonsequenz.query.filter_by(event_id=event.id).delete()
-    ErziehungsEreignisElternkontakt.query.filter_by(event_id=event.id).delete()
-    ErziehungsEreignisAnhang.query.filter_by(event_id=event.id).delete()
+    # Journal, betroffene Kinder, Konsequenzen, Elternkontakt-Verknüpfungen und
+    # Anhänge hängen per delete-orphan-Kaskade am Ereignis. Sie vorher einzeln
+    # per Massenlöschung zu entfernen ist nicht nur überflüssig: die Kaskade
+    # wollte dieselben Zeilen danach noch einmal löschen und SQLAlchemy warnte
+    # über nicht getroffene Zeilen.
     db.session.delete(event)
     db.session.commit()
 

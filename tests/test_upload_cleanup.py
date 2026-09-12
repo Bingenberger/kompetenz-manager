@@ -16,6 +16,7 @@ import re
 import shutil
 import tempfile
 import unittest
+import warnings
 
 from werkzeug.security import generate_password_hash
 
@@ -181,6 +182,36 @@ class UploadCleanupTestCase(unittest.TestCase):
         self.assertFalse(self._exists(rel), 'Anhang des Ereignisses blieb liegen')
         with self.app.app_context():
             self.assertIsNone(db.session.get(ErziehungsEreignis, event_id))
+
+    def test_deleting_event_does_not_warn_about_unmatched_rows(self):
+        """Kindsaetze nicht doppelt loeschen.
+
+        Journal, Konsequenzen und Anhaenge haengen per Kaskade am Ereignis. Sie
+        zusaetzlich per Massenloeschung zu entfernen liess SQLAlchemy anschliessend
+        Zeilen loeschen wollen, die es nicht mehr gab:
+
+            SAWarning: DELETE statement on table 'erziehungs_ereignis_anhang'
+            expected to delete 1 row(s); 0 were matched.
+
+        Funktional harmlos, aber ein Hinweis auf doppelte Arbeit - und in einem
+        Testlauf auf dem Produktivserver schlicht Rauschen.
+        """
+        with self.app.app_context():
+            event_id, _, _ = self._make_event_with_attachment()
+
+        with warnings.catch_warnings(record=True) as gesammelt:
+            warnings.simplefilter('always')
+            self.client.post(
+                f'/erziehung/{event_id}/delete',
+                data={'_csrf_token': self._token()},
+                follow_redirects=True,
+            )
+
+        auffaellig = [
+            str(eintrag.message) for eintrag in gesammelt
+            if 'expected to delete' in str(eintrag.message)
+        ]
+        self.assertEqual([], auffaellig, 'Kindsätze werden doppelt gelöscht')
 
     # ------------------------------------------------------------------
     # Arbeitsplaene
