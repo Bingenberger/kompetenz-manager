@@ -22,6 +22,16 @@ def _normalize_relative_upload_path(rel_path):
     return normalized
 
 
+def normalize_upload_path(rel_path):
+    """Normalisiert einen gespeicherten Upload-Pfad.
+
+    Oeffentlicher Zugang zu derselben Normalisierung, die die Ausliefer- und
+    Loeschwege benutzen - damit Werkzeuge ausserhalb der Anwendung Pfade
+    identisch vergleichen. Gibt None zurueck, wenn der Pfad unbrauchbar ist.
+    """
+    return _normalize_relative_upload_path(rel_path)
+
+
 def get_legacy_upload_root():
     return Path(current_app.root_path) / 'static' / 'uploads'
 

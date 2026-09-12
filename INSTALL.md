@@ -236,6 +236,24 @@ Optional:
 python migrate_uploads_to_protected.py --move
 ```
 
+### Verwaiste Upload-Dateien
+
+Bis zur Nachbesserung der Loeschpfade entfernte die Anwendung keine hochgeladene Datei. In gewachsenen Instanzen liegen deshalb Fotos und PDFs ohne Datenbankbezug.
+
+Bericht (veraendert nichts):
+
+```bash
+python cleanup_orphan_uploads.py
+```
+
+Loeschen nach Rueckfrage:
+
+```bash
+python cleanup_orphan_uploads.py --delete
+```
+
+Optionen: `--yes` ueberspringt die Rueckfrage, `--limit` steuert die Laenge der Auflistung. Der Lauf muss mit derselben `DATABASE_URL` laufen wie der Dienst; enthaelt die Datenbank keinen einzigen Dateiverweis, bricht er ab.
+
 ## 11. Migration von SQLite nach PostgreSQL
 
 Das Projekt enthaelt ein Migrationsskript:
@@ -324,6 +342,7 @@ Ausfuehrliche Beschreibung:
 - `repair.py`: Reparatur- und Hilfsskript
 - `migrate_sqlite_to_postgres.py`: Datenmigration
 - `migrate_uploads_to_protected.py`: Upload-Migration
+- `cleanup_orphan_uploads.py`: entfernt Uploads ohne Datenbankbezug
 - `deploy/`: Service- und Betriebsdateien
 - `odt_templates/`: Exportvorlagen
 

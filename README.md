@@ -133,6 +133,22 @@ Optional mit Verschieben statt Kopieren:
 python migrate_uploads_to_protected.py --move
 ```
 
+## Verwaiste Upload-Dateien aufraeumen
+
+Aeltere Instanzen enthalten Fotos und PDFs, auf die kein Datensatz mehr zeigt: bis zur Nachbesserung der Loeschpfade entfernte die Anwendung keine Dateien. Der Aufraeumlauf berichtet zuerst nur:
+
+```bash
+python cleanup_orphan_uploads.py
+```
+
+Geloescht wird ausschliesslich mit `--delete` und nach Rueckfrage:
+
+```bash
+python cleanup_orphan_uploads.py --delete
+```
+
+Der Lauf braucht dieselbe `DATABASE_URL` wie der Dienst. Zeigt er auf eine leere Datenbank, bricht er ab, statt alle Dateien als verwaist zu behandeln.
+
 ## Updates bestehender Instanzen
 
 Produktive Installationen aktualisieren sich aus dem Git-Repository heraus. Ausgeloest wird das Update auf dem Server selbst:
