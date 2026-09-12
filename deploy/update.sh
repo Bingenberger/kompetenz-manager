@@ -85,6 +85,17 @@ fail() { printf '\n\033[31mFEHLER: %s\033[0m\n' "$*" >&2; exit 1; }
 # Laedt die Instanzkonfiguration in die Umgebung.
 # Reihenfolge: .env.local zuerst, danach die systemd-Env-Datei - so gewinnt die
 # Quelle, aus der der Dienst tatsaechlich startet, wenn beide vorhanden sind.
+# Gibt die DATABASE_URL ohne Passwort aus, damit sie gefahrlos in Terminal und
+# Logdateien landen kann.
+masked_db_url() {
+  local url="${DATABASE_URL:-}"
+  if [[ -z "$url" ]]; then
+    printf '(nicht gesetzt - SQLite-Standard)'
+    return 0
+  fi
+  printf '%s' "$url" | sed -E 's#(://[^:/@]+):[^@]*@#\1:***@#'
+}
+
 ENV_SOURCES=""
 load_env() {
   ENV_SOURCES=""
@@ -227,7 +238,7 @@ else
   load_env >/dev/null
   if [[ -n "$ENV_SOURCES" ]]; then
     info "Konfiguration aus: $ENV_SOURCES"
-    info "Datenbank: ${DATABASE_URL:-(nicht gesetzt - SQLite-Standard)}"
+    info "Datenbank: $(masked_db_url)"
   else
     warn "Weder $APP_DIR/.env.local noch $ENV_FILE lesbar."
     warn "Backup und Migration wuerden auf die Standard-SQLite-Datei zugreifen."
@@ -311,7 +322,7 @@ fi
 # --- Schritt 6: Schema-Migration ------------------------------------------
 log "Datenbankschema nachziehen (update_db.py)"
 load_env >/dev/null
-info "Datenbank: ${DATABASE_URL:-(nicht gesetzt - SQLite-Standard)}"
+info "Datenbank: $(masked_db_url)"
 "$PYTHON" "$APP_DIR/update_db.py"
 ok "Schema aktuell."
 
