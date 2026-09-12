@@ -27,6 +27,7 @@ Die Anwendung ist fuer den praktischen Schulalltag gebaut: klassische Server-Tem
 - Beobachtungsboegen (`Bogen`, `Item`)
 - Einzelbeobachtungen mit Kommentar und Foto
 - Verlaufsauswertung und Berichtsansichten
+- Entwicklungsverlauf je Kompetenz (`competency_trend.py`): Vergleich der frueheren mit der spaeteren Haelfte der Beobachtungen, mit Richtung und Zusammenfassung ueber den Bogen
 - Klassenuebersicht (`competency_matrix.py`): Kinder mal Kompetenzen mit Klassen- und Kindmittel, Erfassungsstand und direktem Sprung in den Schnelleintrag fuer fehlende Beobachtungen
 
 ### Elternkontakte

@@ -2,6 +2,19 @@
 {% from "includes/icons.html" import bi %}
 {% block content %}
 <style>
+    .trend-chip {
+        display: inline-block;
+        border-radius: 999px;
+        padding: .1rem .5rem;
+        font-size: .78rem;
+        font-weight: 700;
+        line-height: 1.5;
+    }
+    .trend-up   { background: rgba(67,170,139,0.18);  color: #276b58; }
+    .trend-flat { background: rgba(87,117,144,0.14);  color: #46596b; }
+    .trend-down { background: rgba(249,65,68,0.16);   color: #99201f; }
+</style>
+<style>
     .report-summary {
         border-radius: 16px;
         border: 1px solid rgba(87,117,144,0.12);
@@ -189,6 +202,16 @@
     <div class="row g-2 align-items-center">
         <div class="col-md">
             <strong>{{ report_data|length }}</strong> Kompetenzen im Bericht
+            {% if trend_summary.bewertet %}
+            <div class="small mt-1">
+                <span class="trend-chip trend-up">{{ trend_summary.verbessert }} verbessert</span>
+                <span class="trend-chip trend-flat">{{ trend_summary.stabil }} unverändert</span>
+                <span class="trend-chip trend-down">{{ trend_summary.verschlechtert }} zurückgegangen</span>
+                {% if trend_summary.ohne %}
+                <span class="text-muted ms-1">{{ trend_summary.ohne }} ohne Verlauf</span>
+                {% endif %}
+            </div>
+            {% endif %}
         </div>
         <div class="col-md-auto text-md-end text-muted small">
             Klicken Sie auf einen Bereich, um Einträge ein- oder auszublenden.
@@ -213,6 +236,16 @@
                 {% if row.anzahl > 0 %}
                 <span class="h3 fw-bold value">{{ row.durchschnitt }}</span>
                 <span class="d-block small text-muted">Ø aus {{ row.anzahl }} Einträgen</span>
+                {% if row.trend %}
+                <span class="d-block trend-chip trend-{{ 'up' if row.trend.richtung == 'verbessert' else ('down' if row.trend.richtung == 'verschlechtert' else 'flat') }} mt-1"
+                      title="Frühere {{ row.trend.anzahl_frueher }} Einträge im Mittel {{ row.trend.frueher }}, spätere {{ row.trend.anzahl_spaeter }} im Mittel {{ row.trend.spaeter }}">
+                    {% if row.trend.richtung == 'verbessert' %}▲{% elif row.trend.richtung == 'verschlechtert' %}▼{% else %}■{% endif %}
+                    {{ row.trend.label }}
+                    {% if row.trend.richtung != 'stabil' %}
+                    ({{ '%+.1f' % row.trend.differenz }})
+                    {% endif %}
+                </span>
+                {% endif %}
                 {% else %}
                 <span class="badge bg-secondary">Keine aktuellen Daten</span>
                 {% if row.eintraege %}<span class="d-block small text-muted mt-1">{{ row.eintraege|length }} im Archiv</span>{% endif %}

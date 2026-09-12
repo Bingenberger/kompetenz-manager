@@ -4,6 +4,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, s
 from flask_login import current_user, login_required
 
 from extensions import db
+from competency_trend import compute_trend, summarize
 from competency_matrix import (
     build_matrix,
     classes_with_students,
@@ -54,33 +55,45 @@ def report_schueler():
     bogen = db.session.get(Bogen, int(b_id))
     items = Item.query.filter_by(bogen_id=b_id).all()
 
-    report_data = []
     symbol_map = {1: '-', 2: 'o', 3: '+', 4: '++'}
     color_map = {1: 'danger', 2: 'warning', 3: 'success', 4: 'success'}
 
-    for item in items:
-        eintraege = Beobachtung.query.filter_by(
-            schueler_id=s_id,
-            item_id=item.id
-        ).order_by(Beobachtung.datum.desc()).all()
+    # Eine Abfrage für alle Kompetenzen statt einer je Kompetenz, und das
+    # Schuljahr einmal statt in jedem Schleifendurchlauf.
+    school_year_start = active_school_year_start()
+    alle_eintraege = (
+        Beobachtung.query
+        .filter(
+            Beobachtung.schueler_id == int(s_id),
+            Beobachtung.item_id.in_([item.id for item in items]),
+        )
+        .order_by(Beobachtung.datum.desc())
+        .all()
+    ) if items else []
 
-        durchschnitt = 0
-        school_year_start = active_school_year_start()
+    eintraege_je_item = {}
+    for eintrag in alle_eintraege:
+        eintraege_je_item.setdefault(eintrag.item_id, []).append(eintrag)
+
+    report_data = []
+    for item in items:
+        eintraege = eintraege_je_item.get(item.id, [])
         aktuelle_eintraege = [
             entry for entry in eintraege
             if not school_year_start or (entry.datum and entry.datum.date() >= school_year_start)
         ]
-        anzahl = len(aktuelle_eintraege)
         werte = [e.wert for e in aktuelle_eintraege if e.wert is not None]
-        if werte:
-            durchschnitt = round(sum(werte) / len(werte), 1)
+        durchschnitt = round(sum(werte) / len(werte), 1) if werte else 0
 
         report_data.append({
             'item': item,
             'eintraege': eintraege,
-            'anzahl': anzahl,
-            'durchschnitt': Durchschnitt if False else durchschnitt,
+            'anzahl': len(aktuelle_eintraege),
+            'durchschnitt': durchschnitt,
+            'trend': compute_trend(aktuelle_eintraege),
         })
+
+    trend_summary = summarize([zeile['trend'] for zeile in report_data])
 
     jetzt = datetime.now().strftime("%d.%m.%Y %H:%M")
 
@@ -91,6 +104,7 @@ def report_schueler():
         report_data=report_data,
         symbol_map=symbol_map,
         color_map=color_map,
+        trend_summary=trend_summary,
         now=jetzt,
         next_url=next_url,
     )
