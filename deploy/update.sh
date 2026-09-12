@@ -96,6 +96,27 @@ masked_db_url() {
   printf '%s' "$url" | sed -E 's#(://[^:/@]+):[^@]*@#\1:***@#'
 }
 
+# Laeuft update.sh als root, gehoeren neu erzeugte Backup-Ordner root. Der
+# naechtliche Cron-Lauf arbeitet als Dienstbenutzer und koennte sie dann nicht
+# mehr loeschen - die Rotation liefe still auf. Eigentuemer deshalb an den des
+# Backup-Verzeichnisses angleichen.
+normalize_backup_owner() {
+  local root_dir="${BACKUP_ROOT:-$APP_DIR/backups}"
+  [[ "$(id -u)" -eq 0 ]] || return 0
+  [[ -d "$root_dir" ]] || return 0
+
+  local target_owner
+  target_owner="$(stat -c '%U:%G' "$root_dir")"
+  [[ "$target_owner" == "root:root" ]] && return 0
+
+  if chown -R "$target_owner" "$root_dir" 2>/dev/null; then
+    info "Backup-Eigentuemer auf $target_owner angeglichen."
+  else
+    warn "Eigentuemer unter $root_dir konnte nicht angeglichen werden."
+    warn "Die naechtliche Backup-Rotation koennte daran scheitern."
+  fi
+}
+
 ENV_SOURCES=""
 load_env() {
   ENV_SOURCES=""
@@ -264,6 +285,7 @@ else
     fi
   fi
   bash "$APP_DIR/backup_external.sh" || fail "Backup fehlgeschlagen. Update abgebrochen."
+  normalize_backup_owner
   ok "Backup abgeschlossen."
 fi
 
