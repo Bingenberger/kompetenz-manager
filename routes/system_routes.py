@@ -1,9 +1,10 @@
 import os
 import secrets
 import mimetypes
-from datetime import timedelta
+import re
+from datetime import date, datetime, timedelta
 
-import pandas as pd
+from openpyxl import load_workbook
 from flask import Blueprint, abort, flash, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import func
@@ -27,22 +28,91 @@ from uploads import resolve_existing_upload_path
 system_bp = Blueprint('system', __name__)
 
 
+# Reihenfolge zaehlt. Ein Datum wie "2018-07-04" ist eindeutig jahresfuehrend,
+# "04.07.2018" eindeutig tagesfuehrend - wer beides mit derselben Annahme liest,
+# vertauscht in einem der Faelle Tag und Monat.
+_DATE_FORMATS_YEAR_FIRST = ('%Y-%m-%d', '%Y/%m/%d', '%Y.%m.%d')
+_DATE_FORMATS_DAY_FIRST = ('%d.%m.%Y', '%d.%m.%y', '%d/%m/%Y', '%d-%m-%Y')
+
+
 def _parse_import_date(value):
-    if value is None or pd.isna(value):
+    """Liest ein Geburtsdatum aus einer Excel-Zelle.
+
+    Richtig formatierte Datumszellen liefert openpyxl bereits als datetime.
+    Text wird nach Format unterschieden: vierstelliges Jahr vorn heisst
+    jahresfuehrend, sonst tagesfuehrend. Was sich nicht lesen laesst, ergibt
+    None - ein unleserliches Datum darf nicht die ganze Klassenliste verhindern.
+    """
+    if value is None:
         return None
 
-    # Excel dates often arrive as pandas Timestamp / datetime objects.
-    if hasattr(value, 'date'):
+    if isinstance(value, datetime):
         return value.date()
+    if isinstance(value, date):
+        return value
 
     text_value = str(value).strip()
     if not text_value:
         return None
 
-    parsed = pd.to_datetime(text_value, dayfirst=True, errors='coerce')
-    if pd.isna(parsed):
+    formate = (
+        _DATE_FORMATS_YEAR_FIRST
+        if re.match(r'^\d{4}[-/.]', text_value)
+        else _DATE_FORMATS_DAY_FIRST
+    )
+    for format_string in formate:
+        try:
+            return datetime.strptime(text_value, format_string).date()
+        except ValueError:
+            continue
+    return None
+
+
+def _read_xlsx_rows(file_storage):
+    """Liest die erste Tabelle einer .xlsx-Datei als (Spalten, Zeilen).
+
+    Zeilen sind dicts mit den Spaltenueberschriften als Schluessel. read_only
+    haelt den Speicherbedarf klein - auf einem Schulserver mit knappem RAM ist
+    das der Unterschied zwischen Import und Absturz.
+    """
+    workbook = load_workbook(file_storage, read_only=True, data_only=True)
+    try:
+        blatt = workbook.active
+        zeilen_iterator = blatt.iter_rows(values_only=True)
+
+        try:
+            kopf = next(zeilen_iterator)
+        except StopIteration:
+            return [], []
+
+        spalten = [
+            str(zelle).strip() if zelle is not None else ''
+            for zelle in kopf
+        ]
+
+        zeilen = []
+        for werte in zeilen_iterator:
+            # Tabellen aus der Praxis enden oft mit leeren Zeilen.
+            if all(wert is None or str(wert).strip() == '' for wert in werte):
+                continue
+            zeile = {}
+            for spalte, wert in zip(spalten, werte):
+                if spalte:
+                    zeile[spalte] = wert
+            zeilen.append(zeile)
+
+        return [spalte for spalte in spalten if spalte], zeilen
+    finally:
+        workbook.close()
+
+
+def _import_text(value):
+    """Zellinhalt als Text - Excel liefert eine Klasse "4" als Zahl."""
+    if value is None:
         return None
-    return parsed.date()
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()
 
 
 def _get_system_konfiguration():
@@ -828,34 +898,37 @@ def data_import(typ):
     if request.method == 'POST':
         file = request.files['file']
         if file.filename.endswith('.xlsx'):
-            df = pd.read_excel(file)
+            spalten, zeilen = _read_xlsx_rows(file)
             required_columns = {
                 'schueler': ['Vorname', 'Nachname', 'Klasse', 'Geburtsdatum'],
                 'bogen': ['Bogen', 'Bereich', 'Item'],
             }.get(typ, [])
-            missing_columns = [col for col in required_columns if col not in df.columns]
+            missing_columns = [col for col in required_columns if col not in spalten]
             if missing_columns:
                 flash('Fehlende Spalten in Excel-Datei: ' + ', '.join(missing_columns))
                 return redirect(url_for('system.data_import', typ=typ, next=next_url) if next_url else url_for('system.data_import', typ=typ))
             if typ == 'schueler':
-                for _, row in df.iterrows():
-                    s = Schueler(
-                        vorname=row['Vorname'],
-                        nachname=row['Nachname'],
-                        klasse=row['Klasse'],
+                for row in zeilen:
+                    db.session.add(Schueler(
+                        vorname=_import_text(row.get('Vorname')),
+                        nachname=_import_text(row.get('Nachname')),
+                        klasse=_import_text(row.get('Klasse')),
                         geburtsdatum=_parse_import_date(row.get('Geburtsdatum')),
-                    )
-                    db.session.add(s)
+                    ))
             elif typ == 'bogen':
-                for _, row in df.iterrows():
-                    bogen_titel = row['Bogen']
+                for row in zeilen:
+                    bogen_titel = _import_text(row.get('Bogen'))
                     exist_bogen = Bogen.query.filter_by(titel=bogen_titel).first()
                     if not exist_bogen:
                         exist_bogen = Bogen(titel=bogen_titel)
                         db.session.add(exist_bogen)
                         db.session.flush()
 
-                    item = Item(bogen_id=exist_bogen.id, bereich=row['Bereich'], text=row['Item'])
+                    item = Item(
+                        bogen_id=exist_bogen.id,
+                        bereich=_import_text(row.get('Bereich')),
+                        text=_import_text(row.get('Item')),
+                    )
                     db.session.add(item)
 
             db.session.commit()

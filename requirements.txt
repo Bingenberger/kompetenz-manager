@@ -1,6 +1,5 @@
 flask
 flask-sqlalchemy
-pandas
 openpyxl
 werkzeug
 flask-login
