@@ -18,8 +18,17 @@ Repository: <https://github.com/Bingenberger/kompetenz-manager>
 
 ## 1. Einmalige Umstellung einer bestehenden Installation
 
-Auf dem Produktivserver, im App-Verzeichnis, **als Besitzer des Verzeichnisses**
-(nicht als root):
+Auf dem Produktivserver, **als Besitzer des App-Verzeichnisses** (nicht als
+root). Da `adopt_git.sh` dort noch nicht liegt, wird es einmalig geholt:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Bingenberger/kompetenz-manager/main/deploy/adopt_git.sh \
+  -o /tmp/adopt_git.sh
+bash /tmp/adopt_git.sh --app-dir /pfad/zur/app
+```
+
+Alternativ das Skript einmal per `scp` übertragen. Liegt es bereits im
+Projektordner, genügt:
 
 ```bash
 cd /pfad/zur/app
