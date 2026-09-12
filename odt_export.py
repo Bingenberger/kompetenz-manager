@@ -346,6 +346,10 @@ _DOC_AUTOMATIC_STYLES = """
    <style:paragraph-properties fo:margin-bottom="0.15cm"/>
    <style:text-properties fo:font-size="8.5pt" fo:color="#5f7387"/>
   </style:style>
+  <style:style style:name="Seitenumbruch" style:family="paragraph">
+   <style:paragraph-properties fo:break-before="page"/>
+   <style:text-properties fo:font-size="1pt"/>
+  </style:style>
   <style:style style:name="Tab" style:family="table">
    <style:table-properties style:width="17cm" table:align="left" fo:margin-bottom="0.3cm"/>
   </style:style>
@@ -421,6 +425,7 @@ def build_odt_document(blocks):
         paragraph  text, optional style ('Text', 'Klein', 'Titel')
         fields     rows als Liste von (Bezeichnung, Wert)
         table      head als Liste, rows als Liste von Listen
+        pagebreak  erzwingt eine neue Seite, ohne weitere Angaben
     """
     body = []
     tabellen = 0
@@ -442,6 +447,8 @@ def build_odt_document(blocks):
             body.append(_doc_table(
                 block.get("rows") or [], head=block.get("head"), name=f"T{tabellen}",
             ))
+        elif art == "pagebreak":
+            body.append('<text:p text:style-name="Seitenumbruch"/>')
         else:
             raise ValueError(f"Unbekannter Blocktyp: {art!r}")
 

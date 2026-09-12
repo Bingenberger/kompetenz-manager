@@ -1,10 +1,20 @@
 from datetime import datetime
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, session, url_for
+from flask import (
+    Blueprint, abort, flash, redirect, render_template, request, send_file, session, url_for,
+)
 from flask_login import current_user, login_required
 
 from extensions import db
 from competency_trend import compute_trend, summarize
+from odt_export import build_odt_document, convert_odt_bytes_to_pdf
+from report_material import (
+    class_filename_stem,
+    collect_material,
+    filename_stem,
+    material_blocks,
+    students_in_class,
+)
 from competency_matrix import (
     build_matrix,
     classes_with_students,
@@ -161,6 +171,98 @@ def report_matrix():
         matrix=matrix,
         weakest=weakest_items(matrix) if matrix else [],
         attention=students_needing_attention(matrix) if matrix else [],
+    )
+
+
+def _material_document(students, erzeugt_am):
+    """Baut ein Dokument fuer ein Kind oder einen ganzen Klassensatz."""
+    blocks = []
+    for nummer, schueler in enumerate(students):
+        material = collect_material(schueler)
+        blocks.extend(material_blocks(
+            material, erzeugt_am, mit_seitenumbruch=nummer > 0,
+        ))
+    return build_odt_document(blocks)
+
+
+@report_bp.route('/report/zeugnismaterial')
+@login_required
+def report_material_view():
+    klassen = classes_with_students()
+    klasse = (request.args.get('klasse') or '').strip()
+    s_id = (request.args.get('schueler_id') or '').strip()
+
+    if klasse not in klassen:
+        klasse = _default_klasse_for_user(current_user, klassen)
+
+    kinder = students_in_class(klasse) if klasse else []
+
+    selected_student = None
+    if s_id.isdigit():
+        selected_student = db.session.get(Schueler, int(s_id))
+    if selected_student is None and kinder:
+        selected_student = kinder[0]
+
+    material = collect_material(selected_student) if selected_student else None
+
+    return render_template(
+        'report_material.html',
+        klassen=klassen,
+        klasse=klasse,
+        kinder=kinder,
+        selected_student=selected_student,
+        material=material,
+    )
+
+
+@report_bp.route('/report/zeugnismaterial/export/<string:format>')
+@login_required
+def report_material_export(format):
+    if format not in {'odt', 'pdf'}:
+        abort(404)
+
+    jetzt = datetime.now()
+    s_id = (request.args.get('schueler_id') or '').strip()
+    klasse = (request.args.get('klasse') or '').strip()
+
+    if s_id.isdigit():
+        schueler = db.session.get(Schueler, int(s_id))
+        if not schueler:
+            abort(404)
+        students = [schueler]
+        stem = filename_stem(schueler, jetzt)
+        zurueck = url_for('report.report_material_view', schueler_id=s_id, klasse=klasse or None)
+    elif klasse:
+        students = students_in_class(klasse)
+        if not students:
+            flash(f'In Klasse {klasse} sind keine aktiven Kinder eingetragen.')
+            return redirect(url_for('report.report_material_view', klasse=klasse))
+        stem = class_filename_stem(klasse, jetzt)
+        zurueck = url_for('report.report_material_view', klasse=klasse)
+    else:
+        abort(404)
+
+    odt_buffer = _material_document(students, jetzt.strftime('%d.%m.%Y'))
+
+    if format == 'odt':
+        return send_file(
+            odt_buffer,
+            as_attachment=True,
+            download_name=f'{stem}.odt',
+            mimetype='application/vnd.oasis.opendocument.text',
+        )
+
+    try:
+        pdf_buffer = convert_odt_bytes_to_pdf(odt_buffer)
+    except RuntimeError as exc:
+        flash(f'PDF-Export fehlgeschlagen: {exc}. Der ODT-Export funktioniert unabhängig davon.')
+        return redirect(zurueck)
+
+    return send_file(
+        pdf_buffer,
+        as_attachment=True,
+        download_name=f'{stem}.pdf',
+        mimetype='application/pdf',
     )
 
 

@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .material-toolbar {
+        border-radius: 16px;
+        border: 1px solid rgba(87,117,144,0.14);
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90));
+        box-shadow: 0 10px 22px rgba(31,41,51,0.05);
+        padding: 1rem;
+    }
+
+    .bogen-card {
+        border-radius: 16px;
+        border: 1px solid rgba(87,117,144,0.14);
+        background: #fff;
+        box-shadow: 0 10px 22px rgba(31,41,51,0.05);
+        overflow: hidden;
+    }
+    .bogen-card + .bogen-card { margin-top: 1.25rem; }
+    .bogen-card > header {
+        padding: .8rem 1rem;
+        background: linear-gradient(90deg, rgba(39,125,161,0.09), rgba(77,144,142,0.05));
+        border-bottom: 1px solid rgba(87,117,144,0.12);
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: .75rem;
+        flex-wrap: wrap;
+    }
+    .bogen-card > header h2 { font-size: 1.08rem; font-weight: 700; margin: 0; }
+
+    .bereich-block { padding: .9rem 1rem; }
+    .bereich-block + .bereich-block { border-top: 1px solid rgba(87,117,144,0.10); }
+    .bereich-block > h3 {
+        font-size: .95rem;
+        font-weight: 700;
+        margin: 0 0 .6rem;
+        display: flex;
+        align-items: baseline;
+        gap: .5rem;
+    }
+
+    .kompetenz {
+        padding: .5rem 0;
+        border-top: 1px dotted rgba(87,117,144,0.22);
+    }
+    .kompetenz:first-of-type { border-top: 0; }
+    .kompetenz-kopf {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: .6rem;
+        flex-wrap: wrap;
+    }
+    .kompetenz-kopf .wert {
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+    }
+
+    /* Die Notizen sind das eigentliche Material - entsprechend gesetzt. */
+    .notiz-liste { margin: .4rem 0 0; padding-left: 0; list-style: none; }
+    .notiz {
+        border-left: 3px solid rgba(39,125,161,0.35);
+        padding: .2rem 0 .2rem .6rem;
+        margin-bottom: .3rem;
+        font-size: .93rem;
+    }
+    .notiz .meta {
+        color: #5f7387;
+        font-size: .8rem;
+        font-variant-numeric: tabular-nums;
+        margin-right: .35rem;
+    }
+
+    .trend-chip {
+        display: inline-block;
+        border-radius: 999px;
+        padding: .05rem .45rem;
+        font-size: .75rem;
+        font-weight: 700;
+    }
+    .trend-up   { background: rgba(67,170,139,0.18);  color: #276b58; }
+    .trend-flat { background: rgba(87,117,144,0.14);  color: #46596b; }
+    .trend-down { background: rgba(249,65,68,0.16);   color: #99201f; }
+
+    .kind-liste .btn { text-align: left; }
+
+    @media print {
+        .material-toolbar, .kind-liste, .no-print { display: none !important; }
+        .bogen-card { box-shadow: none; border-color: #ccc; break-inside: avoid; }
+    }
+</style>
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+    <div>
+        <span class="section-label">Auswertung</span>
+        <h1 class="mt-2 mb-0" style="font-size: clamp(1.4rem, 2.2vw, 1.9rem);">Zeugnismaterial</h1>
+    </div>
+    <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn no-print">
+        {{ bi('house', 'bi-icon-sm') }} <span>Zur Startseite</span>
+    </a>
+</div>
+
+<form method="GET" class="material-toolbar mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-sm-4">
+            <label class="form-label" for="material-klasse">Klasse</label>
+            <select class="form-select" id="material-klasse" name="klasse" onchange="this.form.submit()">
+                {% for k in klassen %}
+                <option value="{{ k }}" {% if k == klasse %}selected{% endif %}>Klasse {{ k }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-sm-8">
+            <span class="form-label d-block">Klassensatz auf einmal</span>
+            <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-outline-secondary icon-btn"
+                   href="{{ url_for('report.report_material_export', format='pdf', klasse=klasse) }}">
+                    {{ bi('file-earmark-pdf', 'bi-icon-sm') }} <span>Alle Kinder als PDF</span>
+                </a>
+                <a class="btn btn-outline-secondary icon-btn"
+                   href="{{ url_for('report.report_material_export', format='odt', klasse=klasse) }}">
+                    {{ bi('file-earmark-text', 'bi-icon-sm') }} <span>als ODT</span>
+                </a>
+                <span class="align-self-center text-muted small">
+                    ein Kind je Seite, {{ kinder|length }} {% if kinder|length == 1 %}Kind{% else %}Kinder{% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+</form>
+
+{% if not klassen %}
+<div class="alert alert-info">Noch keine Klassen vorhanden.</div>
+{% elif not kinder %}
+<div class="alert alert-info">In Klasse {{ klasse }} sind keine aktiven Kinder eingetragen.</div>
+{% else %}
+
+<div class="row g-4">
+    <div class="col-lg-3 kind-liste no-print">
+        <div class="d-grid gap-1">
+            {% for kind in kinder %}
+            <a class="btn btn-sm icon-btn {% if selected_student and kind.id == selected_student.id %}btn-primary{% else %}btn-outline-primary{% endif %}"
+               href="{{ url_for('report.report_material_view', klasse=klasse, schueler_id=kind.id) }}">
+                {{ bi('person', 'bi-icon-sm') }} <span>{{ kind.nachname }}, {{ kind.vorname }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="col-lg-9">
+        {% if material %}
+        <div class="d-flex flex-wrap justify-content-between align-items-baseline gap-2 mb-3">
+            <div>
+                <h2 class="mb-1" style="font-size: 1.3rem;">
+                    {{ selected_student.vorname }} {{ selected_student.nachname }}
+                </h2>
+                <div class="text-muted small">
+                    {% if material.schuljahr_ab %}Schuljahr ab {{ material.schuljahr_ab.strftime('%d.%m.%Y') }}{% else %}gesamter Bestand{% endif %}
+                    · {{ material.beobachtungen_anzahl }} Beobachtungen,
+                    davon {{ material.kommentare_anzahl }} mit Notiz
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2 no-print">
+                <a class="btn btn-sm btn-outline-secondary icon-btn"
+                   href="{{ url_for('report.report_material_export', format='pdf', schueler_id=selected_student.id, klasse=klasse) }}">
+                    {{ bi('file-earmark-pdf', 'bi-icon-sm') }} <span>Dieses Kind als PDF</span>
+                </a>
+                <a class="btn btn-sm btn-outline-secondary icon-only-btn"
+                   href="{{ url_for('report.report_material_export', format='odt', schueler_id=selected_student.id, klasse=klasse) }}"
+                   title="Dieses Kind als ODT" aria-label="Dieses Kind als ODT">
+                    {{ bi('file-earmark-text', 'bi-icon-sm') }}
+                </a>
+            </div>
+        </div>
+
+        {% if material.grundlage and material.grundlage.besondere_staerken %}
+        <div class="alert alert-success">
+            <strong>Besondere Stärken:</strong> {{ material.grundlage.besondere_staerken }}
+        </div>
+        {% endif %}
+
+        {% if not material.boegen %}
+        <div class="alert alert-warning">
+            Im laufenden Schuljahr wurden zu diesem Kind noch keine Beobachtungen erfasst.
+        </div>
+        {% endif %}
+
+        {% for bogen in material.boegen %}
+        <div class="bogen-card">
+            <header>
+                <h2>{{ bogen.titel }}</h2>
+                {% if bogen.durchschnitt is not none %}
+                <span class="text-muted small">Ø {{ bogen.durchschnitt }} aus {{ bogen.anzahl }} Bewertungen</span>
+                {% endif %}
+            </header>
+
+            {% for bereich in bogen.bereiche %}
+            <div class="bereich-block">
+                <h3>
+                    {{ bereich.name }}
+                    {% if bereich.durchschnitt is not none %}
+                    <span class="text-muted fw-normal small">Ø {{ bereich.durchschnitt }}</span>
+                    {% endif %}
+                </h3>
+
+                {% for kompetenz in bereich.kompetenzen %}
+                <div class="kompetenz">
+                    <div class="kompetenz-kopf">
+                        <span>{{ kompetenz.item.text }}</span>
+                        <span>
+                            {% if kompetenz.trend %}
+                            <span class="trend-chip trend-{{ 'up' if kompetenz.trend.richtung == 'verbessert' else ('down' if kompetenz.trend.richtung == 'verschlechtert' else 'flat') }}">
+                                {{ kompetenz.trend.label }}
+                            </span>
+                            {% endif %}
+                            <span class="wert ms-2">{{ kompetenz.durchschnitt if kompetenz.durchschnitt is not none else '–' }}</span>
+                            <span class="text-muted small">({{ kompetenz.anzahl }})</span>
+                        </span>
+                    </div>
+
+                    {% if kompetenz.kommentare %}
+                    <ul class="notiz-liste">
+                        {% for kommentar in kompetenz.kommentare %}
+                        <li class="notiz">
+                            <span class="meta">
+                                {% if kommentar.datum %}{{ kommentar.datum.strftime('%d.%m.') }}{% endif %}
+                                [{{ kommentar.symbol }}]{% if kommentar.anlass %} · {{ kommentar.anlass }}{% endif %}
+                            </span>
+                            {{ kommentar.text }}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        {% if material.foerderplaene %}
+        <div class="bogen-card">
+            <header><h2>Förderziele dieses Schuljahres</h2></header>
+            {% for plan in material.foerderplaene %}
+            <div class="bereich-block">
+                <h3>
+                    {{ plan.titel or 'Förderplan' }}
+                    {% if plan.datum_erstellung %}
+                    <span class="text-muted fw-normal small">{{ plan.datum_erstellung.strftime('%d.%m.%Y') }}</span>
+                    {% endif %}
+                </h3>
+                {% for inhalt in plan.inhalte %}
+                <div class="kompetenz">
+                    <div><strong>{{ inhalt.foerderziel or '–' }}</strong></div>
+                    {% if inhalt.evaluation_text %}
+                    <ul class="notiz-liste">
+                        <li class="notiz"><span class="meta">Evaluation</span>{{ inhalt.evaluation_text }}</li>
+                    </ul>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}

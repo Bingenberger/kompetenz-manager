@@ -18,6 +18,7 @@ Die Anwendung ist fuer den praktischen Schulalltag gebaut: klassische Server-Tem
 - Suche in der Navigationsleiste ueber Kinder, Kompetenzen und Boegen
 - Erzieherische Ereignisse mit Konsequenzen, Zustaendigkeit, Anhaengen und Journal
 - PDF- und ODT-Exporte an mehreren Stellen
+- Zeugnismaterial als Sammlung der Beobachtungen und Notizen eines Schuljahres
 - Vollstaendige Schuelerakte als ein Dokument, fuer Schulwechsel und Auskunft nach Art. 15 DSGVO
 
 ## Module
@@ -59,6 +60,14 @@ Die Anwendung ist fuer den praktischen Schulalltag gebaut: klassische Server-Tem
 ### Schuelerakte
 
 - Gebuendelte Sicht auf Beobachtungen, Foerderplanung, Arbeitsplaene, Elternkontakte und Ereignisse
+
+### Zeugnismaterial
+
+- Pro Kind die Beobachtungen des laufenden Schuljahres, nach Bogen und Bereich gegliedert
+- Im Vordergrund die Notizen der Lehrkraft in zeitlicher Folge - daraus entsteht der Zeugnissatz
+- Mittelwerte je Kompetenz, Bereich und Bogen, dazu der Entwicklungsverlauf
+- Besondere Staerken und Foerderziele des Schuljahres
+- Export als ODT oder PDF, einzeln oder als Klassensatz mit einem Kind je Seite
 
 ### Export der Gesamtakte
 
