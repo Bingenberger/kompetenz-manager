@@ -62,7 +62,7 @@ Die Anwendung ist fuer den praktischen Schulalltag gebaut: klassische Server-Tem
 - Flask-Login
 - Flask-SQLAlchemy
 - SQLite oder PostgreSQL
-- Bootstrap-basierte Server-Templates
+- Bootstrap-basierte Server-Templates (lokal ausgeliefert, siehe `static/vendor/`)
 - LibreOffice fuer PDF-Konvertierung aus ODT
 
 ## Screens und Daten
@@ -76,6 +76,7 @@ Bereits umgesetzt:
 - Rollenmodell mit `admin` und `teacher`
 - Cookie- und Reverse-Proxy-Haertung
 - Service-Deployment mit `gunicorn`, Logging und Backups
+- Oberflaeche ohne externe Ressourcen: Bootstrap und Schriften werden lokal ausgeliefert, es gehen keine Daten an Dritte und die Anwendung funktioniert ohne Internetverbindung
 
 ## Schnellstart fuer Entwicklung
 
