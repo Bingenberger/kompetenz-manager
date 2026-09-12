@@ -268,6 +268,20 @@ Es sichert:
 - Legacy-Uploads unter `static/uploads`
 - geschuetzte Uploads unter `instance/protected_uploads`
 
+## 12a. Upgrade für den Schuljahreswechsel
+
+Vor dem Einspielen auf einer bestehenden Instanz zuerst ein Datenbank- und Upload-Backup erstellen. Danach im aktualisierten Projektverzeichnis:
+
+```bash
+source venv/bin/activate
+python update_db.py
+python -m unittest tests.test_critical_flows tests.test_workplan_flows -q
+sudo systemctl restart kompetenzkompass
+```
+
+`update_db.py` ergänzt die Archivfelder für Schüler, den Beginn des aktiven Schuljahres und die Protokolltabelle für Schuljahreswechsel. Das Skript ist wiederholt ausführbar und unterstützt SQLite sowie PostgreSQL. Der Wechsel selbst wird anschließend im Adminbereich unter **Schuljahr & Termine -> Schuljahreswechsel** vorbereitet und bestätigt.
+
+
 ## 13. Tests
 
 Vor Deployments empfohlen:
@@ -277,7 +291,33 @@ Vor Deployments empfohlen:
 ./venv/bin/python -m unittest tests.test_workplan_flows -v
 ```
 
-## 14. Wichtige Dateien und Verzeichnisse
+## 14. Updates aus dem Git-Repository
+
+Produktive Instanzen werden nicht per Dateikopie aktualisiert, sondern ziehen ihren Stand aus dem Repository. Das Update wird immer auf dem Server ausgeloest, GitHub braucht keinen Zugriff auf den Server.
+
+Einmalige Umstellung einer bestehenden, manuell kopierten Installation:
+
+```bash
+cd /pfad/zur/app
+bash deploy/adopt_git.sh
+```
+
+Das Skript legt einen Voll-Snapshot an, richtet die Git-Arbeitskopie ein, laesst den Arbeitsbaum unveraendert und zeigt anschliessend die Abweichungen zum Repository.
+
+Laufende Updates:
+
+```bash
+bash deploy/update.sh --dry-run   # anzeigen, was kaeme
+bash deploy/update.sh             # einspielen
+```
+
+Der Ablauf umfasst Backup, Fast-Forward-Update, Abhaengigkeiten, `update_db.py`, Regressionstests, Dienstneustart und Health-Check, mit automatischem Rollback des Codestands bei Fehlern.
+
+Ausfuehrliche Beschreibung:
+
+- [deploy/README_DEPLOY.md](deploy/README_DEPLOY.md)
+
+## 15. Wichtige Dateien und Verzeichnisse
 
 - `app.py`: App-Konfiguration
 - `update_db.py`: ergaenzt fehlende Tabellen und Spalten
@@ -287,7 +327,7 @@ Vor Deployments empfohlen:
 - `deploy/`: Service- und Betriebsdateien
 - `odt_templates/`: Exportvorlagen
 
-## 15. Hinweise fuer Repository und Weitergabe
+## 16. Hinweise fuer Repository und Weitergabe
 
 Nicht ins Repository gehoeren typischerweise:
 

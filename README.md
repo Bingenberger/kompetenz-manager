@@ -133,6 +133,30 @@ Optional mit Verschieben statt Kopieren:
 python migrate_uploads_to_protected.py --move
 ```
 
+## Updates bestehender Instanzen
+
+Produktive Installationen aktualisieren sich aus dem Git-Repository heraus. Ausgeloest wird das Update auf dem Server selbst:
+
+```bash
+cd /pfad/zur/app
+bash deploy/update.sh
+```
+
+Das Skript sichert Datenbank und Uploads, holt den neuen Stand, zieht bei Bedarf Abhaengigkeiten nach, fuehrt `update_db.py` aus, startet die Regressionstests, startet den Dienst neu und prueft ihn per Health-Check. Schlaegt ein Schritt fehl, wird der Codestand automatisch zurueckgerollt.
+
+Eine bisher manuell kopierte Installation wird einmalig umgestellt mit:
+
+```bash
+bash deploy/adopt_git.sh
+```
+
+Details, Optionen und Rollback-Wege:
+
+- [deploy/README_DEPLOY.md](deploy/README_DEPLOY.md)
+
+Datenbankaenderungen sind fuer bestehende SQLite- und PostgreSQL-Instanzen ausgelegt.
+
+
 ## Tests
 
 ```bash

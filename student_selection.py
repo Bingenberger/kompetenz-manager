@@ -32,13 +32,16 @@ def _priority_for_student(schueler, klassenleitung, fachklassen):
     return 2
 
 
-def get_prioritized_students_for_user(user):
+def get_prioritized_students_for_user(user, include_archived=False):
     """Return students ordered by teaching relevance, then alphabetically."""
     kontext = get_user_klassenkontext(user)
     klassenleitung = kontext["klassenleitung"]
     fachklassen = kontext["fachklassen"]
 
-    schueler_liste = Schueler.query.all()
+    query = Schueler.query
+    if not include_archived:
+        query = query.filter(Schueler.is_active.is_(True))
+    schueler_liste = query.all()
     schueler_liste.sort(
         key=lambda s: (
             _priority_for_student(s, klassenleitung, fachklassen),
@@ -50,18 +53,22 @@ def get_prioritized_students_for_user(user):
     return schueler_liste
 
 
-def get_grouped_student_choices_for_user(user):
+def get_grouped_student_choices_for_user(user, include_archived=False):
     kontext = get_user_klassenkontext(user)
     klassenleitung = kontext["klassenleitung"]
     fachklassen = kontext["fachklassen"]
 
-    alle = get_prioritized_students_for_user(user)
+    alle = get_prioritized_students_for_user(user, include_archived=include_archived)
 
     own = []
+    archived = []
     fach = []
     other = []
 
     for s in alle:
+        if not s.is_active:
+            archived.append(s)
+            continue
         prio = _priority_for_student(s, klassenleitung, fachklassen)
         if prio == 0:
             own.append(s)
@@ -90,6 +97,12 @@ def get_grouped_student_choices_for_user(user):
             "label": "Weitere Kinder",
             "students": other,
         })
+    if archived:
+        groups.append({
+            "key": "archive",
+            "label": "Archivierte Kinder",
+            "students": archived,
+        })
 
     if not groups:
         groups = [{"key": "all", "label": "Alle Kinder", "students": alle}]
@@ -100,20 +113,22 @@ def get_grouped_student_choices_for_user(user):
 def get_distinct_klassen():
     rows = (
         Schueler.query.with_entities(Schueler.klasse)
-        .filter(Schueler.klasse.isnot(None))
+        .filter(Schueler.klasse.isnot(None), Schueler.is_active.is_(True))
         .distinct()
         .all()
     )
     return sorted([r[0] for r in rows if (r[0] or "").strip()], key=lambda x: x.lower())
 
 
-def get_tabbed_student_selection_for_user(user, selected_s_id=None, requested_tab=None, auto_select_first=False):
-    students = get_prioritized_students_for_user(user)
-    groups = get_grouped_student_choices_for_user(user)
+def get_tabbed_student_selection_for_user(user, selected_s_id=None, requested_tab=None, auto_select_first=False, include_archived=False):
+    students = get_prioritized_students_for_user(user, include_archived=include_archived)
+    groups = get_grouped_student_choices_for_user(user, include_archived=include_archived)
     kontext = get_user_klassenkontext(user)
 
     class_to_students = {}
     for student in students:
+        if not student.is_active:
+            continue
         key = (student.klasse or "").strip()
         class_to_students.setdefault(key, []).append(student)
 
@@ -137,6 +152,15 @@ def get_tabbed_student_selection_for_user(user, selected_s_id=None, requested_ta
             "kind": "class",
             "class_name": fach_class,
         })
+    archived_students = [student for student in students if not student.is_active]
+    if include_archived and archived_students:
+        tab_definitions.append({
+            "id": "archive",
+            "label": f"Archiv ({len(archived_students)})",
+            "students": archived_students,
+            "kind": "archive",
+            "class_name": None,
+        })
     tab_definitions.append({
         "id": "dropdown",
         "label": "Auswahl (Dropdown)",
@@ -147,7 +171,7 @@ def get_tabbed_student_selection_for_user(user, selected_s_id=None, requested_ta
 
     has_assigned_class_tabs = any(tab["kind"] == "class" for tab in tab_definitions)
     if not has_assigned_class_tabs:
-        tab_definitions = [tab for tab in tab_definitions if tab["id"] == "dropdown"]
+        tab_definitions = [tab for tab in tab_definitions if tab["id"] in {"archive", "dropdown"}]
 
     requested_tab = (requested_tab or "").strip()
     valid_tab_ids = {tab["id"] for tab in tab_definitions}
@@ -165,7 +189,9 @@ def get_tabbed_student_selection_for_user(user, selected_s_id=None, requested_ta
             selected_s_id = ""
 
     if selected_student and not requested_tab:
-        if own_class and selected_student.klasse == own_class and "own" in valid_tab_ids:
+        if not selected_student.is_active and "archive" in valid_tab_ids:
+            active_tab = "archive"
+        elif own_class and selected_student.klasse == own_class and "own" in valid_tab_ids:
             active_tab = "own"
         elif selected_student.klasse and f"fach-{selected_student.klasse}" in valid_tab_ids:
             active_tab = f"fach-{selected_student.klasse}"
@@ -173,14 +199,14 @@ def get_tabbed_student_selection_for_user(user, selected_s_id=None, requested_ta
             active_tab = "dropdown"
 
     active_tab_def = next((tab for tab in tab_definitions if tab["id"] == active_tab), None)
-    if active_tab_def and active_tab_def["kind"] == "class":
+    if active_tab_def and active_tab_def["kind"] in {"class", "archive"}:
         allowed_ids = {s.id for s in active_tab_def["students"]}
         if selected_student and selected_student.id not in allowed_ids:
             selected_student = None
             selected_s_id = ""
 
     if auto_select_first and not selected_student:
-        if active_tab_def and active_tab_def["kind"] == "class" and active_tab_def["students"]:
+        if active_tab_def and active_tab_def["kind"] in {"class", "archive"} and active_tab_def["students"]:
             selected_student = active_tab_def["students"][0]
             selected_s_id = str(selected_student.id)
         elif students:

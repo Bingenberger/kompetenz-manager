@@ -11,6 +11,7 @@ from werkzeug.security import generate_password_hash
 
 from extensions import db
 from models import Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, ErziehungsEreignisAnhang, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan, WorkPlanTaskAttachment
+from school_year import observation_period_start
 from student_selection import (
     get_grouped_student_choices_for_user,
     get_prioritized_students_for_user,
@@ -120,13 +121,13 @@ def index():
     todos = []
     heute = utc_now().date()
     in_14_tagen = heute + timedelta(days=14)
-    in_12_wochen_datetime = utc_now() - timedelta(weeks=12)
+    in_12_wochen_datetime = observation_period_start(utc_now() - timedelta(weeks=12))
     config = _get_system_konfiguration()
 
     if fokus_klasse:
         klasse_kinder = (
             Schueler.query
-            .filter_by(klasse=fokus_klasse)
+            .filter(Schueler.klasse == fokus_klasse, Schueler.is_active.is_(True))
             .order_by(Schueler.nachname.asc(), Schueler.vorname.asc())
             .all()
         )
@@ -136,7 +137,7 @@ def index():
             Beobachtung.query
             .join(Schueler, Beobachtung.schueler_id == Schueler.id)
             .join(Item, Beobachtung.item_id == Item.id)
-            .filter(Schueler.klasse == fokus_klasse)
+            .filter(Schueler.klasse == fokus_klasse, Schueler.is_active.is_(True))
             .with_entities(Beobachtung.schueler_id, Item.bogen_id)
             .distinct()
             .count()
@@ -147,6 +148,7 @@ def index():
             .join(Schueler, Foerderplan.schueler_id == Schueler.id)
             .filter(
                 Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
                 Foerderplan.status == 'aktiv',
             )
             .count()
@@ -157,6 +159,7 @@ def index():
             .join(Schueler, WorkPlan.student_id == Schueler.id)
             .filter(
                 Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
                 WorkPlan.status.in_(['draft', 'active']),
             )
             .count()
@@ -167,6 +170,7 @@ def index():
             .join(Schueler, ErziehungsEreignis.student_id == Schueler.id)
             .filter(
                 Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
                 ErziehungsEreignis.status == 'offen',
             )
             .count()
@@ -179,6 +183,7 @@ def index():
                 .join(Schueler, Foerderplan.schueler_id == Schueler.id)
                 .filter(
                     Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
                     Foerderplan.status == 'aktiv',
                 )
                 .with_entities(Foerderplan.schueler_id)
@@ -230,6 +235,7 @@ def index():
                 .join(Item, Beobachtung.item_id == Item.id)
                 .filter(
                     Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
                     Beobachtung.wert == 1,
                     Beobachtung.datum >= in_12_wochen_datetime,
                 )
@@ -269,6 +275,7 @@ def index():
                     .join(Schueler, Beobachtung.schueler_id == Schueler.id)
                     .filter(
                         Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
                         Beobachtung.datum >= in_12_wochen_datetime,
                     )
                     .with_entities(Beobachtung.schueler_id)
@@ -305,6 +312,7 @@ def index():
             .join(Schueler, Foerderplan.schueler_id == Schueler.id)
             .filter(
                 Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
                 Foerderplan.status == 'aktiv',
                 Foerderplan.datum_evaluation.isnot(None),
                 Foerderplan.datum_evaluation < heute,
@@ -326,6 +334,7 @@ def index():
             .join(Schueler, Foerderplan.schueler_id == Schueler.id)
             .filter(
                 Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
                 Foerderplan.status == 'aktiv',
                 Foerderplan.datum_evaluation.isnot(None),
                 Foerderplan.datum_evaluation >= heute,
@@ -351,6 +360,7 @@ def index():
             .join(Schueler, Elternkontakt.schueler_id == Schueler.id)
             .filter(
                 Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
                 Elternkontakt.naechster_termin.isnot(None),
                 Elternkontakt.naechster_termin >= heute,
                 Elternkontakt.naechster_termin <= in_14_tagen,
@@ -375,6 +385,7 @@ def index():
             .join(Schueler, ErziehungsEreignis.student_id == Schueler.id)
             .filter(
                 Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
                 ErziehungsEreignis.status == 'offen',
             )
             .order_by(ErziehungsEreignis.datum.asc(), ErziehungsEreignis.id.asc())
@@ -441,6 +452,7 @@ def schuelerakte():
         selected_s_id=(request.args.get('schueler_id') or '').strip(),
         requested_tab=(request.args.get('tab') or '').strip(),
         auto_select_first=True,
+        include_archived=True,
     )
     schueler_liste = selection['students']
     schueler_groups = selection['groups']
@@ -547,6 +559,7 @@ def todo_elternkontakt_erinnerungen():
         .join(Schueler, Elternkontakt.schueler_id == Schueler.id)
         .filter(
             Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
             Elternkontakt.naechster_termin.isnot(None),
             Elternkontakt.naechster_termin >= heute,
             Elternkontakt.naechster_termin <= in_14_tagen,
@@ -597,6 +610,7 @@ def todo_foerderplan_evaluationen():
         .join(Schueler, Foerderplan.schueler_id == Schueler.id)
         .filter(
             Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
             Foerderplan.status == 'aktiv',
         )
         .order_by(Schueler.nachname.asc(), Schueler.vorname.asc(), Foerderplan.datum_erstellung.desc())
@@ -621,7 +635,7 @@ def todo_foerderplan_kandidaten():
         flash('Keine Klasse zugeordnet.')
         return redirect(url_for('system.index'))
 
-    in_12_wochen_datetime = utc_now() - timedelta(weeks=12)
+    in_12_wochen_datetime = observation_period_start(utc_now() - timedelta(weeks=12))
     config = _get_system_konfiguration()
     aktive_4w = [t for t in _get_elternsprechtag_fenster(config, heute) if 1 <= t[2] <= 28]
 
@@ -630,7 +644,7 @@ def todo_foerderplan_kandidaten():
         for row in (
             Foerderplan.query
             .join(Schueler, Foerderplan.schueler_id == Schueler.id)
-            .filter(Schueler.klasse == fokus_klasse, Foerderplan.status == 'aktiv')
+            .filter(Schueler.klasse == fokus_klasse, Schueler.is_active.is_(True), Foerderplan.status == 'aktiv')
             .with_entities(Foerderplan.schueler_id)
             .distinct()
             .all()
@@ -647,6 +661,7 @@ def todo_foerderplan_kandidaten():
         .join(Item, Beobachtung.item_id == Item.id)
         .filter(
             Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
             Beobachtung.wert == 1,
             Beobachtung.datum >= in_12_wochen_datetime,
         )
@@ -656,7 +671,7 @@ def todo_foerderplan_kandidaten():
 
     bogens = {b.id: b for b in Bogen.query.all()}
     schueler_map = {
-        s.id: s for s in Schueler.query.filter_by(klasse=fokus_klasse).all()
+        s.id: s for s in Schueler.query.filter(Schueler.klasse == fokus_klasse, Schueler.is_active.is_(True)).all()
     }
 
     kandidaten = {}
@@ -695,13 +710,13 @@ def todo_beobachtungsboegen_fehlend():
         flash('Keine Klasse zugeordnet.')
         return redirect(url_for('system.index'))
 
-    in_12_wochen_datetime = utc_now() - timedelta(weeks=12)
+    in_12_wochen_datetime = observation_period_start(utc_now() - timedelta(weeks=12))
     config = _get_system_konfiguration()
     aktive_2w = [t for t in _get_elternsprechtag_fenster(config, heute) if 1 <= t[2] <= 14]
 
     kinder = (
         Schueler.query
-        .filter_by(klasse=fokus_klasse)
+        .filter(Schueler.klasse == fokus_klasse, Schueler.is_active.is_(True))
         .order_by(Schueler.nachname.asc(), Schueler.vorname.asc())
         .all()
     )
@@ -715,6 +730,7 @@ def todo_beobachtungsboegen_fehlend():
             .join(Item, Beobachtung.item_id == Item.id)
             .filter(
                 Schueler.klasse == fokus_klasse,
+                    Schueler.is_active.is_(True),
                 Beobachtung.datum >= in_12_wochen_datetime,
             )
             .with_entities(Beobachtung.schueler_id, Item.bogen_id)

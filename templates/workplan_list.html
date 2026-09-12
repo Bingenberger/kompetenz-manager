@@ -18,7 +18,7 @@
   <ul class="nav nav-tabs" role="tablist">
     {% for tab in tab_definitions %}
     <li class="nav-item" role="presentation">
-      <a class="nav-link {% if active_tab == tab.id %}active{% endif %}" href="{{ url_for('workplan.workplan_list_page', tab=tab.id, view=class_view_mode if tab.kind == 'class' else None, schueler_id=selected_s_id if selected_s_id else None, klasse_von=class_date_from if class_date_from else None, klasse_bis=class_date_to if class_date_to else None) }}">
+      <a class="nav-link {% if active_tab == tab.id %}active{% endif %}" href="{{ url_for('workplan.workplan_list_page', tab=tab.id, view=class_view_mode if tab.kind in ['class', 'archive'] else None, schueler_id=selected_s_id if selected_s_id else None, klasse_von=class_date_from if class_date_from else None, klasse_bis=class_date_to if class_date_to else None) }}">
         {{ tab.label }}
       </a>
     </li>
@@ -28,7 +28,7 @@
   <div class="pt-3">
     {% for tab in tab_definitions %}
       {% if active_tab == tab.id %}
-        {% if tab.kind == 'class' %}
+        {% if tab.kind in ['class', 'archive'] %}
           {% if tab.students %}
           <div class="student-button-grid">
             {% for s in tab.students %}
@@ -42,7 +42,7 @@
           {% endif %}
         {% else %}
           <form method="GET" class="row g-3 align-items-end">
-            <input type="hidden" name="tab" value="dropdown">
+            <input type="hidden" name="tab" value="{{ active_tab }}">
             <div class="col-md-8">
               <label class="form-label">Kind auswählen</label>
               {% set student_select_id = 'wp_schueler_id' %}
@@ -160,7 +160,11 @@
 <div class="surface-panel p-4">
   <div class="d-flex justify-content-between align-items-center mb-3 gap-2 flex-wrap">
     <h4 class="mb-0">{{ selected_student.vorname }} {{ selected_student.nachname }} ({{ selected_student.klasse or '-' }})</h4>
-    <a class="btn btn-success icon-btn" href="{{ url_for('workplan.workplan_new_page', s_id=selected_student.id, next=url_for('workplan.workplan_list_page', tab=active_tab, view=class_view_mode, schueler_id=selected_student.id, klasse_von=class_date_from if class_date_from else None, klasse_bis=class_date_to if class_date_to else None)) }}">{{ bi('plus-circle', 'bi-icon') }} <span>+ Neu</span></a>
+    {% if selected_student.is_active %}<a class="btn btn-success icon-btn" href="{{ url_for('workplan.workplan_new_page', s_id=selected_student.id, next=url_for('workplan.workplan_list_page', tab=active_tab, view=class_view_mode, schueler_id=selected_student.id, klasse_von=class_date_from if class_date_from else None, klasse_bis=class_date_to if class_date_to else None)) }}">{{ bi('plus-circle', 'bi-icon') }} <span>+ Neu</span></a>{% endif %}
+  </div>
+  <div class="btn-group mb-3" role="group" aria-label="Arbeitsplanzeitraum">
+    <a class="btn btn-sm {% if plan_scope == 'current' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('workplan.workplan_list_page', tab=active_tab, schueler_id=selected_student.id, scope='current') }}">Aktuelles Schuljahr</a>
+    <a class="btn btn-sm {% if plan_scope == 'archive' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('workplan.workplan_list_page', tab=active_tab, schueler_id=selected_student.id, scope='archive') }}">Archiv</a>
   </div>
   {% if plans %}
   <div class="table-responsive">
@@ -206,7 +210,7 @@
     </table>
   </div>
   {% else %}
-  <div class="text-muted">Für dieses Kind gibt es noch keine Arbeitspläne.</div>
+  <div class="text-muted">{% if plan_scope == 'archive' %}Keine älteren Arbeitspläne im Archiv.{% else %}Für dieses Kind gibt es im aktuellen Schuljahr noch keine Arbeitspläne.{% endif %}</div>
   {% endif %}
 </div>
 {% endif %}

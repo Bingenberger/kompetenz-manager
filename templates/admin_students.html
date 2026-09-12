@@ -7,6 +7,10 @@
         <h2 class="h4 mt-2 mb-0">Schüler verwalten</h2>
     </div>
     <div class="toolbar-actions">
+        <div class="btn-group" role="group" aria-label="Schülerstatus">
+            <a href="{{ url_for('admin.admin_students') }}" class="btn btn-sm {% if not show_archived %}btn-primary{% else %}btn-outline-primary{% endif %}">Aktiv</a>
+            <a href="{{ url_for('admin.admin_students', show='archived') }}" class="btn btn-sm {% if show_archived %}btn-primary{% else %}btn-outline-primary{% endif %}">Archiv</a>
+        </div>
         <a href="{{ url_for('system.data_import', typ='schueler') }}" class="btn btn-outline-primary icon-btn">{{ bi('file-earmark-excel', 'bi-icon-sm') }} <span>Import Excel</span></a>
         <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span></a>
     </div>
@@ -14,7 +18,7 @@
 
 <div class="table-panel">
     <div class="table-toolbar">
-        <div class="table-toolbar-title">Schülerliste</div>
+        <div class="table-toolbar-title">Schülerliste · {{ "Archiv" if show_archived else "Aktiv" }}</div>
         <span class="badge bg-info">{{ schueler|length }} Einträge</span>
     </div>
     <table class="table table-hover align-middle mb-0">

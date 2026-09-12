@@ -9,6 +9,7 @@ from sqlalchemy import func
 from extensions import db
 from models import Beobachtung, Bogen, Elternberatung, Elternkontakt, Foerderplan, Item, Schueler
 from odt_export import convert_odt_bytes_to_pdf, render_odt_from_ott_template
+from school_year import active_school_year_start
 from student_selection import (
     get_distinct_klassen,
     get_grouped_student_choices_for_user,
@@ -89,13 +90,18 @@ def _build_bogen_entries_for_student(student_id):
             )
             if not eintraege:
                 continue
-            werte = [e.wert for e in eintraege if e.wert is not None]
+            school_year_start = active_school_year_start()
+            aktuelle_eintraege = [
+                entry for entry in eintraege
+                if not school_year_start or (entry.datum and entry.datum.date() >= school_year_start)
+            ]
+            werte = [e.wert for e in aktuelle_eintraege if e.wert is not None]
             durchschnitt = round(sum(werte) / len(werte), 1) if werte else 0
             rounded_score = min(4, max(1, int(durchschnitt + 0.5))) if werte else None
             item_rows.append({
                 'item': item,
                 'eintraege': eintraege,
-                'anzahl': len(eintraege),
+                'anzahl': len(aktuelle_eintraege),
                 'durchschnitt': durchschnitt,
                 'durchschnitt_symbol': symbol_map.get(rounded_score, '-') if rounded_score else '-',
                 'durchschnitt_color': color_map.get(rounded_score, 'secondary') if rounded_score else 'secondary',
@@ -149,17 +155,20 @@ def reihe_start():
     next_url = (request.args.get('next') or request.form.get('next') or '').strip()
     if request.method == 'POST':
         klasse = (request.form.get('klasse') or '').strip()
-        item_id = request.form.get('item_id')
+        item_id = (request.form.get('item_id') or '').strip()
         anlass = request.form.get('anlass')
         datum_str = request.form.get('datum')
 
         if not klasse:
             flash('Bitte eine Klasse auswählen.')
             return redirect(request.url)
+        if not item_id:
+            flash('Bitte zuerst Bogen, Bereich und Kompetenz auswählen.')
+            return redirect(request.url)
 
         schueler = (
             Schueler.query
-            .filter_by(klasse=klasse)
+            .filter(Schueler.klasse == klasse, Schueler.is_active.is_(True))
             .order_by(Schueler.nachname, Schueler.vorname)
             .all()
         )
@@ -180,9 +189,10 @@ def reihe_start():
 
     klassenkontext = get_user_klassenkontext(current_user)
     default_klasse = klassenkontext["klassenleitung"] or ''
+    boegen = Bogen.query.order_by(Bogen.titel.asc()).all()
     return render_template(
         'reihe_start.html',
-        boegen=Bogen.query.all(),
+        boegen=boegen,
         klassen=get_distinct_klassen(),
         default_klasse=default_klasse,
         next_url=next_url,
@@ -476,7 +486,7 @@ def multi_start():
 
         schueler = (
             Schueler.query
-            .filter_by(klasse=klasse)
+            .filter(Schueler.klasse == klasse, Schueler.is_active.is_(True))
             .order_by(Schueler.nachname, Schueler.vorname)
             .all()
         )
@@ -602,9 +612,16 @@ def elternkontakte_start():
             'sort_date': beratung.datum,
             'obj': beratung,
         })
+    def _normalize_sort_date(value):
+        if value is None:
+            return utc_now()
+        if isinstance(value, datetime):
+            return value
+        return datetime.combine(value, datetime.min.time())
+
     recent_entries.sort(
         key=lambda row: (
-            row['sort_date'] or utc_now().date(),
+            _normalize_sort_date(row['sort_date']),
             getattr(row['obj'], 'id', 0),
         ),
         reverse=True,

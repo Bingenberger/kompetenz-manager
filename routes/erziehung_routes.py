@@ -40,7 +40,7 @@ def _is_admin(user):
 
 
 def _get_accessible_students(user):
-    return get_prioritized_students_for_user(user)
+    return get_prioritized_students_for_user(user, include_archived=True)
 
 
 def _get_accessible_student_ids(user):
@@ -471,6 +471,7 @@ def erziehung_list():
         selected_s_id=(request.args.get('schueler_id') or '').strip(),
         requested_tab=(request.args.get('tab') or '').strip(),
         auto_select_first=True,
+        include_archived=True,
     )
     selected_student = selection['selected_student']
     status_filter = (request.args.get('status') or '').strip()
@@ -486,7 +487,7 @@ def erziehung_list():
         query = query.filter(ErziehungsEreignis.student_id == selected_student.id)
     if status_filter in {'offen', 'abgeschlossen'}:
         query = query.filter(ErziehungsEreignis.status == status_filter)
-    events = query.limit(100).all()
+    events = query.all()
 
     return render_template(
         'erziehung_list.html',

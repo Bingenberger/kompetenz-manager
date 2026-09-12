@@ -23,6 +23,11 @@
                         <label class="form-label">Klasse</label>
                         <input type="text" name="klasse" class="form-control" value="{{ s.klasse }}" required>
                     </div>
+                    <div class="form-check mb-4">
+                        <input type="checkbox" name="is_active" value="1" id="student-active" class="form-check-input" {% if s.is_active %}checked{% endif %}>
+                        <label for="student-active" class="form-check-label">Aktives Kind</label>
+                        <div class="form-text">Inaktive Kinder bleiben mit ihrer vollständigen Akte im Archiv.</div>
+                    </div>
                     <div class="mb-4">
                         <label class="form-label">Geburtsdatum</label>
                         <input

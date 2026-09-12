@@ -51,6 +51,9 @@
                     <a href="{{ next_url if next_url else url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary icon-btn">
                         {{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span>
                     </a>
+                    <a href="{{ url_for('admin.admin_school_year_transition') }}" class="btn btn-outline-danger icon-btn ms-auto">
+                        {{ bi('calendar-check', 'bi-icon') }} <span>Schuljahreswechsel</span>
+                    </a>
                 </div>
             </form>
         </div>

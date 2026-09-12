@@ -5,6 +5,7 @@ from flask_login import current_user, login_required
 
 from extensions import db
 from models import Beobachtung, Bogen, Item, Schueler
+from school_year import active_school_year_start
 from student_selection import get_grouped_student_choices_for_user, get_prioritized_students_for_user
 
 
@@ -29,8 +30,8 @@ def report_schueler():
     if not s_id or not b_id:
         return render_template(
             'report_select.html',
-            schueler=get_prioritized_students_for_user(current_user),
-            schueler_groups=get_grouped_student_choices_for_user(current_user),
+            schueler=get_prioritized_students_for_user(current_user, include_archived=True),
+            schueler_groups=get_grouped_student_choices_for_user(current_user, include_archived=True),
             boegen=Bogen.query.all(),
             selected_s_id=s_id,
             selected_b_id=b_id,
@@ -52,8 +53,13 @@ def report_schueler():
         ).order_by(Beobachtung.datum.desc()).all()
 
         durchschnitt = 0
-        anzahl = len(eintraege)
-        werte = [e.wert for e in eintraege if e.wert is not None]
+        school_year_start = active_school_year_start()
+        aktuelle_eintraege = [
+            entry for entry in eintraege
+            if not school_year_start or (entry.datum and entry.datum.date() >= school_year_start)
+        ]
+        anzahl = len(aktuelle_eintraege)
+        werte = [e.wert for e in aktuelle_eintraege if e.wert is not None]
         if werte:
             durchschnitt = round(sum(werte) / len(werte), 1)
 

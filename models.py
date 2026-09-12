@@ -11,6 +11,8 @@ class Schueler(db.Model):
     nachname = db.Column(db.String(100))
     klasse = db.Column(db.String(20))
     geburtsdatum = db.Column(db.Date, nullable=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
+    archived_at = db.Column(db.DateTime, nullable=True)
     foerdergrundlage = db.relationship(
         'Foerdergrundlage',
         back_populates='schueler',
@@ -295,9 +297,27 @@ class ErziehungsEreignisAnhang(db.Model):
 class SystemKonfiguration(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     schuljahr = db.Column(db.String(20), nullable=True)
+    schuljahr_beginn = db.Column(db.Date, nullable=True)
     elternsprechtag_1 = db.Column(db.Date, nullable=True)
     elternsprechtag_2 = db.Column(db.Date, nullable=True)
     workplan_suggestions_weeks = db.Column(db.Integer, nullable=False, default=12)
+
+
+class Schuljahreswechsel(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    altes_schuljahr = db.Column(db.String(20), nullable=True)
+    neues_schuljahr = db.Column(db.String(20), nullable=False)
+    schuljahr_beginn = db.Column(db.Date, nullable=False)
+    wiederholer_ids = db.Column(db.Text, nullable=True)
+    versetzt_anzahl = db.Column(db.Integer, nullable=False, default=0)
+    archiviert_anzahl = db.Column(db.Integer, nullable=False, default=0)
+    unveraendert_anzahl = db.Column(db.Integer, nullable=False, default=0)
+    zuordnungen_versetzt = db.Column(db.Integer, nullable=False, default=0)
+    zuordnungen_entfernt = db.Column(db.Integer, nullable=False, default=0)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    created_by = db.relationship('User')
 
 
 class WorkPlan(db.Model):

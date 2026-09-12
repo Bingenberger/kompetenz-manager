@@ -25,15 +25,26 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label">Kompetenz / Item</label>
-                    <select name="item_id" class="form-select" required>
+                    <label class="form-label">Bogen</label>
+                    <select name="bogen_id" id="reihe_bogen_id" class="form-select" required>
+                        <option value="">Bitte Bogen wählen...</option>
                         {% for bogen in boegen %}
-                        <optgroup label="{{ bogen.titel }}">
-                            {% for item in bogen.items %}
-                            <option value="{{ item.id }}">{{ item.text }}</option>
-                            {% endfor %}
-                        </optgroup>
+                        <option value="{{ bogen.id }}">{{ bogen.titel }}</option>
                         {% endfor %}
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Bereich</label>
+                    <select name="bereich" id="reihe_bereich" class="form-select" required disabled>
+                        <option value="">Bitte zuerst einen Bogen wählen...</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Kompetenz / Item</label>
+                    <select name="item_id" id="reihe_item_id" class="form-select" required disabled>
+                        <option value="">Bitte zuerst einen Bereich wählen...</option>
                     </select>
                 </div>
 
@@ -58,5 +69,88 @@
 
 <script>
 document.querySelector('input[type="date"]').valueAsDate = new Date();
+
+const reiheItemsByBogen = {
+    {% for bogen in boegen %}
+    "{{ bogen.id }}": [
+        {% for item in bogen.items|sort(attribute='bereich') %}
+        {
+            id: "{{ item.id }}",
+            bereich: {{ (item.bereich or '')|tojson }},
+            text: {{ (item.text or '')|tojson }}
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ]{% if not loop.last %},{% endif %}
+    {% endfor %}
+};
+
+const bogenSelect = document.getElementById('reihe_bogen_id');
+const bereichSelect = document.getElementById('reihe_bereich');
+const itemSelect = document.getElementById('reihe_item_id');
+const EMPTY_BEREICH_VALUE = '__OHNE_BEREICH__';
+
+function resetSelect(select, placeholder, disabled = true) {
+    select.innerHTML = '';
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = placeholder;
+    select.appendChild(option);
+    select.value = '';
+    select.disabled = disabled;
+}
+
+function sortedUniqueBereiche(items) {
+    return [...new Set(
+        items
+            .map(item => {
+                const bereich = (item.bereich || '').trim();
+                return bereich || EMPTY_BEREICH_VALUE;
+            })
+    )].sort((a, b) => a.localeCompare(b, 'de'));
+}
+
+function updateBereiche() {
+    const items = reiheItemsByBogen[bogenSelect.value] || [];
+    const bereiche = sortedUniqueBereiche(items);
+
+    resetSelect(bereichSelect, bereiche.length ? 'Bitte Bereich wählen...' : 'Keine Bereiche vorhanden', !bereiche.length);
+    resetSelect(itemSelect, bereiche.length ? 'Bitte zuerst einen Bereich wählen...' : 'Keine Kompetenzen vorhanden', true);
+
+    for (const bereich of bereiche) {
+        const option = document.createElement('option');
+        option.value = bereich;
+        option.textContent = bereich === EMPTY_BEREICH_VALUE ? 'Ohne Bereich' : bereich;
+        bereichSelect.appendChild(option);
+    }
+
+    if (!bereiche.length && items.length) {
+        updateItems('');
+    }
+}
+
+function updateItems(selectedBereich) {
+    const items = reiheItemsByBogen[bogenSelect.value] || [];
+    const filteredItems = selectedBereich
+        ? items.filter(item => {
+            const bereich = (item.bereich || '').trim() || EMPTY_BEREICH_VALUE;
+            return bereich === selectedBereich;
+        })
+        : items;
+
+    resetSelect(itemSelect, filteredItems.length ? 'Bitte Kompetenz wählen...' : 'Keine Kompetenzen gefunden', !filteredItems.length);
+
+    filteredItems
+        .slice()
+        .sort((a, b) => a.text.localeCompare(b.text, 'de'))
+        .forEach((item) => {
+            const option = document.createElement('option');
+            option.value = item.id;
+            option.textContent = selectedBereich ? item.text : `${item.bereich || 'Ohne Bereich'} | ${item.text}`;
+            itemSelect.appendChild(option);
+        });
+}
+
+bogenSelect.addEventListener('change', updateBereiche);
+bereichSelect.addEventListener('change', () => updateItems(bereichSelect.value));
 </script>
 {% endblock %}

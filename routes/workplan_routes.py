@@ -30,6 +30,7 @@ from models import (
     WorkPlanTaskEvaluation,
 )
 from student_selection import get_grouped_student_choices_for_user, get_prioritized_students_for_user, get_user_klassenkontext
+from school_year import active_school_year_start, observation_period_start
 from time_utils import utc_now
 from uploads import speichere_upload_bild, speichere_upload_workplan_bild
 
@@ -310,7 +311,7 @@ def _response(payload=None, status=200, redirect_to=None, flash_message=None):
 def _teacher_can_access_student(user, student):
     if not user or not student:
         return False
-    if _is_admin(user):
+    if _is_admin(user) or not student.is_active:
         return True
 
     kontext = get_user_klassenkontext(user)
@@ -325,7 +326,14 @@ def _workplan_query_for_user(user):
     query = WorkPlan.query
     if _is_admin(user):
         return query
-    return query.filter(WorkPlan.created_by_user_id == user.id)
+    accessible_student_ids = [
+        student.id
+        for student in get_prioritized_students_for_user(user, include_archived=True)
+        if _teacher_can_access_student(user, student)
+    ]
+    if not accessible_student_ids:
+        return query.filter(WorkPlan.id.is_(None))
+    return query.filter(WorkPlan.student_id.in_(accessible_student_ids))
 
 
 def _accessible_classes_for_user(user):
@@ -376,7 +384,7 @@ def _ensure_plan_access_or_404(plan_id):
     if _is_admin(current_user):
         return plan
 
-    if plan.created_by_user_id != current_user.id:
+    if not _teacher_can_access_student(current_user, plan.student):
         abort(404)
 
     return plan
@@ -500,7 +508,7 @@ def _serialize_plan(plan):
 
 
 def _latest_o_minus_competencies(student_id, weeks):
-    stichtag = utc_now() - timedelta(weeks=weeks)
+    stichtag = observation_period_start(utc_now() - timedelta(weeks=weeks))
     latest_rows = (
         db.session.query(
             Beobachtung.item_id.label('item_id'),
@@ -566,7 +574,7 @@ def _active_foerderplan_goals(student_id):
 
 
 def _weak_competencies(student_id, weeks):
-    stichtag = utc_now() - timedelta(weeks=weeks)
+    stichtag = observation_period_start(utc_now() - timedelta(weeks=weeks))
     rows = (
         db.session.query(
             Beobachtung.item_id.label('item_id'),
@@ -780,6 +788,13 @@ def api_work_plans_update(plan_id):
 @login_required
 def api_work_plans_delete(plan_id):
     plan = _ensure_plan_access_or_404(plan_id)
+    task_ids = [task.id for task in plan.tasks]
+    if task_ids:
+        (
+            WorkPlanTask.query
+            .filter(WorkPlanTask.copied_from_task_id.in_(task_ids))
+            .update({'copied_from_task_id': None}, synchronize_session=False)
+        )
     db.session.delete(plan)
     db.session.commit()
     return _response(status=204, flash_message='Arbeitsplan gelöscht.')
@@ -794,6 +809,14 @@ def workplan_delete_page(plan_id):
     view = (request.form.get('view') or '').strip()
     klasse_von = (request.form.get('klasse_von') or '').strip()
     klasse_bis = (request.form.get('klasse_bis') or '').strip()
+
+    task_ids = [task.id for task in plan.tasks]
+    if task_ids:
+        (
+            WorkPlanTask.query
+            .filter(WorkPlanTask.copied_from_task_id.in_(task_ids))
+            .update({'copied_from_task_id': None}, synchronize_session=False)
+        )
 
     db.session.delete(plan)
     db.session.commit()
@@ -1586,14 +1609,14 @@ def workplan_library_delete_template_page(template_id):
 @workplan_bp.route('/arbeitsplaene')
 @login_required
 def workplan_list_page():
-    students = [s for s in get_prioritized_students_for_user(current_user) if _teacher_can_access_student(current_user, s)]
+    students = [s for s in get_prioritized_students_for_user(current_user, include_archived=True) if _teacher_can_access_student(current_user, s)]
     student_groups = [
         {
             'key': group['key'],
             'label': group['label'],
             'students': [s for s in group['students'] if _teacher_can_access_student(current_user, s)],
         }
-        for group in get_grouped_student_choices_for_user(current_user)
+        for group in get_grouped_student_choices_for_user(current_user, include_archived=True)
     ]
     student_groups = [group for group in student_groups if group['students']]
     if not student_groups:
@@ -1601,6 +1624,8 @@ def workplan_list_page():
 
     class_to_students = {}
     for student in students:
+        if not student.is_active:
+            continue
         key = (student.klasse or '').strip()
         class_to_students.setdefault(key, []).append(student)
 
@@ -1625,6 +1650,15 @@ def workplan_list_page():
             'kind': 'class',
             'class_name': fach_class,
         })
+    archived_students = [student for student in students if not student.is_active]
+    if archived_students:
+        tab_definitions.append({
+            'id': 'archive',
+            'label': f'Schülerarchiv ({len(archived_students)})',
+            'students': archived_students,
+            'kind': 'archive',
+            'class_name': None,
+        })
     tab_definitions.append({
         'id': 'dropdown',
         'label': 'Auswahl (Dropdown)',
@@ -1636,7 +1670,7 @@ def workplan_list_page():
     assigned_class_tab_ids = {tab['id'] for tab in tab_definitions if tab['kind'] == 'class'}
     has_assigned_class_tabs = bool(assigned_class_tab_ids)
     if not has_assigned_class_tabs:
-        tab_definitions = [tab for tab in tab_definitions if tab['id'] == 'dropdown']
+        tab_definitions = [tab for tab in tab_definitions if tab['id'] in {'archive', 'dropdown'}]
 
     selected_s_id = (request.args.get('schueler_id') or '').strip()
     requested_tab = (request.args.get('tab') or '').strip()
@@ -1659,7 +1693,9 @@ def workplan_list_page():
             selected_s_id = ''
 
     if selected_student and not requested_tab:
-        if own_class and selected_student.klasse == own_class and 'own' in valid_tab_ids:
+        if not selected_student.is_active and 'archive' in valid_tab_ids:
+            active_tab = 'archive'
+        elif own_class and selected_student.klasse == own_class and 'own' in valid_tab_ids:
             active_tab = 'own'
         elif selected_student.klasse and f'fach-{selected_student.klasse}' in valid_tab_ids:
             active_tab = f'fach-{selected_student.klasse}'
@@ -1671,7 +1707,7 @@ def workplan_list_page():
     if not active_tab_def or active_tab_def['kind'] != 'class':
         class_view_mode = 'student'
 
-    if active_tab_def and active_tab_def['kind'] == 'class':
+    if active_tab_def and active_tab_def['kind'] in {'class', 'archive'}:
         allowed_ids = {s.id for s in active_tab_def['students']}
         if selected_student and selected_student.id not in allowed_ids:
             selected_student = None
@@ -1684,17 +1720,27 @@ def workplan_list_page():
         selected_student = students[0]
         selected_s_id = str(selected_student.id)
 
+    requested_scope = (request.args.get('scope') or '').strip().lower()
+    plan_scope = requested_scope if requested_scope in {'current', 'archive'} else (
+        'archive' if selected_student and not selected_student.is_active else 'current'
+    )
+    school_year_start = active_school_year_start()
+
     plans = []
     if selected_student:
-        plans = (
+        plan_query = (
             _workplan_query_for_user(current_user)
             .filter(WorkPlan.student_id == selected_student.id)
-            .order_by(WorkPlan.created_at.desc())
-            .all()
         )
+        if school_year_start:
+            if plan_scope == 'archive':
+                plan_query = plan_query.filter(WorkPlan.period_end < school_year_start)
+            else:
+                plan_query = plan_query.filter(WorkPlan.period_end >= school_year_start)
+        plans = plan_query.order_by(WorkPlan.created_at.desc()).all()
 
     class_plans = []
-    if active_tab_def and active_tab_def['kind'] == 'class' and active_tab_def.get('class_name'):
+    if active_tab_def and active_tab_def['kind'] in {'class', 'archive'} and active_tab_def.get('class_name'):
         class_students = active_tab_def['students']
         student_ids = [s.id for s in class_students]
         if student_ids:
@@ -1720,6 +1766,8 @@ def workplan_list_page():
         selected_s_id=selected_s_id,
         selected_student=selected_student,
         plans=plans,
+        plan_scope=plan_scope,
+        school_year_start=school_year_start,
         class_plans=class_plans,
         class_date_from=class_date_from_raw if class_date_from else '',
         class_date_to=class_date_to_raw if class_date_to else '',
@@ -1896,7 +1944,7 @@ def workplan_export_class_pdf():
     if date_from and date_to and date_from > date_to:
         date_from, date_to = date_to, date_from
 
-    class_students = Schueler.query.filter(Schueler.klasse == class_name).order_by(Schueler.nachname.asc(), Schueler.vorname.asc()).all()
+    class_students = Schueler.query.filter(Schueler.klasse == class_name, Schueler.is_active.is_(True)).order_by(Schueler.nachname.asc(), Schueler.vorname.asc()).all()
     class_students = [s for s in class_students if _teacher_can_access_student(current_user, s)]
     student_ids = [s.id for s in class_students]
     if not student_ids:

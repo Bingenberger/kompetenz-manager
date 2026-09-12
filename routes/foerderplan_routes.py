@@ -4,7 +4,6 @@ import json
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
-from sqlalchemy import or_
 
 from db_utils import get_or_404_session
 from extensions import db
@@ -21,6 +20,7 @@ from student_selection import (
     get_tabbed_student_selection_for_user,
     get_user_klassenkontext,
 )
+from school_year import observation_period_start
 from time_utils import utc_now
 
 
@@ -29,10 +29,52 @@ FOERDERPLAN_TEMPLATE = 'odt_templates/Foerderplan-Vorlage.ott'
 FOERDERGRUNDLAGE_TEMPLATE = 'odt_templates/Deckblatt_Foerderplan.ott'
 
 
-def _can_manage_foerderplan(plan):
-    if current_user.is_admin:
+def _teacher_can_access_student(user, student):
+    if not user or not student:
+        return False
+    if user.is_admin or not student.is_active:
         return True
-    return bool(plan.creator_user_id and plan.creator_user_id == current_user.id)
+
+    kontext = get_user_klassenkontext(user)
+    klassenleitung = kontext.get('klassenleitung')
+    fachklassen = kontext.get('fachklassen') or set()
+    if not student.klasse:
+        return False
+    return student.klasse == klassenleitung or student.klasse in fachklassen
+
+
+def _ensure_student_access_or_403(student_id):
+    student = get_or_404_session(Schueler, int(student_id))
+    if not _teacher_can_access_student(current_user, student):
+        abort(403)
+    return student
+
+
+def _foerderplan_query_for_user(user):
+    query = Foerderplan.query
+    if user.is_admin:
+        return query
+    accessible_student_ids = [
+        student.id
+        for student in get_prioritized_students_for_user(user, include_archived=True)
+        if _teacher_can_access_student(user, student)
+    ]
+    if not accessible_student_ids:
+        return query.filter(Foerderplan.id.is_(None))
+    return query.filter(Foerderplan.schueler_id.in_(accessible_student_ids))
+
+
+def _ensure_plan_access_or_404(plan_id):
+    plan = get_or_404_session(Foerderplan, plan_id)
+    if current_user.is_admin:
+        return plan
+    if not _teacher_can_access_student(current_user, plan.schueler):
+        abort(404)
+    return plan
+
+
+def _can_manage_foerderplan(plan):
+    return bool(plan and _teacher_can_access_student(current_user, plan.schueler))
 
 
 def _format_german_date(value):
@@ -188,7 +230,7 @@ def _build_foerdergrundlage_export_payload(schueler, grundlage):
 @foerderplan_bp.route('/foerderplan/neu/<int:s_id>', methods=['GET', 'POST'])
 @login_required
 def foerderplan_neu(s_id):
-    schueler = get_or_404_session(Schueler, s_id)
+    schueler = _ensure_student_access_or_403(s_id)
     next_url = (request.args.get('next') or request.form.get('next') or '').strip()
     if not schueler.foerdergrundlage:
         flash('Bitte zuerst das Grundlagenblatt für dieses Kind ausfüllen.')
@@ -244,7 +286,7 @@ def foerderplan_neu(s_id):
         flash(f'Förderplan "{titel}" erfolgreich angelegt!')
         return redirect(_safe_next_url(next_url, url_for('foerderplan.foerderplan_view', p_id=neuer_plan.id)))
 
-    stichtag = utc_now() - timedelta(days=120)
+    stichtag = observation_period_start(utc_now() - timedelta(days=120))
     beobachtungen = Beobachtung.query.filter(
         Beobachtung.schueler_id == s_id,
         Beobachtung.datum >= stichtag
@@ -334,7 +376,7 @@ def foerderplan_neu(s_id):
 @foerderplan_bp.route('/foerderplan/grundlagen/<int:s_id>', methods=['GET', 'POST'])
 @login_required
 def foerdergrundlage_edit(s_id):
-    schueler = get_or_404_session(Schueler, s_id)
+    schueler = _ensure_student_access_or_403(s_id)
     grundlage = schueler.foerdergrundlage or Foerdergrundlage(schueler_id=schueler.id)
     is_new = grundlage.id is None
     next_url = (request.args.get('next') or request.form.get('next') or '').strip()
@@ -385,9 +427,7 @@ def foerdergrundlage_edit(s_id):
 @foerderplan_bp.route('/foerderplan/grundlagen/export/odt/<int:s_id>')
 @login_required
 def foerdergrundlage_export_odt(s_id):
-    schueler = db.session.get(Schueler, s_id)
-    if not schueler:
-        abort(404)
+    schueler = _ensure_student_access_or_403(s_id)
 
     try:
         odt_buffer, filename_stem = _build_foerdergrundlage_export_payload(
@@ -412,9 +452,7 @@ def foerdergrundlage_export_odt(s_id):
 @foerderplan_bp.route('/foerderplan/grundlagen/export/pdf/<int:s_id>')
 @login_required
 def foerdergrundlage_export_pdf(s_id):
-    schueler = db.session.get(Schueler, s_id)
-    if not schueler:
-        abort(404)
+    schueler = _ensure_student_access_or_403(s_id)
 
     try:
         odt_buffer, filename_stem = _build_foerdergrundlage_export_payload(
@@ -443,11 +481,19 @@ def foerdergrundlage_export_pdf(s_id):
 @foerderplan_bp.route('/foerderplan/select_student')
 @login_required
 def foerderplan_select_student():
-    schueler = get_prioritized_students_for_user(current_user)
+    schueler = [s for s in get_prioritized_students_for_user(current_user) if _teacher_can_access_student(current_user, s)]
     return render_template(
         'foerderplan_select.html',
         schueler=schueler,
-        schueler_groups=get_grouped_student_choices_for_user(current_user),
+        schueler_groups=[
+            {
+                'key': group['key'],
+                'label': group['label'],
+                'students': [s for s in group['students'] if _teacher_can_access_student(current_user, s)],
+            }
+            for group in get_grouped_student_choices_for_user(current_user)
+            if [s for s in group['students'] if _teacher_can_access_student(current_user, s)]
+        ],
     )
 
 
@@ -459,27 +505,20 @@ def foerderplan_list():
         selected_s_id=(request.args.get('schueler_id') or '').strip(),
         requested_tab=(request.args.get('tab') or '').strip(),
         auto_select_first=False,
+        include_archived=True,
     )
     filter_info = {
         "is_admin": current_user.is_admin,
         "klassenleitung": None,
+        "fachklassen": [],
         "selected_s_id": selection["selected_s_id"],
         "selected_schueler": selection["selected_student"],
     }
-    query = Foerderplan.query.join(Schueler)
+    query = _foerderplan_query_for_user(current_user).join(Schueler)
     if not filter_info["is_admin"]:
         klassenkontext = get_user_klassenkontext(current_user)
-        klassenleitung = klassenkontext.get('klassenleitung')
-        filter_info["klassenleitung"] = klassenleitung
-        if klassenleitung:
-            query = query.filter(
-                or_(
-                    Foerderplan.creator_user_id == current_user.id,
-                    Schueler.klasse == klassenleitung,
-                )
-            )
-        else:
-            query = query.filter(Foerderplan.creator_user_id == current_user.id)
+        filter_info["klassenleitung"] = klassenkontext.get('klassenleitung')
+        filter_info["fachklassen"] = sorted(klassenkontext.get('fachklassen') or set(), key=lambda x: x.lower())
 
     selected_s_id = selection["selected_s_id"]
     if selected_s_id:
@@ -507,7 +546,7 @@ def foerderplan_list():
 @foerderplan_bp.route('/foerderplan/view/<int:p_id>')
 @login_required
 def foerderplan_view(p_id):
-    plan = get_or_404_session(Foerderplan, p_id)
+    plan = _ensure_plan_access_or_404(p_id)
     next_url = (request.args.get('next') or '').strip()
     return render_template(
         'foerderplan_view.html',
@@ -521,7 +560,7 @@ def foerderplan_view(p_id):
 @foerderplan_bp.route('/foerderplan/edit/<int:p_id>', methods=['GET', 'POST'])
 @login_required
 def foerderplan_edit(p_id):
-    plan = get_or_404_session(Foerderplan, p_id)
+    plan = _ensure_plan_access_or_404(p_id)
     next_url = (request.args.get('next') or request.form.get('next') or '').strip()
     if not _can_manage_foerderplan(plan):
         flash('Dieser Förderplan kann nur vom Ersteller oder vom Admin bearbeitet werden.')
@@ -586,7 +625,7 @@ def foerderplan_edit(p_id):
 @foerderplan_bp.route('/foerderplan/delete/<int:p_id>', methods=['POST'])
 @login_required
 def foerderplan_delete(p_id):
-    plan = get_or_404_session(Foerderplan, p_id)
+    plan = _ensure_plan_access_or_404(p_id)
     next_url = (request.form.get('next') or request.args.get('next') or '').strip()
     if not _can_manage_foerderplan(plan):
         flash('Dieser Förderplan kann nur vom Ersteller oder vom Admin gelöscht werden.')
@@ -602,9 +641,7 @@ def foerderplan_delete(p_id):
 @foerderplan_bp.route('/foerderplan/export/odt/<int:p_id>')
 @login_required
 def foerderplan_export_odt(p_id):
-    plan = db.session.get(Foerderplan, p_id)
-    if not plan:
-        abort(404)
+    plan = _ensure_plan_access_or_404(p_id)
 
     include_grundlagenblatt = (request.args.get('mit_grundlagenblatt') or '').strip() in {'1', 'true', 'ja'}
     next_url = (request.args.get('next') or '').strip()
@@ -635,9 +672,7 @@ def foerderplan_export_odt(p_id):
 @foerderplan_bp.route('/foerderplan/export/pdf/<int:p_id>')
 @login_required
 def foerderplan_export_pdf(p_id):
-    plan = db.session.get(Foerderplan, p_id)
-    if not plan:
-        abort(404)
+    plan = _ensure_plan_access_or_404(p_id)
 
     include_grundlagenblatt = (request.args.get('mit_grundlagenblatt') or '').strip() in {'1', 'true', 'ja'}
     next_url = (request.args.get('next') or '').strip()
@@ -672,7 +707,7 @@ def foerderplan_export_pdf(p_id):
 @foerderplan_bp.route('/foerderplan/evaluate/<int:p_id>', methods=['GET', 'POST'])
 @login_required
 def foerderplan_evaluate(p_id):
-    plan = get_or_404_session(Foerderplan, p_id)
+    plan = _ensure_plan_access_or_404(p_id)
     next_url = (request.args.get('next') or request.form.get('next') or '').strip()
 
     if request.method == 'POST':

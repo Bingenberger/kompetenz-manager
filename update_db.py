@@ -354,6 +354,88 @@ def _postgres_add_missing_erziehung_event_columns():
             print("Spalte 'erziehungs_ereignis.consequence_notes' wurde für PostgreSQL ergänzt.")
         conn.commit()
 
+
+def _sqlite_add_school_year_columns():
+    engine = db.engine
+    if engine.url.get_backend_name() != "sqlite":
+        return
+    with engine.connect() as conn:
+        student_columns = {
+            row["name"] for row in conn.execute(text("PRAGMA table_info(schueler)")).mappings().all()
+        }
+        if "is_active" not in student_columns:
+            conn.execute(text("ALTER TABLE schueler ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1"))
+            print("Spalte 'schueler.is_active' wurde ergänzt.")
+        if "archived_at" not in student_columns:
+            conn.execute(text("ALTER TABLE schueler ADD COLUMN archived_at DATETIME"))
+            print("Spalte 'schueler.archived_at' wurde ergänzt.")
+        config_columns = {
+            row["name"]
+            for row in conn.execute(text("PRAGMA table_info(system_konfiguration)")).mappings().all()
+        }
+        change_columns = {
+            row["name"]
+            for row in conn.execute(text("PRAGMA table_info(schuljahreswechsel)")).mappings().all()
+        }
+        if "zuordnungen_versetzt" not in change_columns:
+            conn.execute(text("ALTER TABLE schuljahreswechsel ADD COLUMN zuordnungen_versetzt INTEGER NOT NULL DEFAULT 0"))
+            print("Spalte schuljahreswechsel.zuordnungen_versetzt wurde ergänzt.")
+        if "zuordnungen_entfernt" not in change_columns:
+            conn.execute(text("ALTER TABLE schuljahreswechsel ADD COLUMN zuordnungen_entfernt INTEGER NOT NULL DEFAULT 0"))
+            print("Spalte schuljahreswechsel.zuordnungen_entfernt wurde ergänzt.")
+        if "schuljahr_beginn" not in config_columns:
+            conn.execute(text("ALTER TABLE system_konfiguration ADD COLUMN schuljahr_beginn DATE"))
+            print("Spalte 'system_konfiguration.schuljahr_beginn' wurde ergänzt.")
+        conn.commit()
+
+
+def _postgres_add_school_year_columns():
+    engine = db.engine
+    if engine.url.get_backend_name() not in {"postgresql", "postgres"}:
+        return
+    with engine.connect() as conn:
+        student_columns = {
+            row[0]
+            for row in conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'schueler'"
+            )).all()
+        }
+        if "is_active" not in student_columns:
+            conn.execute(text(
+                "ALTER TABLE public.schueler ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT TRUE"
+            ))
+            print("Spalte 'schueler.is_active' wurde für PostgreSQL ergänzt.")
+        if "archived_at" not in student_columns:
+            conn.execute(text("ALTER TABLE public.schueler ADD COLUMN archived_at TIMESTAMP"))
+            print("Spalte 'schueler.archived_at' wurde für PostgreSQL ergänzt.")
+        config_columns = {
+            row[0]
+            for row in conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'system_konfiguration'"
+            )).all()
+        }
+        change_columns = {
+            row[0]
+            for row in conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'schuljahreswechsel'"
+            )).all()
+        }
+        if "zuordnungen_versetzt" not in change_columns:
+            conn.execute(text("ALTER TABLE public.schuljahreswechsel ADD COLUMN zuordnungen_versetzt INTEGER NOT NULL DEFAULT 0"))
+            print("Spalte schuljahreswechsel.zuordnungen_versetzt wurde für PostgreSQL ergänzt.")
+        if "zuordnungen_entfernt" not in change_columns:
+            conn.execute(text("ALTER TABLE public.schuljahreswechsel ADD COLUMN zuordnungen_entfernt INTEGER NOT NULL DEFAULT 0"))
+            print("Spalte schuljahreswechsel.zuordnungen_entfernt wurde für PostgreSQL ergänzt.")
+        if "schuljahr_beginn" not in config_columns:
+            conn.execute(text(
+                "ALTER TABLE public.system_konfiguration ADD COLUMN schuljahr_beginn DATE"
+            ))
+            print("Spalte 'system_konfiguration.schuljahr_beginn' wurde für PostgreSQL ergänzt.")
+        conn.commit()
+
 # Wir aktivieren den "App Context", damit wir Zugriff auf die DB-Konfiguration haben
 with app.app_context():
     print("--- Starte Datenbank-Update ---")
@@ -374,6 +456,8 @@ with app.app_context():
     _postgres_add_missing_workplan_task_columns()
     _postgres_add_missing_library_template_columns()
     _postgres_add_missing_erziehung_event_columns()
+    _sqlite_add_school_year_columns()
+    _postgres_add_school_year_columns()
     
     print("--- FERTIG! Die Datenbank wurde erweitert. ---")
     print("Ihre alten Daten sind sicher.")

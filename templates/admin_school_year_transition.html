@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Administration</span>
+        <h2 class="h4 mt-2 mb-1">Schuljahreswechsel</h2>
+        <p class="text-muted mb-0">Versetzung prüfen, Wiederholer markieren und Viertklässler archivieren.</p>
+    </div>
+    <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary icon-btn">
+        {{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span>
+    </a>
+</div>
+
+<form method="POST">
+    {{ csrf_input() }}
+    <input type="hidden" name="bisheriges_schuljahr" value="{{ settings.schuljahr or '' }}">
+
+    <div class="surface-panel p-4 mb-4">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Aktuelles Schuljahr</label>
+                <input class="form-control" value="{{ settings.schuljahr or 'Noch nicht festgelegt' }}" disabled>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Neues Schuljahr</label>
+                <input name="neues_schuljahr" class="form-control" value="{{ new_year }}" required pattern="[0-9]{4}/[0-9]{4}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Beginn des neuen Schuljahres</label>
+                <input type="date" name="schuljahr_beginn" class="form-control" value="{{ start_date.isoformat() if start_date else '' }}" required>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-panel mb-4">
+        <div class="table-toolbar">
+            <div>
+                <div class="table-toolbar-title">Vorschau für {{ rows|length }} aktive Kinder</div>
+                <div class="small text-muted">Für markierte Kinder muss eine individuelle Zielklasse gewählt werden.</div>
+            </div>
+            <button type="submit" name="action" value="preview" formnovalidate class="btn btn-outline-primary icon-btn">
+                {{ bi('arrow-repeat', 'bi-icon-sm') }} <span>Vorschau aktualisieren</span>
+            </button>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr><th>Wiederholt</th><th>Kind</th><th>Aktuell</th><th>Nach dem Wechsel</th></tr>
+                </thead>
+                <tbody>
+                    {% for row in rows %}
+                    <tr>
+                        <td>
+                            <input class="form-check-input individual-toggle" type="checkbox" name="wiederholer_ids" value="{{ row.student.id }}" data-target-id="individual-target-{{ row.student.id }}" {% if row.student.id in repeater_ids %}checked{% endif %} aria-label="{{ row.student.vorname }} {{ row.student.nachname }} wiederholt die Klasse">
+                        </td>
+                        <td>{{ row.student.nachname }}, {{ row.student.vorname }}</td>
+                        <td><span class="badge bg-secondary">{{ row.student.klasse or '-' }}</span></td>
+                        <td>
+                            <div class="automatic-target {% if row.student.id in repeater_ids %}d-none{% endif %}">
+                                {% if row.action == 'archive' %}<span class="badge bg-info">wird archiviert</span>
+                                {% elif row.action == 'unchanged' %}<span class="badge bg-secondary">unverändert, Klasse nicht erkannt</span>
+                                {% else %}<span class="badge bg-success">{{ row.target_class }}</span>{% endif %}
+                            </div>
+                            <select id="individual-target-{{ row.student.id }}" name="individual_target_{{ row.student.id }}" class="form-select form-select-sm individual-target {% if row.student.id not in repeater_ids %}d-none{% endif %}">
+                                <option value="">Zielklasse wählen...</option>
+                                {% for class_name in row.target_options %}<option value="{{ class_name }}" {% if individual_targets.get(row.student.id) == class_name %}selected{% endif %}>{{ class_name }}</option>{% endfor %}
+                            </select>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4" class="text-center text-muted py-4">Keine aktiven Kinder vorhanden.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="surface-panel p-4 mb-4">
+        <div class="d-flex flex-wrap gap-3 mb-3">
+            <span class="badge bg-success">{{ counts.promote }} Versetzungen</span>
+            <span class="badge bg-warning text-dark">{{ counts.individual }} individuell zugeordnet</span>
+            <span class="badge bg-info">{{ counts.archive }} Archivierungen</span>
+            {% if counts.unchanged %}<span class="badge bg-secondary">{{ counts.unchanged }} unverändert</span>{% endif %}
+        </div>
+        <div class="alert alert-warning mb-3">
+            Der Wechsel verändert Klassen, archiviert Viertklässler und schreibt Klassenleitungs- sowie Fachzuordnungen automatisch fort. Zuordnungen der bisherigen vierten Klassen werden entfernt. Einträge und Schülerakten bleiben erhalten.
+        </div>
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="confirm-transition" required>
+            <label class="form-check-label" for="confirm-transition">Ich habe die Wiederholer und die Vorschau geprüft.</label>
+        </div>
+        <button type="submit" name="action" value="execute" class="btn btn-danger icon-btn" {% if not rows %}disabled{% endif %}>
+            {{ bi('calendar-check', 'bi-icon') }} <span>Schuljahreswechsel durchführen</span>
+        </button>
+    </div>
+</form>
+
+{% if assignment_rows %}
+<div class="table-panel mb-4">
+    <div class="table-toolbar"><div><div class="table-toolbar-title">Lehrkraftzuordnungen</div><div class="small text-muted">{{ assignment_counts.promote }} werden fortgeschrieben, {{ assignment_counts.remove }} werden entfernt.</div></div></div>
+    <div class="table-responsive"><table class="table align-middle mb-0">
+        <thead class="table-light"><tr><th>Lehrkraft</th><th>Rolle</th><th>Aktuell</th><th>Nach dem Wechsel</th></tr></thead>
+        <tbody>{% for row in assignment_rows %}<tr><td>{{ row.assignment.user.display_name }}</td><td>{{ 'Klassenleitung' if row.assignment.rolle == 'klassenleitung' else 'Fach' }}</td><td>{{ row.assignment.klasse }}</td><td>{% if row.action == 'remove' %}<span class="text-muted">entfällt</span>{% else %}{{ row.target_class }}{% endif %}</td></tr>{% endfor %}</tbody>
+    </table></div>
+</div>
+{% endif %}
+
+{% if history %}
+<div class="table-panel">
+    <div class="table-toolbar"><div class="table-toolbar-title">Bisherige Wechsel</div></div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light"><tr><th>Zeitpunkt</th><th>Schuljahr</th><th>Versetzt</th><th>Archiviert</th><th>Lehrkraftzuordnungen</th></tr></thead>
+            <tbody>{% for entry in history %}<tr>
+                <td>{{ entry.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                <td>{{ entry.altes_schuljahr or '-' }} → {{ entry.neues_schuljahr }}</td>
+                <td>{{ entry.versetzt_anzahl }}</td><td>{{ entry.archiviert_anzahl }}</td><td>{{ entry.zuordnungen_versetzt }} versetzt, {{ entry.zuordnungen_entfernt }} entfernt</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+<script>
+document.querySelectorAll(".individual-toggle").forEach((checkbox) => {
+    const target = document.getElementById(checkbox.dataset.targetId);
+    const automatic = checkbox.closest("tr").querySelector(".automatic-target");
+    const update = () => {
+        target.disabled = !checkbox.checked;
+        target.required = checkbox.checked;
+        target.classList.toggle("d-none", !checkbox.checked);
+        automatic.classList.toggle("d-none", checkbox.checked);
+    };
+    checkbox.addEventListener("change", update);
+    update();
+});
+</script>
+{% endblock %}

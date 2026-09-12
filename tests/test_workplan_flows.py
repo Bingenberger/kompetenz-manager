@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import unittest
 from datetime import datetime, timedelta
+from io import BytesIO
 from unittest.mock import patch
 
 from werkzeug.security import generate_password_hash
@@ -49,12 +50,15 @@ class WorkPlanFlowsTestCase(unittest.TestCase):
             admin = User(username='admin', password_hash=generate_password_hash('adminpass'))
             teacher_a = User(username='teacher_a', password_hash=generate_password_hash('pass'))
             teacher_b = User(username='teacher_b', password_hash=generate_password_hash('pass'))
-            db.session.add_all([admin, teacher_a, teacher_b])
+            teacher_c = User(username='teacher_c', password_hash=generate_password_hash('pass'))
+            db.session.add_all([admin, teacher_a, teacher_b, teacher_c])
             db.session.flush()
 
             db.session.add_all([
                 UserKlassenzuordnung(user_id=teacher_a.id, klasse='4a', rolle='klassenleitung'),
                 UserKlassenzuordnung(user_id=teacher_b.id, klasse='4b', rolle='klassenleitung'),
+                UserKlassenzuordnung(user_id=teacher_b.id, klasse='4a', rolle='fach'),
+                UserKlassenzuordnung(user_id=teacher_c.id, klasse='5c', rolle='klassenleitung'),
             ])
 
             self.student_a = Schueler(vorname='Max', nachname='A', klasse='4a')
@@ -137,13 +141,22 @@ class WorkPlanFlowsTestCase(unittest.TestCase):
                 period_end=(now + timedelta(days=7)).date(),
                 status='draft',
             )
-            db.session.add_all([self.plan_a, self.plan_b])
+            self.plan_shared = WorkPlan(
+                student_id=self.student_a2.id,
+                created_by_user_id=teacher_b.id,
+                period_start=now.date(),
+                period_end=(now + timedelta(days=7)).date(),
+                status='draft',
+            )
+            db.session.add_all([self.plan_a, self.plan_b, self.plan_shared])
             db.session.flush()
+            self.plan_shared_id = self.plan_shared.id
             self.task_a = WorkPlanTask(work_plan_id=self.plan_a.id, title='Quellaufgabe', source_type='manual', sort_order=1)
             db.session.add(self.task_a)
             db.session.flush()
             db.session.add(WorkPlanTaskCompetency(task_id=self.task_a.id, item_id=self.item_om.id))
             self.plan_a_id = self.plan_a.id
+            self.plan_b_id = self.plan_b.id
             self.task_a_id = self.task_a.id
 
             db.session.commit()
@@ -175,21 +188,22 @@ class WorkPlanFlowsTestCase(unittest.TestCase):
         self.assertEqual(page.status_code, 200)
         return self._get_csrf(page)
 
-    def test_rbac_teacher_sees_only_own_workplans(self):
+    def test_rbac_teacher_sees_workplans_of_own_and_fach_classes(self):
         self._login('teacher_a', 'pass')
 
         res = self.client.get('/api/work-plans?format=json')
         self.assertEqual(res.status_code, 200)
         payload = res.get_json()
-        creator_ids = {row['createdByUserId'] for row in payload['plans']}
-        self.assertEqual(len(creator_ids), 1)
+        plan_ids = {row['id'] for row in payload['plans']}
+        self.assertIn(self.plan_a_id, plan_ids)
+        self.assertIn(self.plan_shared_id, plan_ids)
+        self.assertNotIn(self.plan_b_id, plan_ids)
 
-        with self.app.app_context():
-            teacher_a = User.query.filter_by(username='teacher_a').first()
-            self.assertEqual(creator_ids.pop(), teacher_a.id)
+        shared_view = self.client.get(f'/arbeitsplan/{self.plan_shared_id}/bearbeiten')
+        self.assertEqual(shared_view.status_code, 200)
 
         self.client.get('/logout')
-        self._login('teacher_b', 'pass')
+        self._login('teacher_c', 'pass')
         forbidden_view = self.client.get(f'/arbeitsplan/{self.plan_a_id}/bearbeiten')
         self.assertEqual(forbidden_view.status_code, 404)
 
@@ -213,6 +227,44 @@ class WorkPlanFlowsTestCase(unittest.TestCase):
             self.assertIsNotNone(copied_task)
             comp_ids = {c.item_id for c in copied_task.competency_links}
             self.assertIn(self.item_om_id, comp_ids)
+
+    def test_delete_plan_clears_copied_from_references(self):
+        self._login('teacher_a', 'pass')
+        token = self._csrf_token_for_post()
+
+        with self.app.app_context():
+            target_plan = WorkPlan(
+                student_id=self.student_a2_id,
+                created_by_user_id=User.query.filter_by(username='teacher_a').first().id,
+                period_start=datetime.utcnow().date(),
+                period_end=(datetime.utcnow() + timedelta(days=7)).date(),
+                status='draft',
+            )
+            db.session.add(target_plan)
+            db.session.flush()
+            copied_task = WorkPlanTask(
+                work_plan_id=target_plan.id,
+                title='Kopie',
+                source_type='copied',
+                copied_from_task_id=self.task_a_id,
+                sort_order=1,
+            )
+            db.session.add(copied_task)
+            db.session.commit()
+            copied_task_id = copied_task.id
+
+        res = self.client.post(
+            f'/arbeitsplan/{self.plan_a_id}/delete',
+            data={'_csrf_token': token},
+            follow_redirects=False,
+        )
+        self.assertEqual(res.status_code, 302)
+
+        with self.app.app_context():
+            self.assertIsNone(db.session.get(WorkPlan, self.plan_a_id))
+            copied_task = db.session.get(WorkPlanTask, copied_task_id)
+            self.assertIsNotNone(copied_task)
+            self.assertIsNone(copied_task.copied_from_task_id)
 
     def test_suggestions_include_o_minus_active_goal_and_reproposal(self):
         self._login('teacher_a', 'pass')
@@ -290,7 +342,10 @@ class WorkPlanFlowsTestCase(unittest.TestCase):
             in_range_start = (now - timedelta(days=1)).isoformat()
             in_range_end = (now + timedelta(days=10)).isoformat()
 
-        with patch('routes.workplan_routes.convert_odt_bytes_to_pdf', return_value=b'%PDF-1.4\n%mock\n'):
+        with (
+            patch('routes.workplan_routes.convert_odt_bytes_to_pdf', return_value=b'%PDF-1.4\n%mock\n'),
+            patch('routes.workplan_routes._merge_pdf_buffers', return_value=BytesIO(b'%PDF-1.4\n%merged\n')),
+        ):
             res = self.client.get(
                 f'/arbeitsplaene/klasse/export/pdf?tab=own&klasse=4a&klasse_von={in_range_start}&klasse_bis={in_range_end}'
             )

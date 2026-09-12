@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
-from flask_login import login_required
+from flask_login import current_user, login_required
 from werkzeug.security import generate_password_hash
 
 from authz import admin_required
@@ -16,11 +16,23 @@ from models import (
     ErziehungsOrt,
     Item,
     Schueler,
+    Schuljahreswechsel,
     SystemKonfiguration,
     User,
     UserKlassenzuordnung,
 )
+from school_year import (
+    default_school_year_start,
+    class_grade,
+    next_school_year,
+    normalize_school_year,
+    promoted_class_name,
+    serialize_ids,
+    target_classes_after_transition,
+    student_transition_action,
+)
 from student_selection import get_distinct_klassen
+from time_utils import utc_now
 
 
 admin_bp = Blueprint('admin', __name__)
@@ -190,6 +202,12 @@ def admin_system_settings():
             flash('Beginn Elternsprechtag 2 ist kein gültiges Datum.')
             return render_template('admin_system_settings.html', settings=settings, next_url=next_url)
 
+        if settings.schuljahr and schuljahr != settings.schuljahr:
+            flash('Bitte verwenden Sie für eine Änderung des Schuljahres den Schuljahreswechsel.')
+            return render_template('admin_system_settings.html', settings=settings, next_url=next_url)
+        if schuljahr and not normalize_school_year(schuljahr):
+            flash('Das Schuljahr muss das Format JJJJ/JJJJ haben, z. B. 2026/2027.')
+            return render_template('admin_system_settings.html', settings=settings, next_url=next_url)
         settings.schuljahr = schuljahr
         settings.elternsprechtag_1 = esp1
         settings.elternsprechtag_2 = esp2
@@ -198,6 +216,156 @@ def admin_system_settings():
         return redirect(_safe_next_url(next_url, url_for('admin.admin_system_settings')))
 
     return render_template('admin_system_settings.html', settings=settings, next_url=next_url)
+
+
+@admin_bp.route('/admin/schuljahreswechsel', methods=['GET', 'POST'])
+@admin_required(redirect_endpoint='admin.admin_dashboard', message=None)
+def admin_school_year_transition():
+    settings = _get_system_konfiguration()
+    active_students = (
+        Schueler.query
+        .filter(Schueler.is_active.is_(True))
+        .order_by(Schueler.klasse.asc(), Schueler.nachname.asc(), Schueler.vorname.asc())
+        .all()
+    )
+    target_classes = target_classes_after_transition(active_students)
+    proposed_year = next_school_year(settings.schuljahr)
+    new_year = (request.form.get('neues_schuljahr') or proposed_year).strip()
+    start_raw = (request.form.get('schuljahr_beginn') or '').strip()
+    proposed_start = default_school_year_start(new_year)
+    start_date = _parse_optional_date(start_raw) if start_raw else proposed_start
+    repeater_ids = {
+        int(value) for value in request.form.getlist('wiederholer_ids') if value.isdigit()
+    }
+    valid_ids = {student.id for student in active_students}
+    repeater_ids &= valid_ids
+    individual_targets = {
+        student_id: (request.form.get(f'individual_target_{student_id}') or '').strip()
+        for student_id in repeater_ids
+    }
+
+    rows = []
+    counts = {'promote': 0, 'individual': 0, 'archive': 0, 'unchanged': 0}
+    for student in active_students:
+        action, target_class = student_transition_action(student, repeater_ids, individual_targets)
+        counts[action] += 1
+        rows.append({
+            'student': student,
+            'action': action,
+            'target_class': target_class,
+            'target_options': [
+                class_name for class_name in target_classes
+                if class_grade(class_name) == class_grade(student.klasse)
+            ],
+        })
+
+    assignment_rows = []
+    assignment_counts = {'promote': 0, 'remove': 0, 'unchanged': 0}
+    for assignment in UserKlassenzuordnung.query.order_by(UserKlassenzuordnung.klasse).all():
+        grade = class_grade(assignment.klasse)
+        if grade in {1, 2, 3}:
+            assignment_action, assignment_target = 'promote', promoted_class_name(assignment.klasse)
+        elif grade == 4:
+            assignment_action, assignment_target = 'remove', None
+        else:
+            assignment_action, assignment_target = 'unchanged', assignment.klasse
+        assignment_counts[assignment_action] += 1
+        assignment_rows.append({
+            'assignment': assignment,
+            'action': assignment_action,
+            'target_class': assignment_target,
+        })
+
+    if request.method == 'POST' and request.form.get('action') == 'execute':
+        normalized_year = normalize_school_year(new_year)
+        invalid_targets = [
+            student for student in active_students
+            if student.id in repeater_ids
+            and (
+                not individual_targets.get(student.id)
+                or individual_targets[student.id] not in target_classes
+                or class_grade(individual_targets[student.id]) != class_grade(student.klasse)
+            )
+        ]
+        if invalid_targets:
+            flash('Bitte für jedes nicht automatisch versetzte Kind eine Zielklasse derselben Jahrgangsstufe wählen.')
+        elif not normalized_year:
+            flash('Das neue Schuljahr muss das Format JJJJ/JJJJ haben, z. B. 2026/2027.')
+        elif not start_date:
+            flash('Bitte einen gültigen Beginn des neuen Schuljahres angeben.')
+        elif (request.form.get('bisheriges_schuljahr') or '') != (settings.schuljahr or ''):
+            flash('Das aktuelle Schuljahr wurde zwischenzeitlich geändert. Bitte Vorschau neu laden.')
+            return redirect(url_for('admin.admin_school_year_transition'))
+        elif normalized_year == (settings.schuljahr or ''):
+            flash('Das neue Schuljahr muss sich vom aktuellen Schuljahr unterscheiden.')
+        else:
+            for row in rows:
+                student = row['student']
+                if row['action'] in {'promote', 'individual'}:
+                    student.klasse = row['target_class']
+                elif row['action'] == 'archive':
+                    student.is_active = False
+                    student.archived_at = utc_now()
+
+            kept_assignments = {}
+            assignments_to_delete = []
+            for assignment_row in assignment_rows:
+                assignment = assignment_row['assignment']
+                target_class = assignment_row['target_class']
+                if assignment_row['action'] == 'remove':
+                    assignments_to_delete.append(assignment)
+                    continue
+                key = (assignment.user_id, target_class, assignment.rolle)
+                if key in kept_assignments:
+                    assignments_to_delete.append(assignment)
+                else:
+                    kept_assignments[key] = assignment
+
+            for assignment_row in assignment_rows:
+                assignment_row['assignment'].klasse = f'__schuljahreswechsel_{assignment_row["assignment"].id}'
+            db.session.flush()
+            for assignment in assignments_to_delete:
+                db.session.delete(assignment)
+            for (_user_id, target_class, _role), assignment in kept_assignments.items():
+                assignment.klasse = target_class
+
+            change = Schuljahreswechsel(
+                altes_schuljahr=settings.schuljahr,
+                neues_schuljahr=normalized_year,
+                schuljahr_beginn=start_date,
+                wiederholer_ids=serialize_ids(repeater_ids),
+                versetzt_anzahl=counts['promote'],
+                archiviert_anzahl=counts['archive'],
+                unveraendert_anzahl=counts['individual'] + counts['unchanged'],
+                zuordnungen_versetzt=assignment_counts['promote'],
+                zuordnungen_entfernt=assignment_counts['remove'],
+                created_by_user_id=current_user.id,
+            )
+            settings.schuljahr = normalized_year
+            settings.schuljahr_beginn = start_date
+            db.session.add(change)
+            db.session.commit()
+            flash(
+                f'Schuljahreswechsel abgeschlossen: {counts["promote"]} versetzt, '
+                f'{counts["individual"]} Wiederholer, {counts["archive"]} archiviert.'
+            )
+            return redirect(url_for('admin.admin_school_year_transition'))
+
+    history = Schuljahreswechsel.query.order_by(Schuljahreswechsel.created_at.desc()).limit(10).all()
+    return render_template(
+        'admin_school_year_transition.html',
+        settings=settings,
+        rows=rows,
+        counts=counts,
+        new_year=new_year,
+        start_date=start_date,
+        repeater_ids=repeater_ids,
+        individual_targets=individual_targets,
+        target_classes=target_classes,
+        assignment_rows=assignment_rows,
+        assignment_counts=assignment_counts,
+        history=history,
+    )
 
 
 @admin_bp.route('/admin/users', methods=['GET', 'POST'])
@@ -285,6 +453,26 @@ def admin_user_edit(user_id):
     return render_template('admin_user_edit.html', user=user, next_url=next_url)
 
 
+@admin_bp.route('/admin/users/reset-password/<int:user_id>', methods=['POST'])
+@admin_required(redirect_endpoint='admin.admin_dashboard', message=None)
+def admin_user_reset_password(user_id):
+    user = get_or_404_session(User, user_id)
+    next_url = (request.form.get('next') or '').strip()
+    new_password = request.form.get('new_password') or ''
+    new_password_repeat = request.form.get('new_password_repeat') or ''
+
+    if len(new_password) < 8:
+        flash('Das neue Passwort muss mindestens 8 Zeichen lang sein.')
+        return redirect(url_for('admin.admin_user_edit', user_id=user.id, next=next_url) + '#passwort')
+    if new_password != new_password_repeat:
+        flash('Die neuen Passwörter stimmen nicht überein.')
+        return redirect(url_for('admin.admin_user_edit', user_id=user.id, next=next_url) + '#passwort')
+
+    user.password_hash = generate_password_hash(new_password)
+    db.session.commit()
+    flash(f'Passwort für {user.username} wurde zurückgesetzt.')
+    return redirect(_safe_next_url(next_url, url_for('admin.admin_users')))
+
 @admin_bp.route('/admin/users/assignments/<int:user_id>', methods=['GET', 'POST'])
 @admin_required(redirect_endpoint='admin.admin_dashboard', message=None)
 def admin_user_assignments(user_id):
@@ -348,8 +536,14 @@ def admin_user_assignments(user_id):
 @admin_bp.route('/admin/students')
 @admin_required(redirect_endpoint='system.index', message='Zugriff verweigert. Nur der Administrator darf Schülergrunddaten verwalten.')
 def admin_students():
-    schueler = Schueler.query.order_by(Schueler.klasse, Schueler.nachname).all()
-    return render_template('admin_students.html', schueler=schueler)
+    show_archived = request.args.get('show') == 'archived'
+    schueler = (
+        Schueler.query
+        .filter(Schueler.is_active.is_(not show_archived))
+        .order_by(Schueler.klasse, Schueler.nachname, Schueler.vorname)
+        .all()
+    )
+    return render_template('admin_students.html', schueler=schueler, show_archived=show_archived)
 
 
 @admin_bp.route('/admin/student/edit/<int:s_id>', methods=['GET', 'POST'])
@@ -370,6 +564,10 @@ def admin_student_edit(s_id):
             flash('Geburtsdatum hat kein gültiges Format.')
             return render_template('admin_student_edit.html', s=schueler, next_url=next_url)
         schueler.geburtsdatum = _parse_optional_date(geburtsdatum_raw)
+        requested_active = request.form.get("is_active") == "1"
+        if requested_active != schueler.is_active:
+            schueler.is_active = requested_active
+            schueler.archived_at = None if requested_active else utc_now()
         db.session.commit()
         flash('Schülerdaten aktualisiert.')
         return redirect(_safe_next_url(next_url, url_for('admin.admin_students')))

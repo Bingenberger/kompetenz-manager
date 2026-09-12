@@ -28,7 +28,7 @@
     <div class="mb-3">
         {% for tab in tab_definitions %}
             {% if active_tab == tab.id %}
-                {% if tab.kind == 'class' %}
+                {% if tab.kind in ['class', 'archive'] %}
                     {% if tab.students %}
                     <div class="student-button-grid">
                         {% for s in tab.students %}
@@ -42,7 +42,7 @@
                     {% endif %}
                 {% else %}
                 <form method="GET" class="row g-3 align-items-end">
-                    <input type="hidden" name="tab" value="dropdown">
+                    <input type="hidden" name="tab" value="{{ active_tab }}">
                     <div class="col-lg-8">
                         {% set student_select_id = 'foerderplan_list_schueler_id' %}
                         {% set student_select_name = 'schueler_id' %}

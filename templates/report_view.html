@@ -214,7 +214,8 @@
                 <span class="h3 fw-bold value">{{ row.durchschnitt }}</span>
                 <span class="d-block small text-muted">Ø aus {{ row.anzahl }} Einträgen</span>
                 {% else %}
-                <span class="badge bg-secondary">Keine Daten</span>
+                <span class="badge bg-secondary">Keine aktuellen Daten</span>
+                {% if row.eintraege %}<span class="d-block small text-muted mt-1">{{ row.eintraege|length }} im Archiv</span>{% endif %}
                 {% endif %}
             </div>
             <!-- Pfeil rechts -->
@@ -222,7 +223,7 @@
         </div>
     </div>
 
-    {% if row.anzahl > 0 %}
+    {% if row.eintraege %}
     <!-- Collapsible Body -->
     <div id="collapse-{{ row.item.id }}" class="collapse">
         <div class="card-body p-0">

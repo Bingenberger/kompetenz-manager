@@ -43,6 +43,7 @@
                     <div class="d-flex flex-wrap gap-2 justify-content-end">
                         {% if user.username != 'admin' %}
                         <a href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-btn">{{ bi('person-gear', 'bi-icon-sm') }} <span>Name bearbeiten</span></a>
+                        <a href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=request.full_path if request.query_string else request.path) }}#passwort" class="btn btn-sm btn-outline-warning icon-btn">{{ bi('key', 'bi-icon-sm') }} <span>Passwort</span></a>
                         <a href="{{ url_for('admin.admin_user_assignments', user_id=user.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('mortarboard', 'bi-icon-sm') }} <span>Klassen zuordnen</span></a>
                         <form method="POST" action="{{ url_for('admin.admin_user_delete', user_id=user.id) }}" style="display:inline;" data-confirm-title="Benutzer löschen" data-confirm-message="Benutzer wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
                             {{ csrf_input() }}

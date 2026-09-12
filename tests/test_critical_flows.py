@@ -4,7 +4,7 @@ import shutil
 import tempfile
 import unittest
 import zipfile
-from datetime import date
+from datetime import date, datetime
 from io import BytesIO
 from unittest.mock import patch
 
@@ -32,8 +32,11 @@ from models import (
     Item,
     Notification,
     Schueler,
+    Schuljahreswechsel,
+    SystemKonfiguration,
     User,
     UserKlassenzuordnung,
+    WorkPlan,
 )
 
 
@@ -182,7 +185,88 @@ class CriticalFlowsTestCase(unittest.TestCase):
             self.assertEqual(kollege.vorname, 'Karin')
             self.assertEqual(kollege.nachname, 'Beispiel')
 
+    def test_admin_can_reset_teacher_password(self):
+        self.assertEqual(self._login('admin', 'adminpass').status_code, 302)
+
+        with self.app.app_context():
+            user_id = User.query.filter_by(username='kollege').first().id
+
+        edit_page = self.client.get(f'/admin/users/edit/{user_id}')
+        token = self._get_csrf(edit_page)
+        response = self.client.post(
+            f'/admin/users/reset-password/{user_id}',
+            data={
+                '_csrf_token': token,
+                'new_password': 'NeuesPasswort23',
+                'new_password_repeat': 'NeuesPasswort23',
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(response.headers['Location'].endswith('/admin/users'))
+
+        self.client.get('/logout')
+        self.assertEqual(self._login('kollege', 'kollegepass').status_code, 200)
+        self.assertEqual(self._login('kollege', 'NeuesPasswort23').status_code, 302)
+
+    def test_password_reset_rejects_mismatch_and_short_password(self):
+        self.assertEqual(self._login('admin', 'adminpass').status_code, 302)
+
+        with self.app.app_context():
+            user_id = User.query.filter_by(username='kollege').first().id
+
+        edit_page = self.client.get(f'/admin/users/edit/{user_id}')
+        token = self._get_csrf(edit_page)
+        mismatch = self.client.post(
+            f'/admin/users/reset-password/{user_id}',
+            data={
+                '_csrf_token': token,
+                'new_password': 'NeuesPasswort23',
+                'new_password_repeat': 'AnderesPasswort23',
+            },
+            follow_redirects=True,
+        )
+        self.assertIn('stimmen nicht überein', mismatch.get_data(as_text=True))
+
+        token = self._get_csrf(mismatch)
+        too_short = self.client.post(
+            f'/admin/users/reset-password/{user_id}',
+            data={
+                '_csrf_token': token,
+                'new_password': 'kurz',
+                'new_password_repeat': 'kurz',
+            },
+            follow_redirects=True,
+        )
+        self.assertIn('mindestens 8 Zeichen', too_short.get_data(as_text=True))
+
+        self.client.get('/logout')
+        self.assertEqual(self._login('kollege', 'kollegepass').status_code, 302)
+
+    def test_teacher_cannot_reset_another_password(self):
+        self.assertEqual(self._login('kollege', 'kollegepass').status_code, 302)
+
+        token = self._get_csrf(self.client.get('/konto'))
+        with self.app.app_context():
+            admin_id = User.query.filter_by(username='admin').first().id
+
+        response = self.client.post(
+            f'/admin/users/reset-password/{admin_id}',
+            data={
+                'new_password': 'Manipuliert23',
+                '_csrf_token': token,
+                'new_password_repeat': 'Manipuliert23',
+            },
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertNotIn('/admin/users', response.headers['Location'])
+
+        self.client.get('/logout')
+        self.assertEqual(self._login('admin', 'adminpass').status_code, 302)
     def test_admin_can_change_user_role_but_not_demote_last_admin(self):
+
+
         login_response = self._login('admin', 'adminpass')
         self.assertEqual(login_response.status_code, 302)
 
@@ -629,7 +713,7 @@ class CriticalFlowsTestCase(unittest.TestCase):
         self.assertIn('.pdf', response.headers.get('Content-Disposition', ''))
         self.assertTrue(response.data.startswith(b'%PDF'))
 
-    def test_foerderplan_list_shows_own_or_classlead_plans_and_hides_evaluate_for_closed(self):
+    def test_foerderplan_list_shows_assigned_class_plans_and_hides_evaluate_for_closed(self):
         with self.app.app_context():
             admin = User.query.filter_by(username='admin').first()
             kollege = User.query.filter_by(username='kollege').first()
@@ -639,7 +723,10 @@ class CriticalFlowsTestCase(unittest.TestCase):
             db.session.add_all([s2, s3])
             db.session.flush()
 
-            db.session.add(UserKlassenzuordnung(user_id=kollege.id, klasse='4a', rolle='klassenleitung'))
+            db.session.add_all([
+                UserKlassenzuordnung(user_id=kollege.id, klasse='4a', rolle='klassenleitung'),
+                UserKlassenzuordnung(user_id=kollege.id, klasse='4b', rolle='fach'),
+            ])
 
             plan_visible = Foerderplan(
                 schueler_id=s2.id,
@@ -648,10 +735,10 @@ class CriticalFlowsTestCase(unittest.TestCase):
                 datum_erstellung=date(2026, 2, 23),
                 status='geschlossen',
             )
-            plan_own_other_class = Foerderplan(
+            plan_fach_class = Foerderplan(
                 schueler_id=s3.id,
-                creator_user_id=kollege.id,
-                titel='Mein Plan 4b',
+                creator_user_id=admin.id,
+                titel='Fach Plan 4b',
                 datum_erstellung=date(2026, 2, 23),
                 status='aktiv',
             )
@@ -662,7 +749,17 @@ class CriticalFlowsTestCase(unittest.TestCase):
                 datum_erstellung=date(2026, 2, 23),
                 status='aktiv',
             )
-            db.session.add_all([plan_visible, plan_own_other_class, plan_wrong_creator])
+            plan_other_unassigned_student = Schueler(vorname='Lina', nachname='Klasse5c', klasse='5c')
+            db.session.add(plan_other_unassigned_student)
+            db.session.flush()
+            plan_outside_assignment = Foerderplan(
+                schueler_id=plan_other_unassigned_student.id,
+                creator_user_id=kollege.id,
+                titel='Eigener Plan 5c',
+                datum_erstellung=date(2026, 2, 23),
+                status='aktiv',
+            )
+            db.session.add_all([plan_visible, plan_fach_class, plan_wrong_creator, plan_outside_assignment])
             db.session.commit()
 
         login_response = self._login('kollege', 'kollegepass')
@@ -673,13 +770,61 @@ class CriticalFlowsTestCase(unittest.TestCase):
         html = response.get_data(as_text=True)
 
         self.assertIn('Mein Plan 4a', html)
-        self.assertIn('Mein Plan 4b', html)   # eigener Plan außerhalb der Klassenleitungsklasse
+        self.assertIn('Fach Plan 4b', html)
         self.assertIn('Admin Plan', html)     # Klassenleitungsklasse (Max Test ist 4a)
+        self.assertNotIn('Eigener Plan 5c', html)
 
         row_start = html.find('Mein Plan 4a')
         self.assertNotEqual(row_start, -1)
         row_end = html.find('</tr>', row_start)
         self.assertNotIn('Evaluieren', html[row_start:row_end])
+
+    def test_teacher_can_manage_foerderplan_for_assigned_class_but_not_foreign_class(self):
+        with self.app.app_context():
+            admin = User.query.filter_by(username='admin').first()
+            kollege = User.query.filter_by(username='kollege').first()
+            same_class_student = Schueler(vorname='Mia', nachname='Zugriff', klasse='4a')
+            db.session.add(same_class_student)
+            db.session.flush()
+
+            db.session.add_all([
+                UserKlassenzuordnung(user_id=kollege.id, klasse='4a', rolle='klassenleitung'),
+                UserKlassenzuordnung(user_id=kollege.id, klasse='4b', rolle='fach'),
+            ])
+
+            same_class_plan = Foerderplan(
+                schueler_id=same_class_student.id,
+                creator_user_id=admin.id,
+                titel='Admin Plan 4a',
+                datum_erstellung=date(2026, 2, 23),
+                status='aktiv',
+            )
+            foreign_class_student = Schueler(vorname='Lena', nachname='Unzugriff', klasse='5c')
+            db.session.add(foreign_class_student)
+            db.session.flush()
+            foreign_class_plan = Foerderplan(
+                schueler_id=foreign_class_student.id,
+                creator_user_id=admin.id,
+                titel='Admin Plan 5c',
+                datum_erstellung=date(2026, 2, 23),
+                status='aktiv',
+            )
+            db.session.add_all([same_class_plan, foreign_class_plan])
+            db.session.commit()
+            same_class_plan_id = same_class_plan.id
+            foreign_class_plan_id = foreign_class_plan.id
+
+        login_response = self._login('kollege', 'kollegepass')
+        self.assertEqual(login_response.status_code, 302)
+
+        edit_page = self.client.get(f'/foerderplan/edit/{same_class_plan_id}')
+        self.assertEqual(edit_page.status_code, 200)
+
+        evaluate_page = self.client.get(f'/foerderplan/evaluate/{same_class_plan_id}')
+        self.assertEqual(evaluate_page.status_code, 200)
+
+        foreign_edit = self.client.get(f'/foerderplan/edit/{foreign_class_plan_id}')
+        self.assertEqual(foreign_edit.status_code, 404)
 
     def test_admin_can_delete_foerderplan(self):
         login_response = self._login('admin', 'adminpass')
@@ -1105,6 +1250,25 @@ class CriticalFlowsTestCase(unittest.TestCase):
         self.assertLess(pos_eigene, pos_fach)
         self.assertLess(pos_fach, pos_andere)
 
+    def test_reihe_start_uses_staged_bogen_bereich_item_selection(self):
+        login_response = self._login('kollege', 'kollegepass')
+        self.assertEqual(login_response.status_code, 302)
+
+        with self.app.app_context():
+            bogen = Bogen(titel='Mathematik')
+            db.session.add(bogen)
+            db.session.flush()
+            db.session.add(Item(bogen_id=bogen.id, bereich='Zahlenraum', text='Addiert sicher bis 20'))
+            db.session.commit()
+
+        response = self.client.get('/erfassen/reihe/start')
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('name="bogen_id"', html)
+        self.assertIn('name="bereich"', html)
+        self.assertIn('name="item_id"', html)
+        self.assertIn('Bitte zuerst einen Bogen wählen', html)
+
     def test_admin_can_create_erziehung_ereignis(self):
         with self.app.app_context():
             schueler = Schueler.query.filter_by(vorname='Max', nachname='Test').first()
@@ -1351,6 +1515,161 @@ class CriticalFlowsTestCase(unittest.TestCase):
         with self.app.app_context():
             self.assertIsNone(db.session.get(ErziehungsEreignis, event_id))
             self.assertEqual(ErziehungsEreignisLog.query.filter_by(event_id=event_id).count(), 0)
+
+
+    def test_school_year_transition_keeps_repeaters_promotes_and_archives(self):
+        with self.app.app_context():
+            settings = SystemKonfiguration(schuljahr='2025/2026')
+            promoted = Schueler(vorname='Paula', nachname='Aufstieg', klasse='1a')
+            repeater = Schueler(vorname='Rita', nachname='Wiederholt', klasse='4a')
+            leaving = Schueler(vorname='Anton', nachname='Abgang', klasse='4b')
+            admin = User.query.filter_by(username='admin').first()
+            kollege = User.query.filter_by(username='kollege').first()
+            db.session.add_all([
+                UserKlassenzuordnung(user_id=admin.id, klasse='1a', rolle='klassenleitung'),
+                UserKlassenzuordnung(user_id=kollege.id, klasse='3a', rolle='fach'),
+                UserKlassenzuordnung(user_id=kollege.id, klasse='4b', rolle='klassenleitung'),
+            ])
+            db.session.add_all([settings, promoted, repeater, leaving])
+            db.session.commit()
+            promoted_id, repeater_id, leaving_id = promoted.id, repeater.id, leaving.id
+
+        self._login('admin', 'adminpass')
+        page = self.client.get('/admin/schuljahreswechsel')
+        token = self._get_csrf(page)
+        response = self.client.post(
+            '/admin/schuljahreswechsel',
+            data=MultiDict([
+                ('_csrf_token', token),
+                ('action', 'execute'),
+                ('bisheriges_schuljahr', '2025/2026'),
+                ('neues_schuljahr', '2026/2027'),
+                ('schuljahr_beginn', '2026-08-01'),
+                ('wiederholer_ids', str(repeater_id)),
+                ('individual_target_' + str(repeater_id), '4a'),
+            ]),
+            follow_redirects=False,
+        )
+        self.assertEqual(response.status_code, 302)
+
+        with self.app.app_context():
+            self.assertEqual(db.session.get(Schueler, promoted_id).klasse, '2a')
+            self.assertEqual(db.session.get(Schueler, repeater_id).klasse, '4a')
+            assignments = {
+                (row.user.username, row.klasse, row.rolle)
+                for row in UserKlassenzuordnung.query.join(User).all()
+            }
+            self.assertIn(('admin', '2a', 'klassenleitung'), assignments)
+            self.assertIn(('kollege', '4a', 'fach'), assignments)
+            self.assertNotIn(('kollege', '4b', 'klassenleitung'), assignments)
+            self.assertTrue(db.session.get(Schueler, repeater_id).is_active)
+            self.assertFalse(db.session.get(Schueler, leaving_id).is_active)
+            self.assertIsNotNone(db.session.get(Schueler, leaving_id).archived_at)
+            self.assertEqual(SystemKonfiguration.query.first().schuljahr, '2026/2027')
+            self.assertEqual(Schuljahreswechsel.query.count(), 1)
+            change = Schuljahreswechsel.query.one()
+            self.assertEqual(change.zuordnungen_versetzt, 2)
+            self.assertEqual(change.zuordnungen_entfernt, 1)
+
+    def test_archived_student_records_remain_visible_in_all_archives(self):
+        with self.app.app_context():
+            admin = User.query.filter_by(username='admin').first()
+            settings = SystemKonfiguration.query.first() or SystemKonfiguration()
+            settings.schuljahr = '2026/2027'
+            settings.schuljahr_beginn = date(2026, 8, 1)
+            student = Schueler(
+                vorname='Alina', nachname='Archiv', klasse='4b',
+                is_active=False, archived_at=datetime(2026, 8, 1, 8, 0),
+            )
+            bogen = Bogen(titel='Archivbogen Lesen')
+            category = ErziehungsEreignisKategorie(name='Archivkategorie', sort_order=1, is_active=True)
+            ort = ErziehungsOrt(name='Archivort', sort_order=1, is_active=True)
+            db.session.add_all([settings, student, bogen, category, ort])
+            db.session.flush()
+            item = Item(bogen_id=bogen.id, bereich='Lesen', text='Archivkompetenz')
+            event_template = ErziehungsEreignisVorlage(category_id=category.id, name='Archivvorfall', sort_order=1, is_active=True)
+            plan = Foerderplan(
+                schueler_id=student.id, creator_user_id=admin.id, titel='Alter Förderplan Archiv',
+                datum_erstellung=date(2025, 9, 1), status='geschlossen',
+            )
+            work_plan = WorkPlan(
+                student_id=student.id, created_by_user_id=admin.id,
+                period_start=date(2025, 9, 1), period_end=date(2025, 9, 14), status='geschlossen',
+            )
+            db.session.add_all([item, event_template, plan, work_plan])
+            db.session.flush()
+            observation = Beobachtung(
+                schueler_id=student.id, item_id=item.id, wert=3,
+                datum=datetime(2025, 9, 2, 10, 0), kommentar='Historische Beobachtung Archiv',
+            )
+            event = ErziehungsEreignis(
+                student_id=student.id, event_template_id=event_template.id, ort_id=ort.id,
+                beschreibung='Historisches Ereignis Archiv', status='abgeschlossen',
+                created_by_user_id=admin.id, datum=date(2025, 9, 3),
+            )
+            db.session.add_all([observation, event])
+            db.session.commit()
+            student_id, bogen_id = student.id, bogen.id
+
+        self._login('kollege', 'kollegepass')
+
+        foerder = self.client.get(f'/foerderplan/list?tab=archive&schueler_id={student_id}')
+        self.assertEqual(foerder.status_code, 200)
+        self.assertIn('Alter Förderplan Archiv', foerder.get_data(as_text=True))
+
+        workplans = self.client.get(f'/arbeitsplaene?tab=archive&schueler_id={student_id}&scope=archive')
+        self.assertEqual(workplans.status_code, 200)
+        self.assertIn('01.09.2025', workplans.get_data(as_text=True))
+
+        events = self.client.get(f'/erziehung?tab=archive&schueler_id={student_id}')
+        self.assertEqual(events.status_code, 200)
+        self.assertIn('Archivvorfall', events.get_data(as_text=True))
+
+        observations = self.client.get(f'/report/schueler?schueler_id={student_id}&bogen_id={bogen_id}')
+        self.assertEqual(observations.status_code, 200)
+        self.assertIn('Historische Beobachtung Archiv', observations.get_data(as_text=True))
+
+        record = self.client.get(f'/schuelerakte?tab=archive&schueler_id={student_id}')
+        self.assertEqual(record.status_code, 200)
+        record_html = record.get_data(as_text=True)
+        self.assertIn('Alter Förderplan Archiv', record_html)
+        self.assertIn('Archivvorfall', record_html)
+        self.assertIn('Archivbogen Lesen', record_html)
+
+
+    def test_current_average_excludes_observations_before_school_year_start(self):
+        from routes.erfassung_routes import _build_bogen_entries_for_student
+
+        with self.app.app_context():
+            settings = SystemKonfiguration.query.first()
+            if not settings:
+                settings = SystemKonfiguration()
+                db.session.add(settings)
+            settings.schuljahr = '2026/2027'
+            settings.schuljahr_beginn = date(2026, 8, 1)
+            student = Schueler.query.filter_by(vorname='Max', nachname='Test').first()
+            bogen = Bogen(titel='Schuljahrestest')
+            db.session.add(bogen)
+            db.session.flush()
+            item = Item(bogen_id=bogen.id, bereich='Test', text='Aktueller Durchschnitt')
+            db.session.add(item)
+            db.session.flush()
+            db.session.add_all([
+                Beobachtung(schueler_id=student.id, item_id=item.id, wert=1, datum=datetime(2026, 7, 31, 12, 0)),
+                Beobachtung(schueler_id=student.id, item_id=item.id, wert=4, datum=datetime(2026, 8, 2, 12, 0)),
+            ])
+            db.session.commit()
+
+            result = _build_bogen_entries_for_student(student.id)
+            row = next(
+                item_row
+                for bogen_row in result['bogen_rows']
+                if bogen_row['bogen'].id == bogen.id
+                for item_row in bogen_row['item_rows']
+            )
+            self.assertEqual(row['durchschnitt'], 4.0)
+            self.assertEqual(row['anzahl'], 1)
+            self.assertEqual(len(row['eintraege']), 2)
 
 
 if __name__ == '__main__':
