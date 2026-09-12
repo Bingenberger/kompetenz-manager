@@ -347,6 +347,7 @@ Ausfuehrliche Beschreibung:
 - `competency_trend.py`: Entwicklungsverlauf je Kompetenz
 - `report_material.py`: Zusammenstellung des Zeugnismaterials
 - `retention.py`: Berechnung der Aufbewahrungsfristen
+- `change_log.py`: gemeinsame Grundlage der Aenderungsprotokolle
 - `search.py`: Suche ueber Kinder, Kompetenzen und Boegen
 - `student_record.py`: Zusammenstellung der vollstaendigen Schuelerakte fuer den Export
 - `deploy/`: Service- und Betriebsdateien

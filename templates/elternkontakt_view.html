@@ -121,4 +121,40 @@
         </div>
     </div>
 </div>
+
+<div class="card shadow-sm mt-4">
+    <div class="card-header bg-light">
+        <strong>Änderungsprotokoll</strong>
+        <span class="text-muted small ms-2">wer wann was geändert hat</span>
+    </div>
+    {% if kontakt.logs %}
+    <div class="list-group list-group-flush">
+        {% for log in kontakt.logs %}
+        <div class="list-group-item">
+            <div class="d-flex flex-wrap justify-content-between gap-2">
+                <span class="badge {% if log.action == 'created' %}bg-success{% elif log.action == 'evaluated' %}bg-info{% else %}bg-secondary{% endif %}">
+                    {% if log.action == 'created' %}Angelegt
+                    {% elif log.action == 'updated' %}Geändert
+                    {% elif log.action == 'evaluated' %}Evaluiert
+                    {% else %}{{ log.action }}{% endif %}
+                </span>
+                <span class="text-muted small">
+                    {{ log.created_at.strftime('%d.%m.%Y %H:%M') }}
+                    {% if log.user %} · {{ log.user.display_name }}{% endif %}
+                </span>
+            </div>
+            {% if log.details %}
+            <div class="small text-muted mt-1" style="white-space: pre-wrap;">{{ log.details }}</div>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="card-body text-muted">
+        Für diesen Datensatz ist noch nichts protokolliert. Das Journal beginnt mit
+        der ersten Änderung nach der Einführung dieser Funktion.
+    </div>
+    {% endif %}
+</div>
+
 {% endblock %}

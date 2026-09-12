@@ -6,8 +6,19 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, s
 from flask_login import current_user, login_required
 
 from db_utils import get_or_404_session
+from change_log import describe, describe_creation, snapshot
 from extensions import db
-from models import Beobachtung, Bogen, Foerdergrundlage, Foerderinhalt, Foerderplan, Item, Schueler, SystemKonfiguration
+from models import (
+    Beobachtung,
+    Bogen,
+    Foerdergrundlage,
+    Foerderinhalt,
+    Foerderplan,
+    FoerderplanLog,
+    Item,
+    Schueler,
+    SystemKonfiguration,
+)
 from odt_export import (
     convert_odt_bytes_to_pdf,
     merge_odt_documents,
@@ -25,6 +36,43 @@ from time_utils import utc_now
 
 
 foerderplan_bp = Blueprint('foerderplan', __name__)
+
+# Beobachtete Felder des Plankopfs. Die Foerderinhalte werden beim Speichern
+# ersetzt statt geaendert - fuer sie wird gezaehlt, nicht verglichen.
+PLAN_FELDER = (
+    ('titel', 'Titel'),
+    ('status', 'Status'),
+    ('datum_evaluation', 'Evaluationsdatum'),
+)
+
+
+def _plan_log(plan, action, details):
+    """Schreibt einen Journaleintrag, wenn es etwas zu berichten gibt."""
+    if not details:
+        return
+    db.session.add(FoerderplanLog(
+        plan_id=plan.id,
+        user_id=getattr(current_user, 'id', None),
+        action=action,
+        details=details,
+    ))
+
+
+def _inhalte_beschreibung(plan):
+    # Direkt abfragen statt ueber plan.inhalte: beim Speichern werden die
+    # Inhalte per Massenloeschung ersetzt, die geladene Beziehung waere danach
+    # veraltet und die Aenderung bliebe unbemerkt.
+    ziele = [
+        (foerderziel or '').strip()
+        for (foerderziel,) in db.session.query(Foerderinhalt.foerderziel)
+        .filter(Foerderinhalt.plan_id == plan.id)
+        .order_by(Foerderinhalt.id.asc())
+        .all()
+        if (foerderziel or '').strip()
+    ]
+    if not ziele:
+        return 'keine Förderbereiche'
+    return f"{len(ziele)} Förderbereich(e): " + '; '.join(ziele)
 FOERDERPLAN_TEMPLATE = 'odt_templates/Foerderplan-Vorlage.ott'
 FOERDERGRUNDLAGE_TEMPLATE = 'odt_templates/Deckblatt_Foerderplan.ott'
 
@@ -282,6 +330,11 @@ def foerderplan_neu(s_id):
                 )
                 db.session.add(inhalt)
 
+        db.session.flush()
+        _plan_log(neuer_plan, 'created', '; '.join(filter(None, [
+            describe_creation(neuer_plan, PLAN_FELDER),
+            _inhalte_beschreibung(neuer_plan),
+        ])))
         db.session.commit()
         flash(f'Förderplan "{titel}" erfolgreich angelegt!')
         return redirect(_safe_next_url(next_url, url_for('foerderplan.foerderplan_view', p_id=neuer_plan.id)))
@@ -571,6 +624,10 @@ def foerderplan_edit(p_id):
         if _foerderplan_concurrency_conflict(plan):
             flash('Der Förderplan wurde zwischenzeitlich von jemand anderem geändert. Bitte Ansicht neu laden und Änderungen prüfen.')
             return redirect(url_for('foerderplan.foerderplan_edit', p_id=plan.id, next=next_url) if next_url else url_for('foerderplan.foerderplan_edit', p_id=plan.id))
+        # Zustand festhalten, bevor irgendetwas ueberschrieben wird.
+        vorher = snapshot(plan, PLAN_FELDER)
+        vorher_inhalte = _inhalte_beschreibung(plan)
+
         plan.titel = request.form.get('titel')
 
         Foerderinhalt.query.filter_by(plan_id=plan.id).delete()
@@ -590,6 +647,13 @@ def foerderplan_edit(p_id):
                     massnahmen=massnahmen[i] if i < len(massnahmen) else '',
                     status_id=0,
                 ))
+
+        db.session.flush()
+        teile = [describe(vorher, snapshot(plan, PLAN_FELDER), PLAN_FELDER)]
+        nachher_inhalte = _inhalte_beschreibung(plan)
+        if vorher_inhalte != nachher_inhalte:
+            teile.append(f'Förderbereiche: {vorher_inhalte} → {nachher_inhalte}')
+        _plan_log(plan, 'updated', '; '.join(filter(None, teile)))
 
         db.session.commit()
         flash(f'Förderplan "{plan.titel}" aktualisiert.')
@@ -747,12 +811,21 @@ def foerderplan_evaluate(p_id):
                     next_url=next_url,
                 )
 
+        vorher = snapshot(plan, PLAN_FELDER)
         plan.status = requested_plan_status
         plan.datum_evaluation = utc_now()
 
+        bewertet = 0
         for inhalt, neuer_status, eval_text in submitted_inhalte:
+            if inhalt.status_id != neuer_status or (inhalt.evaluation_text or '') != (eval_text or ''):
+                bewertet += 1
             inhalt.status_id = neuer_status
             inhalt.evaluation_text = eval_text
+
+        teile = [describe(vorher, snapshot(plan, PLAN_FELDER), PLAN_FELDER)]
+        if bewertet:
+            teile.append(f'{bewertet} Förderbereich(e) bewertet')
+        _plan_log(plan, 'evaluated', '; '.join(filter(None, teile)) or 'ohne Änderung gespeichert')
 
         db.session.commit()
         flash('Förderplan evaluiert und gespeichert.')

@@ -6,8 +6,18 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, s
 from flask_login import current_user, login_required
 from sqlalchemy import func
 
+from change_log import describe, describe_creation, snapshot
 from extensions import db
-from models import Beobachtung, Bogen, Elternberatung, Elternkontakt, Foerderplan, Item, Schueler
+from models import (
+    Beobachtung,
+    Bogen,
+    Elternberatung,
+    Elternkontakt,
+    ElternkontaktLog,
+    Foerderplan,
+    Item,
+    Schueler,
+)
 from odt_export import convert_odt_bytes_to_pdf, render_odt_from_ott_template
 from school_year import active_school_year_start
 from student_selection import (
@@ -22,6 +32,34 @@ from uploads import speichere_upload_bild
 
 
 erfassung_bp = Blueprint('erfassung', __name__)
+
+# Beobachtete Felder eines Elternkontakts. Notiz und Protokoll nutzen dieselbe
+# Tabelle; leere Felder tauchen im Journal ohnehin nur auf, wenn sie sich
+# aendern.
+KONTAKT_FELDER = (
+    ('datum', 'Datum'),
+    ('kontaktform', 'Kontaktform'),
+    ('betreff', 'Betreff'),
+    ('mitteilung', 'Mitteilung'),
+    ('teilnehmende', 'Teilnehmende'),
+    ('gespraechsanlass', 'Anlass'),
+    ('besprochenes', 'Besprochenes'),
+    ('vereinbarungen_schule', 'Vereinbarungen Schule'),
+    ('vereinbarungen_eltern', 'Vereinbarungen Eltern'),
+    ('naechste_schritte', 'Nächste Schritte'),
+    ('naechster_termin', 'Nächster Termin'),
+)
+
+
+def _kontakt_log(kontakt, action, details):
+    if not details:
+        return
+    db.session.add(ElternkontaktLog(
+        kontakt_id=kontakt.id,
+        user_id=getattr(current_user, 'id', None),
+        action=action,
+        details=details,
+    ))
 ELTERNKONTAKT_PROTOKOLL_TEMPLATE = 'odt_templates/Protokoll_EG.ott'
 
 
@@ -853,6 +891,8 @@ def elternkontakt_notiz():
             datum=datum_obj,
         )
         db.session.add(kontakt)
+        db.session.flush()
+        _kontakt_log(kontakt, 'created', describe_creation(kontakt, KONTAKT_FELDER))
         db.session.commit()
         flash('Elternkontakt-Notiz gespeichert.')
         if overlay_mode:
@@ -908,6 +948,8 @@ def elternkontakt_protokoll():
             datum=datum_obj,
         )
         db.session.add(kontakt)
+        db.session.flush()
+        _kontakt_log(kontakt, 'created', describe_creation(kontakt, KONTAKT_FELDER))
         db.session.commit()
         flash('Elterngesprächsprotokoll gespeichert.')
         if overlay_mode:
@@ -958,6 +1000,7 @@ def elternkontakt_edit(kontakt_id):
             flash('Dieser Elternkontakt wurde zwischenzeitlich geändert. Bitte die Bearbeitungsseite neu öffnen und Änderungen prüfen.')
             return redirect(url_for('erfassung.elternkontakt_edit', kontakt_id=kontakt.id, next=next_url) if next_url else url_for('erfassung.elternkontakt_edit', kontakt_id=kontakt.id))
         original_concurrency_token = _elternkontakt_concurrency_token(kontakt)
+        vorher = snapshot(kontakt, KONTAKT_FELDER)
         schueler_id = request.form.get('schueler_id')
         if not schueler_id:
             flash('Bitte ein Kind auswählen.')
@@ -1004,6 +1047,7 @@ def elternkontakt_edit(kontakt_id):
             kontakt.naechste_schritte = request.form.get('naechste_schritte')
             kontakt.naechster_termin = _parse_optional_date(request.form.get('naechster_termin'))
 
+        _kontakt_log(kontakt, 'updated', describe(vorher, snapshot(kontakt, KONTAKT_FELDER), KONTAKT_FELDER))
         db.session.commit()
         flash('Elternkontakt aktualisiert.')
         return redirect(_safe_next_url(next_url, url_for('erfassung.elternkontakt_view', kontakt_id=kontakt.id)))

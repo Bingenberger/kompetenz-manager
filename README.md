@@ -17,6 +17,7 @@ Die Anwendung ist fuer den praktischen Schulalltag gebaut: klassische Server-Tem
 - Schuelerakte als gebuendelte Uebersicht pro Kind
 - Suche in der Navigationsleiste ueber Kinder, Kompetenzen und Boegen
 - Erzieherische Ereignisse mit Konsequenzen, Zustaendigkeit, Anhaengen und Journal
+- Aenderungsprotokoll auch fuer Foerderplaene und Elternkontakte
 - PDF- und ODT-Exporte an mehreren Stellen
 - Zeugnismaterial als Sammlung der Beobachtungen und Notizen eines Schuljahres
 - Vollstaendige Schuelerakte als ein Dokument, fuer Schulwechsel und Auskunft nach Art. 15 DSGVO
@@ -76,6 +77,13 @@ Die Anwendung ist fuer den praktischen Schulalltag gebaut: klassische Server-Tem
 - Grunddaten, Foerdergrundlage, Beobachtungen je Bogen, Foerderplaene, Arbeitsplaene, Elternkontakte, Beratungen und Ereignisse
 - Uploads werden als vorhanden vermerkt, nicht eingebettet
 - Nicht enthalten: das Aenderungsprotokoll der Ereignisse, das Bearbeitungen von Lehrkraeften festhaelt
+
+### Aenderungsprotokoll
+
+- Foerderplaene, Elternkontakte und erzieherische Ereignisse fuehren ein Journal: wer wann was geaendert hat
+- Festgehalten wird der vorherige wie der neue Wert, lange Texte gekuerzt
+- Ein Speichern ohne Aenderung schreibt keinen Eintrag
+- Das Journal haengt am Datensatz und verschwindet mit ihm
 
 ### Aufbewahrung
 

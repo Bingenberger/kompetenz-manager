@@ -113,6 +113,31 @@ class Foerderinhalt(db.Model):
     status_id = db.Column(db.Integer, default=0)
 
 
+class FoerderplanLog(db.Model):
+    """Journal eines Foerderplans - wer wann was geaendert hat.
+
+    Eigenes Modell mit Fremdschluessel statt einer gemeinsamen Tabelle fuer
+    alles: so nimmt das Loeschen des Plans sein Journal mit.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    plan_id = db.Column(db.Integer, db.ForeignKey('foerderplan.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    action = db.Column(db.String(50), nullable=False)
+    details = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    plan = db.relationship(
+        'Foerderplan',
+        backref=db.backref(
+            'logs',
+            order_by='desc(FoerderplanLog.created_at)',
+            lazy=True,
+            cascade='all, delete-orphan',
+        ),
+    )
+    user = db.relationship('User')
+
+
 class Foerdergrundlage(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     schueler_id = db.Column(db.Integer, db.ForeignKey('schueler.id'), nullable=False, unique=True)
@@ -152,6 +177,27 @@ class Elternkontakt(db.Model):
 
     schueler = db.relationship('Schueler', backref=db.backref('elternkontakte', cascade='all, delete-orphan'))
     user = db.relationship('User', backref='elternkontakte')
+
+
+class ElternkontaktLog(db.Model):
+    """Journal einer Notiz oder eines Gespraechsprotokolls."""
+    id = db.Column(db.Integer, primary_key=True)
+    kontakt_id = db.Column(db.Integer, db.ForeignKey('elternkontakt.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    action = db.Column(db.String(50), nullable=False)
+    details = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    kontakt = db.relationship(
+        'Elternkontakt',
+        backref=db.backref(
+            'logs',
+            order_by='desc(ElternkontaktLog.created_at)',
+            lazy=True,
+            cascade='all, delete-orphan',
+        ),
+    )
+    user = db.relationship('User')
 
 
 class Elternberatung(db.Model):
