@@ -99,8 +99,50 @@ backup_postgres() {
   fi
 
   log "PostgreSQL-Dump via pg_dump"
+
+  # Zugangsdaten nicht als URL durchreichen: libpq wertet die URL nach RFC 3986
+  # aus und beendet den Autoritaetsteil am ersten "/". Ein Passwort mit "/" - wie
+  # es "openssl rand -base64" erzeugt - laesst pg_dump dann den Benutzernamen fuer
+  # den Hostnamen halten. SQLAlchemy teilt dagegen am letzten "@" und kommt damit
+  # zurecht, weshalb die Anwendung laeuft, waehrend die Sicherung ausfaellt.
+  # Die Bestandteile werden deshalb zerlegt und einzeln uebergeben.
+  local rest userinfo hostpart user pass hostport host port dbname
+
+  rest="${db_url#postgresql://}"
+
+  # Parameteranhang (?sslmode=... ) kann diese einfache Zerlegung nicht abbilden.
+  if [[ "$rest" == *"?"* ]]; then
+    log "Hinweis: URL enthaelt Parameter, uebergebe sie unveraendert an pg_dump"
+    pg_dump --no-owner --no-privileges --format=plain --file="$out" "$db_url"
+    gzip -f "$out"
+    return 0
+  fi
+
+  if [[ "$rest" != *"@"* ]]; then
+    echo "DATABASE_URL enthaelt keine Zugangsdaten: unerwartetes Format." >&2
+    return 1
+  fi
+
+  userinfo="${rest%@*}"   # bis zum letzten @, Passwort darf @ enthalten
+  hostpart="${rest##*@}"
+  user="${userinfo%%:*}"
+  pass=""
+  [[ "$userinfo" == *":"* ]] && pass="${userinfo#*:}"
+
+  hostport="${hostpart%%/*}"
+  dbname="${hostpart#*/}"
+  host="${hostport%%:*}"
+  port=5432
+  [[ "$hostport" == *":"* ]] && port="${hostport##*:}"
+
+  if [[ -z "$host" || -z "$dbname" ]]; then
+    echo "DATABASE_URL konnte nicht zerlegt werden (Host oder Datenbank fehlt)." >&2
+    return 1
+  fi
+
   # --no-owner/--no-privileges vereinfacht Restore auf anderem System
-  pg_dump --no-owner --no-privileges --format=plain --file="$out" "$db_url"
+  PGPASSWORD="$pass" pg_dump --no-owner --no-privileges --format=plain \
+    --file="$out" --host="$host" --port="$port" --username="$user" --dbname="$dbname"
   gzip -f "$out"
 }
 
