@@ -35,6 +35,7 @@ SKIP_BACKUP=0
 ALLOW_DIRTY=0
 NO_RESTART=0
 DRY_RUN=0
+FORCE=0
 TARGET_REF=""
 
 usage() {
@@ -44,6 +45,9 @@ Verwendung: bash deploy/update.sh [Optionen]
 Optionen:
   -y, --yes           Ohne Rueckfrage durchlaufen (fuer Automatisierung)
   -n, --dry-run       Nur anzeigen, was aktualisiert wuerde; nichts veraendern
+  -f, --force         Auch durchlaufen, wenn der Codestand bereits aktuell ist.
+                      Fuehrt Backup, update_db.py, Tests und Neustart erneut aus -
+                      z. B. nach einem manuellen Checkout.
       --ref <ref>     Auf einen bestimmten Commit/Tag aktualisieren statt auf HEAD des Branch
       --branch <name> Branch (Standard: main)
       --skip-tests    Regressionstests ueberspringen (nicht empfohlen)
@@ -60,6 +64,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     -y|--yes) ASSUME_YES=1; shift ;;
     -n|--dry-run) DRY_RUN=1; shift ;;
+    -f|--force) FORCE=1; shift ;;
     --ref) TARGET_REF="${2:?--ref benoetigt einen Commit/Tag}"; shift 2 ;;
     --branch) BRANCH="${2:?--branch benoetigt einen Namen}"; shift 2 ;;
     --skip-tests) SKIP_TESTS=1; shift ;;
@@ -143,26 +148,37 @@ fi
 info "Aktuell:  $(git rev-parse --short "$PREV_SHA")  $(git log -1 --pretty=%s "$PREV_SHA")"
 info "Ziel:     $(git rev-parse --short "$TARGET_SHA")  $(git log -1 --pretty=%s "$TARGET_SHA")"
 
+ALREADY_CURRENT=0
 if [[ "$PREV_SHA" == "$TARGET_SHA" ]]; then
-  ok "Die Installation ist bereits aktuell. Nichts zu tun."
-  exit 0
+  if [[ "$FORCE" -eq 0 ]]; then
+    ok "Die Installation ist bereits aktuell. Nichts zu tun."
+    info "Falls Migration, Tests und Neustart trotzdem laufen sollen: --force"
+    exit 0
+  fi
+  ALREADY_CURRENT=1
+  info "Codestand ist bereits aktuell - laufe wegen --force trotzdem durch."
 fi
 
-if ! git merge-base --is-ancestor "$PREV_SHA" "$TARGET_SHA"; then
+if [[ "$ALREADY_CURRENT" -eq 0 ]] && ! git merge-base --is-ancestor "$PREV_SHA" "$TARGET_SHA"; then
   fail "Ziel ist kein direkter Nachfolger des aktuellen Stands (kein Fast-Forward moeglich).
        Vermutlich wurde die Historie umgeschrieben oder es gibt lokale Commits.
        Bitte manuell pruefen: git log --oneline --graph --all"
 fi
 
-log "Eingehende Aenderungen"
-git log --oneline --no-merges "$PREV_SHA..$TARGET_SHA" | sed 's/^/    /'
-printf '\n'
-git diff --stat "$PREV_SHA" "$TARGET_SHA" | tail -n 20 | sed 's/^/    /'
-
 REQS_CHANGED=0
-if [[ -n "$(git diff --name-only "$PREV_SHA" "$TARGET_SHA" -- requirements.txt)" ]]; then
+if [[ "$ALREADY_CURRENT" -eq 1 ]]; then
   REQS_CHANGED=1
-  warn "requirements.txt hat sich geaendert - Abhaengigkeiten werden nachinstalliert."
+  info "Abhaengigkeiten werden wegen --force sicherheitshalber geprueft."
+else
+  log "Eingehende Aenderungen"
+  git log --oneline --no-merges "$PREV_SHA..$TARGET_SHA" | sed 's/^/    /'
+  printf '\n'
+  git diff --stat "$PREV_SHA" "$TARGET_SHA" | tail -n 20 | sed 's/^/    /'
+
+  if [[ -n "$(git diff --name-only "$PREV_SHA" "$TARGET_SHA" -- requirements.txt)" ]]; then
+    REQS_CHANGED=1
+    warn "requirements.txt hat sich geaendert - Abhaengigkeiten werden nachinstalliert."
+  fi
 fi
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -247,7 +263,9 @@ ROLLBACK_ARMED=1
 if [[ "$ALLOW_DIRTY" -eq 1 ]]; then
   git checkout -f -- . 
 fi
-git merge --ff-only "$TARGET_SHA" >/dev/null
+if [[ "$ALREADY_CURRENT" -eq 0 ]]; then
+  git merge --ff-only "$TARGET_SHA" >/dev/null
+fi
 ok "Jetzt auf $(git rev-parse --short HEAD): $(git log -1 --pretty=%s)"
 
 # --- Schritt 5: Abhaengigkeiten -------------------------------------------

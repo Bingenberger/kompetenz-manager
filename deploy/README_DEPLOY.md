@@ -56,8 +56,29 @@ git add -A && git commit -m "Serverstand übernommen"
 git push origin main
 ```
 
-Datenbank, Uploads, `venv/` und `.env.local` sind über `.gitignore` ausgenommen
-und werden in keinem Fall angefasst.
+Datenbank, Uploads und `venv/` sind über `.gitignore` ausgenommen und werden in
+keinem Fall angefasst.
+
+### Sonderfall `.env.local`
+
+`.env.local` war bis Commit `7654744` versehentlich versioniert. Auf Servern,
+die vorher umgestellt wurden, meldet `adopt_git.sh` sie als Abweichung und warnt
+davor — sie enthält Datenbank, Port und `SECRET_KEY` dieser Instanz und darf
+nicht mit dem Repository-Stand überschrieben werden.
+
+Ablauf in dem Fall:
+
+```bash
+cp -a .env.local ~/.env.local.backup   # zuerst sichern
+git fetch origin main
+git reset --hard origin/main           # .env.local wird aus der Versionierung entfernt
+cp -a ~/.env.local.backup .env.local   # echte Konfiguration zurückspielen
+chmod 600 .env.local
+bash deploy/update.sh --force          # Migration, Tests, Neustart nachziehen
+```
+
+Seitdem ist `.env.local` nicht mehr versioniert; `.env.local.example` dient als
+Vorlage.
 
 ---
 
@@ -104,7 +125,12 @@ bash deploy/update.sh --ref v1.4.0   # auf einen bestimmten Tag aktualisieren
 bash deploy/update.sh --skip-tests   # Tests überspringen (nicht empfohlen)
 bash deploy/update.sh --allow-dirty  # lokale Serveränderungen verwerfen
 bash deploy/update.sh --no-restart   # ohne Dienstneustart
+bash deploy/update.sh --force        # auch wenn der Codestand schon aktuell ist
 ```
+
+`--force` ist für den Fall gedacht, dass der Code bereits stimmt, aber
+`update_db.py`, Tests und Neustart noch fehlen — etwa direkt nach der
+Erstumstellung mit `adopt_git.sh` und einem manuellen Checkout.
 
 Anpassbar per Umgebungsvariable:
 

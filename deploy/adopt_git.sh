@@ -123,6 +123,21 @@ if [[ -z "$DIFF_OUT" ]]; then
   exit 0
 fi
 
+# Versionierte Konfigurations-/Geheimnisdateien gesondert hervorheben: ein
+# spaeteres "git checkout -f" wuerde sie mit dem Repository-Stand ueberschreiben.
+CONFIG_HITS="$(git -C "$APP_DIR" diff --name-only \
+  | grep -Ei '(^|/)\.env|\.key$|\.pem$|secrets?\.' || true)"
+if [[ -n "$CONFIG_HITS" ]]; then
+  printf '\n\033[31m    ACHTUNG: versionierte Konfigurationsdatei(en) weichen ab:\033[0m\n'
+  printf '%s\n' "$CONFIG_HITS" | sed 's/^/        /'
+  printf '\033[31m    Ein "git checkout -f" wuerde diese mit dem Repository-Stand\n'
+  printf '    ueberschreiben (Datenbank, Port, SECRET_KEY). Vorher sichern:\033[0m\n'
+  while IFS= read -r f; do
+    [[ -n "$f" ]] && printf '        cp -a "%s" ~/"%s.backup"\n' "$f" "$(basename "$f")"
+  done <<< "$CONFIG_HITS"
+  printf '\n    Nach dem Checkout zurueckspielen und Rechte setzen (chmod 600).\n\n'
+fi
+
 CHANGED="$(git -C "$APP_DIR" diff --name-only | wc -l)"
 UNTRACKED="$(git -C "$APP_DIR" ls-files --others --exclude-standard | wc -l)"
 
