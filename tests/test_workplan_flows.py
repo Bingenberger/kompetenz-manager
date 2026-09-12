@@ -3,7 +3,7 @@ import re
 import shutil
 import tempfile
 import unittest
-from datetime import datetime, timedelta
+from datetime import timedelta
 from io import BytesIO
 from unittest.mock import patch
 
@@ -25,6 +25,7 @@ from models import (
     WorkPlanTaskCompetency,
     WorkPlanTaskEvaluation,
 )
+from time_utils import utc_now
 
 
 CSRF_RE = re.compile(r'name="_csrf_token"\s+value="([^"]+)"')
@@ -80,7 +81,7 @@ class WorkPlanFlowsTestCase(unittest.TestCase):
             self.item_om_id = self.item_om.id
             self.item_rep_id = self.item_rep.id
 
-            now = datetime.utcnow()
+            now = utc_now()
             db.session.add(Beobachtung(
                 schueler_id=self.student_a.id,
                 item_id=self.item_om.id,
@@ -236,8 +237,8 @@ class WorkPlanFlowsTestCase(unittest.TestCase):
             target_plan = WorkPlan(
                 student_id=self.student_a2_id,
                 created_by_user_id=User.query.filter_by(username='teacher_a').first().id,
-                period_start=datetime.utcnow().date(),
-                period_end=(datetime.utcnow() + timedelta(days=7)).date(),
+                period_start=utc_now().date(),
+                period_end=(utc_now() + timedelta(days=7)).date(),
                 status='draft',
             )
             db.session.add(target_plan)
@@ -308,7 +309,7 @@ class WorkPlanFlowsTestCase(unittest.TestCase):
                 'competencyId': str(self.item_om_id),
                 'rating': 'partial',
                 'note': 'Aus Evaluation',
-                'date': datetime.utcnow().date().isoformat(),
+                'date': utc_now().date().isoformat(),
             },
         )
         self.assertEqual(res.status_code, 200)
@@ -328,7 +329,7 @@ class WorkPlanFlowsTestCase(unittest.TestCase):
         self._login('teacher_a', 'pass')
 
         with self.app.app_context():
-            now = datetime.utcnow().date()
+            now = utc_now().date()
             extra_plan = WorkPlan(
                 student_id=self.student_a2_id,
                 created_by_user_id=User.query.filter_by(username='teacher_a').first().id,
