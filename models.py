@@ -45,6 +45,11 @@ class Beobachtung(db.Model):
     schueler_id = db.Column(db.Integer, db.ForeignKey('schueler.id'))
     item_id = db.Column(db.Integer, db.ForeignKey('item.id'))
 
+    schueler = db.relationship(
+        'Schueler',
+        backref=db.backref('beobachtungen', cascade='all, delete-orphan'),
+    )
+
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -91,7 +96,7 @@ class Foerderplan(db.Model):
     status = db.Column(db.String(20), default='aktiv')
 
     inhalte = db.relationship('Foerderinhalt', backref='plan', lazy=True, cascade="all, delete-orphan")
-    schueler = db.relationship('Schueler', backref='foerderplaene')
+    schueler = db.relationship('Schueler', backref=db.backref('foerderplaene', cascade='all, delete-orphan'))
     creator = db.relationship('User', backref='erstellte_foerderplaene', foreign_keys=[creator_user_id])
 
 
@@ -145,7 +150,7 @@ class Elternkontakt(db.Model):
     naechste_schritte = db.Column(db.Text, nullable=True)
     naechster_termin = db.Column(db.Date, nullable=True)
 
-    schueler = db.relationship('Schueler', backref='elternkontakte')
+    schueler = db.relationship('Schueler', backref=db.backref('elternkontakte', cascade='all, delete-orphan'))
     user = db.relationship('User', backref='elternkontakte')
 
 
@@ -161,7 +166,7 @@ class Elternberatung(db.Model):
     schueler_id = db.Column(db.Integer, db.ForeignKey('schueler.id'), nullable=False, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
 
-    schueler = db.relationship('Schueler', backref='elternberatungen')
+    schueler = db.relationship('Schueler', backref=db.backref('elternberatungen', cascade='all, delete-orphan'))
     user = db.relationship('User', backref='elternberatungen')
 
 
@@ -240,7 +245,11 @@ class ErziehungsEreignis(db.Model):
     assigned_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
     created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
 
-    student = db.relationship('Schueler', foreign_keys=[student_id], backref='erziehungsereignisse')
+    student = db.relationship(
+        'Schueler',
+        foreign_keys=[student_id],
+        backref=db.backref('erziehungsereignisse', cascade='all, delete-orphan'),
+    )
     event_template = db.relationship('ErziehungsEreignisVorlage', backref='events')
     ort = db.relationship('ErziehungsOrt', backref='events')
     assigned_user = db.relationship('User', foreign_keys=[assigned_user_id], backref='assigned_erziehungsereignisse')
@@ -255,7 +264,15 @@ class ErziehungsEreignisLog(db.Model):
     details = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
 
-    event = db.relationship('ErziehungsEreignis', backref=db.backref('logs', order_by='desc(ErziehungsEreignisLog.created_at)', lazy=True))
+    event = db.relationship(
+        'ErziehungsEreignis',
+        backref=db.backref(
+            'logs',
+            order_by='desc(ErziehungsEreignisLog.created_at)',
+            lazy=True,
+            cascade='all, delete-orphan',
+        ),
+    )
     user = db.relationship('User')
 
 
@@ -263,15 +280,15 @@ class ErziehungsEreignisBetroffenesKind(db.Model):
     event_id = db.Column(db.Integer, db.ForeignKey('erziehungs_ereignis.id'), primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey('schueler.id'), primary_key=True)
 
-    event = db.relationship('ErziehungsEreignis', backref='affected_students')
-    student = db.relationship('Schueler')
+    event = db.relationship('ErziehungsEreignis', backref=db.backref('affected_students', cascade='all, delete-orphan'))
+    student = db.relationship('Schueler', backref=db.backref('betroffen_bei_ereignissen', cascade='all, delete-orphan'))
 
 
 class ErziehungsEreignisKonsequenz(db.Model):
     event_id = db.Column(db.Integer, db.ForeignKey('erziehungs_ereignis.id'), primary_key=True)
     consequence_id = db.Column(db.Integer, db.ForeignKey('erziehungs_konsequenz.id'), primary_key=True)
 
-    event = db.relationship('ErziehungsEreignis', backref='selected_consequences')
+    event = db.relationship('ErziehungsEreignis', backref=db.backref('selected_consequences', cascade='all, delete-orphan'))
     consequence = db.relationship('ErziehungsKonsequenz')
 
 
@@ -279,8 +296,8 @@ class ErziehungsEreignisElternkontakt(db.Model):
     event_id = db.Column(db.Integer, db.ForeignKey('erziehungs_ereignis.id'), primary_key=True)
     kontakt_id = db.Column(db.Integer, db.ForeignKey('elternkontakt.id'), primary_key=True)
 
-    event = db.relationship('ErziehungsEreignis', backref='linked_parent_contacts')
-    kontakt = db.relationship('Elternkontakt')
+    event = db.relationship('ErziehungsEreignis', backref=db.backref('linked_parent_contacts', cascade='all, delete-orphan'))
+    kontakt = db.relationship('Elternkontakt', backref=db.backref('ereignis_verknuepfungen', cascade='all, delete-orphan'))
 
 
 class ErziehungsEreignisAnhang(db.Model):
@@ -291,7 +308,7 @@ class ErziehungsEreignisAnhang(db.Model):
     mime_type = db.Column(db.String(80), nullable=True)
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
 
-    event = db.relationship('ErziehungsEreignis', backref='attachments')
+    event = db.relationship('ErziehungsEreignis', backref=db.backref('attachments', cascade='all, delete-orphan'))
 
 
 class SystemKonfiguration(db.Model):
@@ -332,7 +349,7 @@ class WorkPlan(db.Model):
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
     updated_at = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
-    student = db.relationship('Schueler', backref='work_plans')
+    student = db.relationship('Schueler', backref=db.backref('work_plans', cascade='all, delete-orphan'))
     creator = db.relationship('User', backref='work_plans', foreign_keys=[created_by_user_id])
     tasks = db.relationship('WorkPlanTask', back_populates='work_plan', cascade="all, delete-orphan")
 
@@ -356,7 +373,14 @@ class WorkPlanTask(db.Model):
     competency_links = db.relationship('WorkPlanTaskCompetency', back_populates='task', cascade="all, delete-orphan")
     attachments = db.relationship('WorkPlanTaskAttachment', back_populates='task', cascade="all, delete-orphan")
     evaluation = db.relationship('WorkPlanTaskEvaluation', back_populates='task', uselist=False, cascade="all, delete-orphan")
-    copied_from_task = db.relationship('WorkPlanTask', remote_side=[id], uselist=False)
+    # Ohne Backref wuerde SQLAlchemy den Verweis beim Loeschen der Quelle nicht
+    # aufloesen und einen Fremdschluessel auf ein entferntes Original hinterlassen.
+    copied_from_task = db.relationship(
+        'WorkPlanTask',
+        remote_side=[id],
+        uselist=False,
+        backref=db.backref('copies', lazy=True),
+    )
 
 
 class WorkPlanTaskCompetency(db.Model):

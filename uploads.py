@@ -68,6 +68,24 @@ def resolve_existing_upload_path(rel_path):
     return None
 
 
+def loesche_upload_datei(rel_path):
+    """Entfernt eine hochgeladene Datei von der Platte.
+
+    Gibt True zurueck, wenn eine Datei entfernt wurde. Fehlt sie bereits oder
+    laesst der Pfad sich nicht aufloesen, ist das kein Fehler: Ziel ist, dass die
+    Datei danach nicht mehr existiert.
+    """
+    absolute = resolve_existing_upload_path(rel_path)
+    if not absolute:
+        return False
+    try:
+        absolute.unlink()
+        return True
+    except OSError as error:
+        current_app.logger.warning('Upload konnte nicht geloescht werden (%s): %s', rel_path, error)
+        return False
+
+
 def komprimiere_und_speichere(file_storage, ziel_pfad):
     """
     Nimmt ein hochgeladenes Bild, korrigiert die Drehung,

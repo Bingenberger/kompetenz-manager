@@ -33,6 +33,7 @@ from school_year import (
 )
 from student_selection import get_distinct_klassen
 from time_utils import utc_now
+from uploads import loesche_upload_datei
 
 
 admin_bp = Blueprint('admin', __name__)
@@ -575,6 +576,32 @@ def admin_student_edit(s_id):
     return render_template('admin_student_edit.html', s=schueler, next_url=next_url)
 
 
+def _collect_student_upload_paths(schueler):
+    """Sammelt alle Uploads, die zu einem Kind gehören.
+
+    Muss vor dem Löschen laufen: danach sind die Datensätze fort, die auf die
+    Dateien zeigen, und die Dateien wären nicht mehr auffindbar.
+    """
+    paths = []
+
+    for beobachtung in schueler.beobachtungen:
+        if beobachtung.foto_pfad:
+            paths.append(beobachtung.foto_pfad)
+
+    for ereignis in schueler.erziehungsereignisse:
+        for anhang in ereignis.attachments:
+            if anhang.file_path:
+                paths.append(anhang.file_path)
+
+    for plan in schueler.work_plans:
+        for aufgabe in plan.tasks:
+            for anhang in aufgabe.attachments:
+                if anhang.file_path:
+                    paths.append(anhang.file_path)
+
+    return paths
+
+
 @admin_bp.route('/admin/student/delete/<int:s_id>', methods=['POST'])
 @admin_required(
     redirect_endpoint='admin.admin_students',
@@ -582,12 +609,36 @@ def admin_student_edit(s_id):
 )
 def admin_student_delete(s_id):
     schueler = get_or_404_session(Schueler, s_id)
+    name = f'{schueler.vorname} {schueler.nachname}'.strip()
 
-    Beobachtung.query.filter_by(schueler_id=s_id).delete()
+    # Umfang vor dem Löschen erfassen, damit die Rückmeldung belegt, was geschah.
+    counts = {
+        'Beobachtungen': len(schueler.beobachtungen),
+        'Förderpläne': len(schueler.foerderplaene),
+        'Elternkontakte': len(schueler.elternkontakte),
+        'Beratungen': len(schueler.elternberatungen),
+        'Ereignisse': len(schueler.erziehungsereignisse),
+        'Arbeitspläne': len(schueler.work_plans),
+    }
+    upload_paths = _collect_student_upload_paths(schueler)
+
+    # Die Beziehungen von Schueler tragen delete-orphan-Kaskaden, das Löschen des
+    # Kindes nimmt Förderplanung, Elternkontakte, Ereignisse und Arbeitspläne mit.
     db.session.delete(schueler)
     db.session.commit()
 
-    flash(f'{schueler.vorname} {schueler.nachname} und alle zugehörigen Daten wurden gelöscht.')
+    # Dateien erst nach erfolgreichem Commit entfernen: bricht die Transaktion ab,
+    # bleiben die Datensätze bestehen und dürfen ihre Dateien nicht verloren haben.
+    deleted_files = sum(1 for path in upload_paths if loesche_upload_datei(path))
+
+    details = ', '.join(f'{anzahl} {label}' for label, anzahl in counts.items() if anzahl)
+    message = f'{name} wurde gelöscht.'
+    if details:
+        message += f' Mitgelöscht: {details}.'
+    if upload_paths:
+        message += f' Dateien entfernt: {deleted_files} von {len(upload_paths)}.'
+    flash(message)
+
     return redirect(url_for('admin.admin_students'))
 
 
