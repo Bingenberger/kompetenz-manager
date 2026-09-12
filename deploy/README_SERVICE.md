@@ -80,6 +80,17 @@ sudo /usr/local/bin/kompetenzkompass-backup
 tail -n 100 /var/log/kompetenzkompass/backup.log
 ```
 
+## Updates
+
+Nach der Erstinstallation laufen Updates ueber das Git-Repository:
+
+```bash
+bash deploy/adopt_git.sh   # einmalig, bei manuell kopierter Installation
+bash deploy/update.sh      # jedes Update
+```
+
+Siehe [README_DEPLOY.md](README_DEPLOY.md).
+
 ## Reverse Proxy
 
 Der Service lauscht intern standardmäßig auf `127.0.0.1:8008`.
