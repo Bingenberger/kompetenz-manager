@@ -22,7 +22,10 @@ from models import (
 )
 from student_selection import get_prioritized_students_for_user, get_tabbed_student_selection_for_user
 from time_utils import utc_now
-from uploads import speichere_upload_erziehung_anhang
+from uploads import (
+    loesche_upload_dateien,
+    speichere_upload_erziehung_anhang,
+)
 
 
 erziehung_bp = Blueprint('erziehung', __name__)
@@ -622,9 +625,12 @@ def erziehung_attachment_delete(event_id, attachment_id):
         return redirect(url_for('erziehung.erziehung_edit', event_id=event.id, next=next_url))
 
     attachment_name = attachment.original_name or attachment.file_path
+    file_path = attachment.file_path
     db.session.delete(attachment)
     _append_log(event, 'attachment_deleted', f'Anhang gelöscht: {attachment_name}')
     db.session.commit()
+
+    loesche_upload_dateien([file_path])
     flash('Anhang gelöscht.')
     return redirect(url_for('erziehung.erziehung_edit', event_id=event.id, next=next_url))
 
@@ -634,6 +640,13 @@ def erziehung_attachment_delete(event_id, attachment_id):
 def erziehung_delete(event_id):
     event = _get_event_or_404(event_id)
     next_url = (request.args.get('next') or request.form.get('next') or '').strip()
+
+    # Vor dem Löschen erfassen: danach sind die Datensätze fort, die auf die
+    # Dateien zeigen, und die Anhänge wären nicht mehr auffindbar.
+    attachment_paths = [
+        anhang.file_path for anhang in event.attachments if anhang.file_path
+    ]
+
     ErziehungsEreignisLog.query.filter_by(event_id=event.id).delete()
     ErziehungsEreignisBetroffenesKind.query.filter_by(event_id=event.id).delete()
     ErziehungsEreignisKonsequenz.query.filter_by(event_id=event.id).delete()
@@ -641,6 +654,8 @@ def erziehung_delete(event_id):
     ErziehungsEreignisAnhang.query.filter_by(event_id=event.id).delete()
     db.session.delete(event)
     db.session.commit()
+
+    loesche_upload_dateien(attachment_paths)
     flash('Ereignis gelöscht.')
     return redirect(_safe_next_url(next_url, url_for('erziehung.erziehung_list')))
 

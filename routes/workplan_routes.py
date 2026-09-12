@@ -32,10 +32,28 @@ from models import (
 from student_selection import get_grouped_student_choices_for_user, get_prioritized_students_for_user, get_user_klassenkontext
 from school_year import active_school_year_start, observation_period_start
 from time_utils import utc_now
-from uploads import speichere_upload_bild, speichere_upload_workplan_bild
+from uploads import (
+    loesche_upload_dateien,
+    speichere_upload_bild,
+    speichere_upload_workplan_bild,
+)
 
 
 workplan_bp = Blueprint('workplan', __name__)
+
+
+def _task_attachment_paths(task):
+    """Dateipfade der Anhänge einer Aufgabe."""
+    return [anhang.file_path for anhang in task.attachments if anhang.file_path]
+
+
+def _plan_attachment_paths(plan):
+    """Dateipfade aller Aufgabenanhänge eines Arbeitsplans.
+
+    Vor dem Löschen aufrufen: danach sind die Datensätze fort, die auf die
+    Dateien zeigen.
+    """
+    return [path for task in plan.tasks for path in _task_attachment_paths(task)]
 WORKPLAN_STATUS_IN_PLANUNG = 'in_planung'
 WORKPLAN_STATUS_AKTIV = 'aktiv'
 WORKPLAN_STATUS_GESCHLOSSEN = 'geschlossen'
@@ -788,6 +806,7 @@ def api_work_plans_update(plan_id):
 @login_required
 def api_work_plans_delete(plan_id):
     plan = _ensure_plan_access_or_404(plan_id)
+    attachment_paths = _plan_attachment_paths(plan)
     task_ids = [task.id for task in plan.tasks]
     if task_ids:
         (
@@ -797,6 +816,8 @@ def api_work_plans_delete(plan_id):
         )
     db.session.delete(plan)
     db.session.commit()
+
+    loesche_upload_dateien(attachment_paths)
     return _response(status=204, flash_message='Arbeitsplan gelöscht.')
 
 
@@ -805,6 +826,7 @@ def api_work_plans_delete(plan_id):
 def workplan_delete_page(plan_id):
     plan = _ensure_plan_access_or_404(plan_id)
     student_id = plan.student_id
+    attachment_paths = _plan_attachment_paths(plan)
     tab = (request.form.get('tab') or '').strip()
     view = (request.form.get('view') or '').strip()
     klasse_von = (request.form.get('klasse_von') or '').strip()
@@ -820,6 +842,8 @@ def workplan_delete_page(plan_id):
 
     db.session.delete(plan)
     db.session.commit()
+
+    loesche_upload_dateien(attachment_paths)
     flash('Arbeitsplan gelöscht.')
     return redirect(url_for(
         'workplan.workplan_list_page',
@@ -1003,8 +1027,11 @@ def api_work_plan_update_task(plan_id, task_id):
 def api_work_plan_delete_task(plan_id, task_id):
     plan = _ensure_plan_access_or_404(plan_id)
     task = _ensure_task_in_plan_or_404(plan, task_id)
+    attachment_paths = _task_attachment_paths(task)
     db.session.delete(task)
     db.session.commit()
+
+    loesche_upload_dateien(attachment_paths)
     return _response({'ok': True}, flash_message='Aufgabe gelöscht.')
 
 
@@ -1182,8 +1209,11 @@ def api_work_plan_delete_attachment(plan_id, task_id, attachment_id):
     if not attachment or attachment.task_id != task.id:
         abort(404)
 
+    file_path = attachment.file_path
     db.session.delete(attachment)
     db.session.commit()
+
+    loesche_upload_dateien([file_path])
     return _response({'ok': True}, flash_message='Foto entfernt.')
 
 

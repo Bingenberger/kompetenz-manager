@@ -86,6 +86,16 @@ def loesche_upload_datei(rel_path):
         return False
 
 
+def loesche_upload_dateien(rel_paths):
+    """Entfernt mehrere Uploads und gibt die Anzahl entfernter Dateien zurueck.
+
+    Immer erst nach einem erfolgreichen Commit aufrufen: bricht die Transaktion
+    ab, bleiben die Datensaetze bestehen und duerfen ihre Dateien nicht verloren
+    haben.
+    """
+    return sum(1 for rel_path in rel_paths if loesche_upload_datei(rel_path))
+
+
 def komprimiere_und_speichere(file_storage, ziel_pfad):
     """
     Nimmt ein hochgeladenes Bild, korrigiert die Drehung,

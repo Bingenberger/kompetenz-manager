@@ -7,6 +7,7 @@ from extensions import db
 from models import Beobachtung, Bogen, Item, Schueler
 from school_year import active_school_year_start
 from student_selection import get_grouped_student_choices_for_user, get_prioritized_students_for_user
+from uploads import loesche_upload_dateien
 
 
 report_bp = Blueprint('report', __name__)
@@ -97,6 +98,14 @@ def report_beobachtung_delete(beobachtung_id):
 
     next_url = (request.form.get('next') or '').strip()
 
+    # Das Foto des Eintrags bleibt zunaechst liegen, damit "Wiederherstellen"
+    # einen vollstaendigen Datensatz zurueckbringt. Erreichbar ist immer nur der
+    # letzte geloeschte Eintrag - das Foto des davor verdraengten kann weg.
+    superseded = session.get(REPORT_UNDO_SESSION_KEY) or {}
+    superseded_foto = superseded.get('foto_pfad')
+    # Vor dem Commit festhalten: danach ist der Eintrag abgelöst.
+    aktuelles_foto = eintrag.foto_pfad
+
     session[REPORT_UNDO_SESSION_KEY] = {
         'datum': eintrag.datum.isoformat() if eintrag.datum else None,
         'wert': eintrag.wert,
@@ -110,6 +119,10 @@ def report_beobachtung_delete(beobachtung_id):
 
     db.session.delete(eintrag)
     db.session.commit()
+
+    if superseded_foto and superseded_foto != aktuelles_foto:
+        loesche_upload_dateien([superseded_foto])
+
     flash('Beobachtungseintrag gelöscht.')
 
     if next_url:
@@ -135,6 +148,17 @@ def report_beobachtung_undo_delete():
             datum_obj = datetime.fromisoformat(datum_raw)
         except ValueError:
             datum_obj = None
+
+    # Kind oder Kompetenz koennen zwischenzeitlich entfernt worden sein. Ohne
+    # diese Pruefung scheitert das Wiederherstellen am Fremdschluessel.
+    schueler_id = payload.get('schueler_id')
+    item_id = payload.get('item_id')
+    if schueler_id and not db.session.get(Schueler, schueler_id):
+        flash('Das Kind zu diesem Eintrag existiert nicht mehr. Wiederherstellen ist nicht möglich.')
+        return redirect(url_for('report.report_schueler'))
+    if item_id and not db.session.get(Item, item_id):
+        flash('Die Kompetenz zu diesem Eintrag existiert nicht mehr. Wiederherstellen ist nicht möglich.')
+        return redirect(url_for('report.report_schueler'))
 
     eintrag = Beobachtung(
         datum=datum_obj,
