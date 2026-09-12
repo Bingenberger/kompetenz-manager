@@ -145,13 +145,19 @@ if [[ "$CURRENT_BRANCH" != "$BRANCH" ]]; then
   warn "Arbeitskopie steht auf '$CURRENT_BRANCH', erwartet wurde '$BRANCH'."
 fi
 
-if [[ -n "$(git status --porcelain)" ]]; then
+# Nur Aenderungen an versionierten Dateien blockieren. Unversionierte Dateien
+# (Importlisten, Exporte, lokale Notizen) liegen auf Produktivservern regelmaessig
+# im Projektordner und stehen einem Update nicht im Weg: ein Fast-Forward fasst
+# sie nicht an, und kollidiert eine eingehende Datei mit einer davon, bricht git
+# von sich aus ab.
+DIRTY_TRACKED="$(git status --porcelain --untracked-files=no)"
+if [[ -n "$DIRTY_TRACKED" ]]; then
   if [[ "$ALLOW_DIRTY" -eq 1 ]]; then
-    warn "Lokale Aenderungen vorhanden - werden durch --allow-dirty verworfen:"
-    git status --short | sed 's/^/    /'
+    warn "Aenderungen an versionierten Dateien - werden durch --allow-dirty verworfen:"
+    printf '%s\n' "$DIRTY_TRACKED" | sed 's/^/    /'
   else
-    printf '\n\033[31mFEHLER: Lokale Aenderungen im Arbeitsbaum:\033[0m\n' >&2
-    git status --short | sed 's/^/    /' >&2
+    printf '\n\033[31mFEHLER: Aenderungen an versionierten Dateien:\033[0m\n' >&2
+    printf '%s\n' "$DIRTY_TRACKED" | sed 's/^/    /' >&2
     cat >&2 <<'HINT'
 
     Auf einem Produktivserver sollte der Arbeitsbaum sauber sein.
@@ -162,6 +168,12 @@ if [[ -n "$(git status --porcelain)" ]]; then
 HINT
     exit 1
   fi
+fi
+
+UNTRACKED_LIST="$(git ls-files --others --exclude-standard)"
+if [[ -n "$UNTRACKED_LIST" ]]; then
+  UNTRACKED_COUNT="$(printf '%s\n' "$UNTRACKED_LIST" | wc -l)"
+  info "$UNTRACKED_COUNT unversionierte Datei(en) im Projektordner - bleiben unangetastet."
 fi
 
 ok "Arbeitskopie: $APP_DIR (Besitzer $OWNER)"
