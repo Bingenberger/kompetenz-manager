@@ -120,9 +120,17 @@ backup_uploads() {
   fi
 }
 
+# Entfernt das Passwort aus einer Datenbank-URL. Das Manifest liegt in jeder
+# Sicherung und wandert mit ihr auf externe Medien - Zugangsdaten haben dort
+# nichts verloren.
+mask_db_reference() {
+  printf '%s' "${1:-}" | sed -E 's#(://[^:/@]+):[^@]*@#\1:***@#'
+}
+
 write_manifest() {
   local db_mode="$1"
-  local db_ref="$2"
+  local db_ref
+  db_ref="$(mask_db_reference "$2")"
   cat > "$TARGET_DIR/manifest.txt" <<EOF
 created_at=$(date --iso-8601=seconds)
 app_dir=$APP_DIR
@@ -130,6 +138,7 @@ db_mode=$db_mode
 db_reference=$db_ref
 host=$HOST_TAG
 EOF
+  chmod 600 "$TARGET_DIR/manifest.txt"
 }
 
 cleanup_old_backups() {
