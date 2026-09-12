@@ -82,6 +82,29 @@ warn() { printf '\033[33m    %s\033[0m\n' "$*"; }
 ok()   { printf '\033[32m    %s\033[0m\n' "$*"; }
 fail() { printf '\n\033[31mFEHLER: %s\033[0m\n' "$*" >&2; exit 1; }
 
+# Laedt die Instanzkonfiguration in die Umgebung.
+# Reihenfolge: .env.local zuerst, danach die systemd-Env-Datei - so gewinnt die
+# Quelle, aus der der Dienst tatsaechlich startet, wenn beide vorhanden sind.
+ENV_SOURCES=""
+load_env() {
+  ENV_SOURCES=""
+  if [[ -r "$APP_DIR/.env.local" ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$APP_DIR/.env.local"
+    set +a
+    ENV_SOURCES=".env.local"
+  fi
+  if [[ -r "$ENV_FILE" ]]; then
+    set -a
+    # shellcheck disable=SC1090
+    source "$ENV_FILE"
+    set +a
+    ENV_SOURCES="${ENV_SOURCES:+$ENV_SOURCES, }$ENV_FILE"
+  fi
+  printf '%s' "$ENV_SOURCES"
+}
+
 cd "$APP_DIR"
 
 # --- Schritt 1: Vorbedingungen --------------------------------------------
@@ -201,14 +224,21 @@ if [[ "$SKIP_BACKUP" -eq 1 ]]; then
   warn "Backup uebersprungen (--skip-backup)."
 else
   log "Backup von Datenbank und Uploads"
-  if [[ -r "$ENV_FILE" ]]; then
-    info "Konfiguration aus $ENV_FILE"
-    set -a
-    # shellcheck disable=SC1090
-    source "$ENV_FILE"
-    set +a
+  load_env >/dev/null
+  if [[ -n "$ENV_SOURCES" ]]; then
+    info "Konfiguration aus: $ENV_SOURCES"
+    info "Datenbank: ${DATABASE_URL:-(nicht gesetzt - SQLite-Standard)}"
   else
-    info "Keine lesbare $ENV_FILE - backup_external.sh nutzt .env.local bzw. Standardwerte."
+    warn "Weder $APP_DIR/.env.local noch $ENV_FILE lesbar."
+    warn "Backup und Migration wuerden auf die Standard-SQLite-Datei zugreifen."
+    warn "Bei einer PostgreSQL-Instanz waere das die falsche Datenbank."
+    if [[ "$ASSUME_YES" -eq 0 ]]; then
+      read -r -p "    Trotzdem fortfahren? [j/N] " env_answer
+      case "$env_answer" in
+        j|J|y|Y|ja|Ja) ;;
+        *) fail "Abgebrochen. Bitte ENV_FILE setzen oder .env.local bereitstellen." ;;
+      esac
+    fi
   fi
   bash "$APP_DIR/backup_external.sh" || fail "Backup fehlgeschlagen. Update abgebrochen."
   ok "Backup abgeschlossen."
@@ -238,6 +268,7 @@ rollback() {
   [[ "$ROLLBACK_ARMED" -eq 1 ]] || return 0
   ROLLBACK_ARMED=0
   printf '\n\033[33m==> Rollback auf %s\033[0m\n' "$(git rev-parse --short "$PREV_SHA")"
+  load_env >/dev/null
   git reset --hard "$PREV_SHA" >/dev/null 2>&1 || warn "git reset fehlgeschlagen."
   if [[ "$REQS_CHANGED" -eq 1 ]]; then
     "$PIP" install -q -r "$APP_DIR/requirements.txt" || warn "pip-Rollback fehlgeschlagen."
@@ -279,12 +310,8 @@ fi
 
 # --- Schritt 6: Schema-Migration ------------------------------------------
 log "Datenbankschema nachziehen (update_db.py)"
-if [[ -r "$ENV_FILE" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
-  set +a
-fi
+load_env >/dev/null
+info "Datenbank: ${DATABASE_URL:-(nicht gesetzt - SQLite-Standard)}"
 "$PYTHON" "$APP_DIR/update_db.py"
 ok "Schema aktuell."
 
