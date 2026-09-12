@@ -1,0 +1,181 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .frist-card {
+        border-radius: 16px;
+        border: 1px solid rgba(87,117,144,0.14);
+        background: #fff;
+        box-shadow: 0 10px 22px rgba(31,41,51,0.05);
+        overflow: hidden;
+    }
+    .frist-card > header {
+        padding: .8rem 1rem;
+        border-bottom: 1px solid rgba(87,117,144,0.12);
+        background: linear-gradient(90deg, rgba(39,125,161,0.08), rgba(77,144,142,0.05));
+    }
+    .status-chip {
+        display: inline-block;
+        border-radius: 999px;
+        padding: .1rem .55rem;
+        font-size: .78rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .status-faellig   { background: rgba(249,65,68,0.16);   color: #99201f; }
+    .status-laeuft    { background: rgba(67,170,139,0.18);  color: #276b58; }
+    .status-unbekannt { background: rgba(249,199,79,0.34);  color: #6f5308; }
+
+    .umfang { color: #5f7387; font-size: .84rem; }
+    td, th { vertical-align: middle; }
+    .datum { font-variant-numeric: tabular-nums; white-space: nowrap; }
+</style>
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+    <div>
+        <span class="section-label">Verwaltung</span>
+        <h1 class="mt-2 mb-0" style="font-size: clamp(1.4rem, 2.2vw, 1.9rem);">Aufbewahrungsfristen</h1>
+    </div>
+    <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary icon-btn">
+        {{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zur Verwaltung</span>
+    </a>
+</div>
+
+{% if not jahre %}
+<div class="alert alert-info">
+    <strong>Keine Aufbewahrungsfrist eingetragen.</strong>
+    Solange keine Frist gesetzt ist, meldet die Anwendung nichts als überfällig –
+    unten steht nur der Bestand an archivierten Kindern.
+    <div class="mt-2">
+        Die Frist gibt Ihr Landesrecht vor, nicht diese Software. Tragen Sie sie in den
+        <a href="{{ url_for('admin.admin_system_settings') }}">Grundeinstellungen</a> ein.
+    </div>
+</div>
+{% else %}
+<div class="alert alert-secondary">
+    Eingestellte Frist: <strong>{{ jahre }} {% if jahre == 1 %}Jahr{% else %}Jahre{% endif %}</strong>
+    ab Archivierung. Gelöscht wird ausschließlich nach ausdrücklicher Auswahl –
+    es läuft nichts automatisch.
+</div>
+{% endif %}
+
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="frist-card p-3">
+            <div class="h3 fw-bold mb-0">{{ zusammenfassung.faellig }}</div>
+            <div class="text-muted small">Frist abgelaufen</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="frist-card p-3">
+            <div class="h3 fw-bold mb-0">{{ zusammenfassung.laeuft }}</div>
+            <div class="text-muted small">Frist läuft noch</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="frist-card p-3">
+            <div class="h3 fw-bold mb-0">{{ zusammenfassung.unbekannt }}</div>
+            <div class="text-muted small">ohne Archivierungsdatum</div>
+        </div>
+    </div>
+</div>
+
+{% if not zeilen %}
+<div class="alert alert-success">Es sind keine Kinder archiviert.</div>
+{% else %}
+
+<form method="POST" action="{{ url_for('admin.admin_retention_delete') }}"
+      data-confirm-title="Endgültig löschen"
+      data-confirm-message="Die ausgewählten Schülerakten werden mit allen Beobachtungen, Förderplänen, Elternkontakten, Ereignissen und Dateien unwiderruflich gelöscht. Das lässt sich nicht rückgängig machen."
+      data-confirm-button="Endgültig löschen"
+      data-confirm-button-class="btn-danger"
+      data-confirm-variant="delete">
+    {{ csrf_input() }}
+
+    <div class="frist-card">
+        <header class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <strong>Archivierte Kinder</strong>
+            <span class="text-muted small">{{ zusammenfassung.gesamt }} Datensätze</span>
+        </header>
+
+        <div class="table-responsive">
+            <table class="table table-sm table-striped mb-0">
+                <thead>
+                    <tr>
+                        <th style="width: 2.5rem;"></th>
+                        <th>Kind</th>
+                        <th class="datum">archiviert</th>
+                        <th class="datum">Frist bis</th>
+                        <th>Stand</th>
+                        <th>Umfang der Daten</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for zeile in zeilen %}
+                    <tr>
+                        <td>
+                            {% if zeile.status == 'faellig' %}
+                            <input class="form-check-input" type="checkbox"
+                                   name="schueler_ids" value="{{ zeile.schueler.id }}"
+                                   id="kind-{{ zeile.schueler.id }}"
+                                   aria-label="{{ zeile.schueler.nachname }} zum Löschen auswählen">
+                            {% endif %}
+                        </td>
+                        <td>
+                            <label class="mb-0" for="kind-{{ zeile.schueler.id }}">
+                                <strong>{{ zeile.schueler.nachname }}, {{ zeile.schueler.vorname }}</strong>
+                                <span class="text-muted">· zuletzt Klasse {{ zeile.schueler.klasse or '–' }}</span>
+                            </label>
+                        </td>
+                        <td class="datum">
+                            {% if zeile.archiviert_am %}{{ zeile.archiviert_am.strftime('%d.%m.%Y') }}{% else %}–{% endif %}
+                        </td>
+                        <td class="datum">
+                            {% if zeile.faellig_am %}{{ zeile.faellig_am.strftime('%d.%m.%Y') }}{% else %}–{% endif %}
+                        </td>
+                        <td>
+                            <span class="status-chip status-{{ zeile.status }}">{{ zeile.label }}</span>
+                            {% if zeile.tage_ueberfaellig %}
+                            <span class="text-muted small d-block">seit {{ zeile.tage_ueberfaellig }} Tagen</span>
+                            {% endif %}
+                        </td>
+                        <td class="umfang">
+                            {% set teile = [] %}
+                            {% for label, anzahl in zeile.counts.items() %}
+                                {% if anzahl %}{% set _ = teile.append(anzahl ~ ' ' ~ label) %}{% endif %}
+                            {% endfor %}
+                            {{ teile | join(', ') if teile else 'nur Grunddaten' }}
+                            <a class="ms-1" href="{{ url_for('system.schuelerakte_export_pdf', s_id=zeile.schueler.id) }}"
+                               title="Vollständige Akte vor dem Löschen sichern">
+                                {{ bi('file-earmark-pdf', 'bi-icon-sm') }}
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if zusammenfassung.faellig %}
+        <div class="p-3 border-top d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="text-muted small">
+                Nur Datensätze mit abgelaufener Frist lassen sich auswählen.
+                Vor dem Löschen lohnt der Export der Gesamtakte (Symbol rechts in der Zeile).
+            </span>
+            <button type="submit" class="btn btn-danger icon-btn">
+                {{ bi('trash', 'bi-icon-sm') }} <span>Ausgewählte endgültig löschen</span>
+            </button>
+        </div>
+        {% endif %}
+    </div>
+</form>
+
+{% if zusammenfassung.unbekannt %}
+<div class="alert alert-warning mt-3">
+    <strong>{{ zusammenfassung.unbekannt }} Datensatz/Datensätze ohne Archivierungsdatum.</strong>
+    Dafür lässt sich keine Frist berechnen – sie stammen vermutlich aus der Zeit vor
+    dem Schuljahreswechsel-Modul. Diese Fälle brauchen eine Entscheidung von Hand.
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

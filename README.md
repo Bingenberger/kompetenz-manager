@@ -77,6 +77,13 @@ Die Anwendung ist fuer den praktischen Schulalltag gebaut: klassische Server-Tem
 - Uploads werden als vorhanden vermerkt, nicht eingebettet
 - Nicht enthalten: das Aenderungsprotokoll der Ereignisse, das Bearbeitungen von Lehrkraeften festhaelt
 
+### Aufbewahrung
+
+- Frist in Jahren nach der Archivierung, einstellbar in den Grundeinstellungen
+- Uebersicht aller archivierten Kinder mit Ablaufdatum und Umfang der gespeicherten Daten
+- Loeschung ausschliesslich nach ausdruecklicher Auswahl, nie automatisch; laufende Fristen lassen sich nicht loeschen
+- Ohne eingetragene Frist meldet die Anwendung nichts als ueberfaellig - die Frist gibt das Landesrecht vor
+
 ### Suche
 
 - Feld in der Navigationsleiste, Tastenkuerzel `/`
@@ -104,6 +111,7 @@ Bereits umgesetzt:
 - geschuetzte Medienauslieferung fuer aktuelle Uploads
 - Rate-Limit fuer den Login
 - Rollenmodell mit `admin` und `teacher`
+- Aufbewahrungsfristen fuer archivierte Kinder mit Loeschung nach ausdruecklicher Bestaetigung
 - Cookie- und Reverse-Proxy-Haertung
 - Service-Deployment mit `gunicorn`, Logging und Backups
 - Oberflaeche ohne externe Ressourcen: Bootstrap und Schriften werden lokal ausgeliefert, es gehen keine Daten an Dritte und die Anwendung funktioniert ohne Internetverbindung

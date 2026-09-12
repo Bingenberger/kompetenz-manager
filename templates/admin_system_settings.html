@@ -44,6 +44,21 @@
                         value="{{ settings.elternsprechtag_2.strftime('%Y-%m-%d') if settings.elternsprechtag_2 else '' }}">
                 </div>
 
+                <div class="mb-3">
+                    <label class="form-label" for="aufbewahrung_jahre">Aufbewahrungsfrist nach Archivierung (Jahre)</label>
+                    <input
+                        type="number" min="1" max="100" step="1"
+                        id="aufbewahrung_jahre"
+                        name="aufbewahrung_jahre"
+                        class="form-control"
+                        value="{{ settings.aufbewahrung_jahre or '' }}">
+                    <div class="form-text">
+                        Leer lassen, solange die Frist nicht feststeht – dann meldet die Anwendung
+                        nichts als überfällig. Die Frist gibt Ihr Landesrecht vor.
+                        <a href="{{ url_for('admin.admin_retention') }}">Zur Übersicht der archivierten Kinder</a>
+                    </div>
+                </div>
+
                 <div class="col-12 d-flex flex-wrap gap-2 pt-2">
                     <button type="submit" class="btn btn-primary icon-btn">
                         {{ bi('floppy', 'bi-icon') }} <span>Speichern</span>

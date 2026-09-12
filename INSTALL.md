@@ -346,6 +346,7 @@ Ausfuehrliche Beschreibung:
 - `competency_matrix.py`: Berechnung der Klassenuebersicht
 - `competency_trend.py`: Entwicklungsverlauf je Kompetenz
 - `report_material.py`: Zusammenstellung des Zeugnismaterials
+- `retention.py`: Berechnung der Aufbewahrungsfristen
 - `search.py`: Suche ueber Kinder, Kompetenzen und Boegen
 - `student_record.py`: Zusammenstellung der vollstaendigen Schuelerakte fuer den Export
 - `deploy/`: Service- und Betriebsdateien

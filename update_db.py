@@ -386,6 +386,9 @@ def _sqlite_add_school_year_columns():
         if "schuljahr_beginn" not in config_columns:
             conn.execute(text("ALTER TABLE system_konfiguration ADD COLUMN schuljahr_beginn DATE"))
             print("Spalte 'system_konfiguration.schuljahr_beginn' wurde ergänzt.")
+        if "aufbewahrung_jahre" not in config_columns:
+            conn.execute(text("ALTER TABLE system_konfiguration ADD COLUMN aufbewahrung_jahre INTEGER"))
+            print("Spalte 'system_konfiguration.aufbewahrung_jahre' wurde ergänzt.")
         conn.commit()
 
 
@@ -434,6 +437,11 @@ def _postgres_add_school_year_columns():
                 "ALTER TABLE public.system_konfiguration ADD COLUMN schuljahr_beginn DATE"
             ))
             print("Spalte 'system_konfiguration.schuljahr_beginn' wurde für PostgreSQL ergänzt.")
+        if "aufbewahrung_jahre" not in config_columns:
+            conn.execute(text(
+                "ALTER TABLE public.system_konfiguration ADD COLUMN aufbewahrung_jahre INTEGER"
+            ))
+            print("Spalte 'system_konfiguration.aufbewahrung_jahre' wurde für PostgreSQL ergänzt.")
         conn.commit()
 
 # Wir aktivieren den "App Context", damit wir Zugriff auf die DB-Konfiguration haben

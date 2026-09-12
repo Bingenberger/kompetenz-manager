@@ -36,6 +36,7 @@ from school_year import (
     target_classes_after_transition,
     student_transition_action,
 )
+from retention import archived_students, overdue_ids, retention_years, summarize
 from student_selection import get_distinct_klassen
 from time_utils import utc_now
 from uploads import loesche_upload_datei
@@ -279,9 +280,19 @@ def admin_system_settings():
         if schuljahr and not normalize_school_year(schuljahr):
             flash('Das Schuljahr muss das Format JJJJ/JJJJ haben, z. B. 2026/2027.')
             return render_template('admin_system_settings.html', settings=settings, next_url=next_url)
+        aufbewahrung_raw = (request.form.get('aufbewahrung_jahre') or '').strip()
+        if aufbewahrung_raw:
+            if not aufbewahrung_raw.isdigit() or not 1 <= int(aufbewahrung_raw) <= 100:
+                flash('Die Aufbewahrungsfrist muss eine Zahl zwischen 1 und 100 Jahren sein.')
+                return render_template('admin_system_settings.html', settings=settings, next_url=next_url)
+            aufbewahrung = int(aufbewahrung_raw)
+        else:
+            aufbewahrung = None
+
         settings.schuljahr = schuljahr
         settings.elternsprechtag_1 = esp1
         settings.elternsprechtag_2 = esp2
+        settings.aufbewahrung_jahre = aufbewahrung
         db.session.commit()
         flash('Grundeinstellungen gespeichert.')
         return redirect(_safe_next_url(next_url, url_for('admin.admin_system_settings')))
@@ -672,17 +683,9 @@ def _collect_student_upload_paths(schueler):
     return paths
 
 
-@admin_bp.route('/admin/student/delete/<int:s_id>', methods=['POST'])
-@admin_required(
-    redirect_endpoint='admin.admin_students',
-    message='Zugriff verweigert. Nur der Administrator darf Schülergrunddaten löschen.'
-)
-def admin_student_delete(s_id):
-    schueler = get_or_404_session(Schueler, s_id)
-    name = f'{schueler.vorname} {schueler.nachname}'.strip()
-
-    # Umfang vor dem Löschen erfassen, damit die Rückmeldung belegt, was geschah.
-    counts = {
+def student_record_counts(schueler):
+    """Umfang der Daten eines Kindes - fuer Rueckmeldung und Vorschau."""
+    return {
         'Beobachtungen': len(schueler.beobachtungen),
         'Förderpläne': len(schueler.foerderplaene),
         'Elternkontakte': len(schueler.elternkontakte),
@@ -690,6 +693,17 @@ def admin_student_delete(s_id):
         'Ereignisse': len(schueler.erziehungsereignisse),
         'Arbeitspläne': len(schueler.work_plans),
     }
+
+
+def _delete_student_completely(schueler):
+    """Loescht ein Kind mit allem, was daran haengt, und meldet den Umfang.
+
+    Gemeinsame Grundlage fuer die Einzelloeschung in der Schuelerverwaltung und
+    die Loeschung abgelaufener Fristen. Der Commit passiert hier; die Dateien
+    werden erst danach entfernt.
+    """
+    name = f'{schueler.vorname} {schueler.nachname}'.strip()
+    counts = student_record_counts(schueler)
     upload_paths = _collect_student_upload_paths(schueler)
 
     # Die Beziehungen von Schueler tragen delete-orphan-Kaskaden, das Löschen des
@@ -701,15 +715,100 @@ def admin_student_delete(s_id):
     # bleiben die Datensätze bestehen und dürfen ihre Dateien nicht verloren haben.
     deleted_files = sum(1 for path in upload_paths if loesche_upload_datei(path))
 
-    details = ', '.join(f'{anzahl} {label}' for label, anzahl in counts.items() if anzahl)
-    message = f'{name} wurde gelöscht.'
+    return {
+        'name': name,
+        'counts': counts,
+        'dateien_gesamt': len(upload_paths),
+        'dateien_geloescht': deleted_files,
+    }
+
+
+@admin_bp.route('/admin/student/delete/<int:s_id>', methods=['POST'])
+@admin_required(
+    redirect_endpoint='admin.admin_students',
+    message='Zugriff verweigert. Nur der Administrator darf Schülergrunddaten löschen.'
+)
+def admin_student_delete(s_id):
+    schueler = get_or_404_session(Schueler, s_id)
+    ergebnis = _delete_student_completely(schueler)
+
+    details = ', '.join(
+        f'{anzahl} {label}' for label, anzahl in ergebnis['counts'].items() if anzahl
+    )
+    message = f"{ergebnis['name']} wurde gelöscht."
     if details:
         message += f' Mitgelöscht: {details}.'
-    if upload_paths:
-        message += f' Dateien entfernt: {deleted_files} von {len(upload_paths)}.'
+    if ergebnis['dateien_gesamt']:
+        message += (
+            f" Dateien entfernt: {ergebnis['dateien_geloescht']}"
+            f" von {ergebnis['dateien_gesamt']}."
+        )
     flash(message)
 
     return redirect(url_for('admin.admin_students'))
+
+
+@admin_bp.route('/admin/aufbewahrung')
+@admin_required(
+    redirect_endpoint='admin.admin_dashboard',
+    message='Zugriff verweigert. Nur der Administrator darf Aufbewahrungsfristen einsehen.'
+)
+def admin_retention():
+    config = _get_system_konfiguration()
+    zeilen = archived_students(config)
+    for zeile in zeilen:
+        zeile['counts'] = student_record_counts(zeile['schueler'])
+
+    return render_template(
+        'admin_retention.html',
+        jahre=retention_years(config),
+        zeilen=zeilen,
+        zusammenfassung=summarize(zeilen),
+    )
+
+
+@admin_bp.route('/admin/aufbewahrung/loeschen', methods=['POST'])
+@admin_required(
+    redirect_endpoint='admin.admin_dashboard',
+    message='Zugriff verweigert. Nur der Administrator darf Schülergrunddaten löschen.'
+)
+def admin_retention_delete():
+    config = _get_system_konfiguration()
+    zeilen = archived_students(config)
+    faellige = overdue_ids(zeilen)
+
+    gewaehlt = {
+        int(wert) for wert in request.form.getlist('schueler_ids') if wert.isdigit()
+    }
+    if not gewaehlt:
+        flash('Es wurde kein Datensatz ausgewählt.')
+        return redirect(url_for('admin.admin_retention'))
+
+    # Serverseitig erneut prüfen: die Auswahl stammt aus einem Formular, das
+    # inzwischen veraltet sein kann, und nur abgelaufene Fristen dürfen fallen.
+    zu_loeschen = gewaehlt & faellige
+    uebersprungen = len(gewaehlt - faellige)
+
+    geloescht = []
+    for schueler_id in sorted(zu_loeschen):
+        schueler = db.session.get(Schueler, schueler_id)
+        if schueler:
+            geloescht.append(_delete_student_completely(schueler))
+
+    if geloescht:
+        namen = ', '.join(eintrag['name'] for eintrag in geloescht)
+        dateien = sum(eintrag['dateien_geloescht'] for eintrag in geloescht)
+        flash(
+            f'{len(geloescht)} Datensatz/Datensätze endgültig gelöscht: {namen}.'
+            + (f' Dabei {dateien} Datei(en) entfernt.' if dateien else '')
+        )
+    if uebersprungen:
+        flash(
+            f'{uebersprungen} Auswahl(en) übersprungen: die Frist ist dort nicht '
+            'abgelaufen. Bitte die Liste neu laden.'
+        )
+
+    return redirect(url_for('admin.admin_retention'))
 
 
 @admin_bp.route('/admin/boegen')

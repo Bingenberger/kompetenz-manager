@@ -318,6 +318,10 @@ class SystemKonfiguration(db.Model):
     elternsprechtag_1 = db.Column(db.Date, nullable=True)
     elternsprechtag_2 = db.Column(db.Date, nullable=True)
     workplan_suggestions_weeks = db.Column(db.Integer, nullable=False, default=12)
+    # Aufbewahrungsfrist in Jahren nach der Archivierung eines Kindes. Leer heisst
+    # ausgeschaltet: ohne eingetragene Frist meldet die Anwendung nichts als
+    # ueberfaellig. Die Frist gibt das Landesrecht vor, nicht diese Software.
+    aufbewahrung_jahre = db.Column(db.Integer, nullable=True)
 
 
 class Schuljahreswechsel(db.Model):
