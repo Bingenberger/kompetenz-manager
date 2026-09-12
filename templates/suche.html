@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .result-group {
+        border-radius: 16px;
+        border: 1px solid rgba(87,117,144,0.14);
+        background: #fff;
+        box-shadow: 0 10px 22px rgba(31,41,51,0.05);
+        overflow: hidden;
+    }
+    .result-group + .result-group { margin-top: 1.25rem; }
+    .result-group > header {
+        padding: .75rem 1rem;
+        border-bottom: 1px solid rgba(87,117,144,0.12);
+        background: linear-gradient(90deg, rgba(39,125,161,0.08), rgba(77,144,142,0.05));
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: .75rem;
+    }
+    .result-group > header h2 {
+        font-size: 1.02rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    .result-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        padding: .6rem 1rem;
+        border-bottom: 1px solid rgba(87,117,144,0.08);
+        text-decoration: none;
+        color: inherit;
+    }
+    .result-row:last-child { border-bottom: 0; }
+    .result-row:hover { background: #f5fafc; color: inherit; text-decoration: none; }
+    .result-row .meta { color: #5f7387; font-size: .86rem; }
+    .result-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
+
+    @media (max-width: 575px) {
+        .result-row { flex-direction: column; align-items: flex-start; }
+    }
+</style>
+
+<div class="mb-4">
+    <span class="section-label">Suche</span>
+    {% if ergebnis.query %}
+    <h1 class="mt-2 mb-1" style="font-size: clamp(1.3rem, 2.2vw, 1.8rem);">
+        Ergebnisse für „{{ ergebnis.query }}"
+    </h1>
+    <p class="text-muted mb-0">
+        {% if ergebnis.total %}
+        {{ ergebnis.total }} {% if ergebnis.total == 1 %}Treffer{% else %}Treffer{% endif %}
+        {% else %}
+        Keine Treffer
+        {% endif %}
+    </p>
+    {% else %}
+    <h1 class="mt-2 mb-1" style="font-size: clamp(1.3rem, 2.2vw, 1.8rem);">Suche</h1>
+    {% endif %}
+</div>
+
+<form method="GET" action="{{ url_for('system.suche') }}" class="mb-4">
+    <div class="input-group input-group-lg">
+        <span class="input-group-text bg-white">{{ bi('search', 'bi-icon-sm') }}</span>
+        <input type="search" class="form-control" name="q" id="suche-feld"
+               value="{{ ergebnis.query }}" autofocus
+               placeholder="Name eines Kindes, Klasse, Kompetenz oder Bogen">
+        <button type="submit" class="btn btn-primary">Suchen</button>
+    </div>
+</form>
+
+{% if ergebnis.too_short %}
+<div class="alert alert-info">Bitte mindestens zwei Zeichen eingeben.</div>
+
+{% elif not ergebnis.query %}
+<div class="alert alert-info">
+    Gesucht wird nach Kindern (Vorname, Nachname, Klasse), nach Kompetenzen und nach
+    Beobachtungsbögen. Mehrere Begriffe werden verknüpft: <code>abt 3a</code> findet
+    Abt in Klasse 3a.
+</div>
+
+{% elif not ergebnis.total %}
+<div class="alert alert-warning">
+    Zu „{{ ergebnis.query }}" wurde nichts gefunden.
+    {% if ergebnis.tokens|length > 1 %}
+    Alle Begriffe müssen zutreffen – versuchen Sie es mit einem davon.
+    {% endif %}
+</div>
+
+{% else %}
+
+{% if ergebnis.students %}
+<section class="result-group">
+    <header>
+        <h2>{{ bi('person-vcard', 'bi-icon-sm') }} Kinder</h2>
+        <span class="text-muted small">{{ ergebnis.students|length }}</span>
+    </header>
+    {% for schueler in ergebnis.students %}
+    <a class="result-row" href="{{ url_for('system.schuelerakte', schueler_id=schueler.id) }}">
+        <span>
+            <strong>{{ schueler.nachname }}, {{ schueler.vorname }}</strong>
+            <span class="meta ms-2">Klasse {{ schueler.klasse or '–' }}</span>
+            {% if not schueler.is_active %}
+            <span class="badge bg-secondary ms-1">archiviert</span>
+            {% endif %}
+        </span>
+        <span class="meta">Schülerakte öffnen {{ bi('arrow-right', 'bi-icon-sm') }}</span>
+    </a>
+    {% endfor %}
+</section>
+{% endif %}
+
+{% if ergebnis.competencies %}
+<section class="result-group">
+    <header>
+        <h2>{{ bi('list-check', 'bi-icon-sm') }} Kompetenzen</h2>
+        <span class="text-muted small">{{ ergebnis.competencies|length }}</span>
+    </header>
+    {% for item in ergebnis.competencies %}
+    <div class="result-row">
+        <span>
+            <strong>{{ item.text }}</strong>
+            <span class="meta ms-2">{{ item.bogen.titel }}{% if item.bereich %} · {{ item.bereich }}{% endif %}</span>
+        </span>
+        <span class="result-actions">
+            <a class="btn btn-sm btn-outline-primary"
+               href="{{ url_for('erfassung.erfassen_einzel', bogen_id=item.bogen_id, bereich=item.bereich, item_id=item.id) }}">
+                {{ bi('lightning-charge', 'bi-icon-sm') }} Erfassen
+            </a>
+            <a class="btn btn-sm btn-outline-secondary"
+               href="{{ url_for('report.report_matrix', bogen_id=item.bogen_id) }}">
+                {{ bi('grid-3x3', 'bi-icon-sm') }} In der Klassenübersicht
+            </a>
+        </span>
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
+
+{% if ergebnis.boegen %}
+<section class="result-group">
+    <header>
+        <h2>{{ bi('journal-text', 'bi-icon-sm') }} Beobachtungsbögen</h2>
+        <span class="text-muted small">{{ ergebnis.boegen|length }}</span>
+    </header>
+    {% for bogen in ergebnis.boegen %}
+    <div class="result-row">
+        <span>
+            <strong>{{ bogen.titel }}</strong>
+            <span class="meta ms-2">{{ bogen.items|length }} {% if bogen.items|length == 1 %}Kompetenz{% else %}Kompetenzen{% endif %}</span>
+        </span>
+        <span class="result-actions">
+            <a class="btn btn-sm btn-outline-secondary"
+               href="{{ url_for('report.report_matrix', bogen_id=bogen.id) }}">
+                {{ bi('grid-3x3', 'bi-icon-sm') }} Klassenübersicht
+            </a>
+            <a class="btn btn-sm btn-outline-primary"
+               href="{{ url_for('erfassung.erfassen_einzel', bogen_id=bogen.id) }}">
+                {{ bi('lightning-charge', 'bi-icon-sm') }} Erfassen
+            </a>
+        </span>
+    </div>
+    {% endfor %}
+</section>
+{% endif %}
+
+{% endif %}
+{% endblock %}

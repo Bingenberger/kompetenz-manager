@@ -344,6 +344,7 @@ Ausfuehrliche Beschreibung:
 - `migrate_uploads_to_protected.py`: Upload-Migration
 - `cleanup_orphan_uploads.py`: entfernt Uploads ohne Datenbankbezug
 - `competency_matrix.py`: Berechnung der Klassenuebersicht
+- `search.py`: Suche ueber Kinder, Kompetenzen und Boegen
 - `deploy/`: Service- und Betriebsdateien
 - `static/vendor/`: lokal ausgelieferte Fremdbestandteile (Bootstrap, Schriften) inkl. Anleitung zum Aktualisieren
 - `odt_templates/`: Exportvorlagen

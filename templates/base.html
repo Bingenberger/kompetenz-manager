@@ -84,6 +84,18 @@
             color: #ffffff !important;
             font-weight: 700;
         }
+        .nav-search { width: clamp(9rem, 22vw, 16rem); }
+        .nav-search .form-control {
+            border-color: rgba(255,255,255,0.45);
+        }
+        .nav-search .form-control:focus {
+            border-color: #fff;
+            box-shadow: 0 0 0 .2rem rgba(255,255,255,0.35);
+        }
+        @media (max-width: 575px) {
+            .nav-search { width: 100%; order: 10; }
+        }
+
         .app-logo {
             width: 2rem;
             height: 2rem;
@@ -772,6 +784,15 @@
 
  {% if current_user.is_authenticated %}
     <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+        <form method="GET" action="{{ url_for('system.suche') }}" class="m-0 nav-search" role="search">
+            <div class="input-group input-group-sm">
+                <input type="search" class="form-control" name="q" id="nav-suche"
+                       value="{{ request.args.get('q', '') if request.endpoint == 'system.suche' else '' }}"
+                       placeholder="Suchen …" aria-label="Suchen"
+                       title="Kind, Klasse, Kompetenz oder Bogen – Taste / springt hierher">
+                <button type="submit" class="btn btn-light icon-only-btn" aria-label="Suchen">{{ bi('search', 'bi-icon-sm') }}</button>
+            </div>
+        </form>
         <div class="dropdown">
             <button class="btn btn-sm btn-light position-relative icon-only-btn" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Benachrichtigungen" aria-label="Benachrichtigungen">
                 {{ bi('bell', 'bi-icon') }}
@@ -1017,6 +1038,25 @@
 
         document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('[data-student-select-filter]').forEach(setupStudentSelectFilter);
+        });
+
+        // Taste "/" springt in das Suchfeld. Nicht, wenn gerade getippt wird -
+        // sonst verschluckt die Navigationsleiste den Schraegstrich in einem
+        // Kommentar oder Foerderziel.
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey) return;
+
+            var aktiv = document.activeElement;
+            if (aktiv) {
+                var tag = (aktiv.tagName || '').toLowerCase();
+                if (tag === 'input' || tag === 'textarea' || tag === 'select' || aktiv.isContentEditable) return;
+            }
+
+            var feld = document.getElementById('nav-suche');
+            if (!feld) return;
+            event.preventDefault();
+            feld.focus();
+            feld.select();
         });
     })();
     </script>

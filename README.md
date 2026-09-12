@@ -15,6 +15,7 @@ Die Anwendung ist fuer den praktischen Schulalltag gebaut: klassische Server-Tem
 - Foerderplaene anlegen, evaluieren und fortschreiben
 - Individuelle Arbeitsplaene mit Aufgabenbibliothek, Evaluation und Export
 - Schuelerakte als gebuendelte Uebersicht pro Kind
+- Suche in der Navigationsleiste ueber Kinder, Kompetenzen und Boegen
 - Erzieherische Ereignisse mit Konsequenzen, Zustaendigkeit, Anhaengen und Journal
 - PDF- und ODT-Exporte an mehreren Stellen
 
@@ -56,6 +57,14 @@ Die Anwendung ist fuer den praktischen Schulalltag gebaut: klassische Server-Tem
 ### Schuelerakte
 
 - Gebuendelte Sicht auf Beobachtungen, Foerderplanung, Arbeitsplaene, Elternkontakte und Ereignisse
+
+### Suche
+
+- Feld in der Navigationsleiste, Tastenkuerzel `/`
+- Kinder nach Vorname, Nachname und Klasse; Kompetenzen nach Text und Bereich; Beobachtungsboegen nach Titel
+- Mehrere Begriffe werden mit UND verknuepft (`abt 3a`)
+- Ein einzelner Treffer springt direkt in die Schuelerakte
+- Archivierte Kinder werden gefunden und als solche ausgewiesen
 
 ## Technik
 

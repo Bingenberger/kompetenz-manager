@@ -12,6 +12,7 @@ from werkzeug.security import generate_password_hash
 from extensions import db
 from models import Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, ErziehungsEreignisAnhang, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan, WorkPlanTaskAttachment
 from school_year import observation_period_start
+from search import search as run_search
 from student_selection import (
     get_grouped_student_choices_for_user,
     get_prioritized_students_for_user,
@@ -442,6 +443,21 @@ def index():
         hero_todos=todos[:8],
         school_year=(config.schuljahr if config else None),
     )
+
+
+@system_bp.route('/suche')
+@login_required
+def suche():
+    query = (request.args.get('q') or '').strip()
+    ergebnis = run_search(current_user, query)
+
+    # Ein einzelner Treffer braucht keine Ergebnisliste: wer "abt" eintippt und
+    # genau ein Kind findet, will in die Schuelerakte, nicht auf eine Seite mit
+    # einem Link darauf.
+    if ergebnis['total'] == 1 and len(ergebnis['students']) == 1:
+        return redirect(url_for('system.schuelerakte', schueler_id=ergebnis['students'][0].id))
+
+    return render_template('suche.html', ergebnis=ergebnis)
 
 
 @system_bp.route('/schuelerakte')
