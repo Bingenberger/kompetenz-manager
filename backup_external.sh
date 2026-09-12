@@ -9,10 +9,18 @@ set -euo pipefail
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$APP_DIR"
 
-# Optional lokale Konfiguration laden (enthält z. B. DATABASE_URL)
+# Optional lokale Konfiguration laden (enthält z. B. DATABASE_URL).
+# Nur, wenn der Aufrufer noch keine DATABASE_URL gesetzt hat: der Cron-Wrapper
+# und deploy/update.sh laden vorher die Env-Datei des Dienstes, und die ist
+# massgeblich. Ein liegengebliebenes .env.local darf sie nicht ueberschreiben,
+# sonst sichert das Skript eine andere Datenbank als die produktiv genutzte.
 if [[ -f ".env.local" ]]; then
-  # shellcheck disable=SC1091
-  source ".env.local"
+  if [[ -n "${DATABASE_URL:-}" ]]; then
+    echo "Hinweis: DATABASE_URL ist bereits gesetzt, .env.local wird ignoriert."
+  else
+    # shellcheck disable=SC1091
+    source ".env.local"
+  fi
 fi
 
 BACKUP_ROOT="${BACKUP_ROOT:-$APP_DIR/backups}"
