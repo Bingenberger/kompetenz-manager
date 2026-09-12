@@ -81,7 +81,13 @@
                                 <td>{% if row.is_active %}<span class="badge bg-success">aktiv</span>{% else %}<span class="badge bg-secondary">inaktiv</span>{% endif %}</td>
                                 <td class="text-end">
                                     <a href="{{ url_for('admin.admin_erziehung_pool', kind=kind, edit=row.id) }}" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span></a>
-                                    <form method="POST" action="{{ url_for('admin.admin_erziehung_pool_delete', kind=kind, entry_id=row.id) }}" class="d-inline" data-confirm-title="Eintrag löschen" data-confirm-message="Eintrag wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
+                                    {% if row.is_active %}
+                                    <form method="POST" action="{{ url_for('admin.admin_erziehung_pool_deactivate', kind=kind, entry_id=row.id) }}" class="d-inline">
+                                        {{ csrf_input() }}
+                                        <button type="submit" class="btn btn-sm btn-outline-secondary icon-btn" title="Aus den Auswahllisten nehmen, bestehende Ereignisse bleiben lesbar">{{ bi('eye-slash', 'bi-icon-sm') }} <span>Inaktiv setzen</span></button>
+                                    </form>
+                                    {% endif %}
+                                    <form method="POST" action="{{ url_for('admin.admin_erziehung_pool_delete', kind=kind, entry_id=row.id) }}" class="d-inline" data-confirm-title="Eintrag löschen" data-confirm-message="Eintrag wirklich löschen? Das ist nur möglich, solange er in keinem Ereignis verwendet wird." data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
                                         {{ csrf_input() }}
                                         <button type="submit" class="btn btn-sm btn-outline-danger icon-btn">{{ bi('trash', 'bi-icon-sm') }} <span>Löschen</span></button>
                                     </form>

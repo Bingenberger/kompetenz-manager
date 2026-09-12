@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from flask import Blueprint, flash, redirect, render_template, request, url_for
+from sqlalchemy import func
 from flask_login import current_user, login_required
 from werkzeug.security import generate_password_hash
 
@@ -10,7 +11,10 @@ from extensions import db
 from models import (
     Beobachtung,
     Bogen,
+    ClassTaskTemplateCompetency,
+    ErziehungsEreignis,
     ErziehungsEreignisKategorie,
+    ErziehungsEreignisKonsequenz,
     ErziehungsEreignisVorlage,
     ErziehungsKonsequenz,
     ErziehungsOrt,
@@ -20,6 +24,7 @@ from models import (
     SystemKonfiguration,
     User,
     UserKlassenzuordnung,
+    WorkPlanTaskCompetency,
 )
 from school_year import (
     default_school_year_start,
@@ -71,6 +76,12 @@ def admin_dashboard():
     return render_template('admin_dashboard.html', settings=_get_system_konfiguration())
 
 
+@admin_bp.route('/admin/erziehung')
+@admin_required(redirect_endpoint='system.index', message=None)
+def admin_erziehung_dashboard():
+    return render_template('admin_erziehung_dashboard.html')
+
+
 def _erziehung_pool_config(kind):
     mapping = {
         'kategorien': {
@@ -101,10 +112,32 @@ def _erziehung_pool_config(kind):
     return mapping.get(kind)
 
 
-@admin_bp.route('/admin/erziehung')
-@admin_required(redirect_endpoint='system.index', message=None)
-def admin_erziehung_dashboard():
-    return render_template('admin_erziehung_dashboard.html')
+def _pool_entry_usage(kind, entry):
+    """Beschreibt, wodurch ein Pool-Eintrag gebunden ist.
+
+    Gibt None zurueck, wenn der Eintrag frei geloescht werden kann, sonst einen
+    Satzteil fuer die Rueckmeldung.
+    """
+    if kind == 'kategorien':
+        anzahl = ErziehungsEreignisVorlage.query.filter_by(category_id=entry.id).count()
+        if not anzahl:
+            return None
+        wort = 'Ereignis' if anzahl == 1 else 'Ereignisse'
+        return f'{anzahl} {wort} im Pool sind dieser Kategorie zugeordnet'
+
+    if kind == 'ereignisse':
+        anzahl = ErziehungsEreignis.query.filter_by(event_template_id=entry.id).count()
+    elif kind == 'orte':
+        anzahl = ErziehungsEreignis.query.filter_by(ort_id=entry.id).count()
+    elif kind == 'konsequenzen':
+        anzahl = ErziehungsEreignisKonsequenz.query.filter_by(consequence_id=entry.id).count()
+    else:
+        return None
+
+    if not anzahl:
+        return None
+    wort = 'Ereignis' if anzahl == 1 else 'Ereignissen'
+    return f'wird in {anzahl} dokumentierten {wort} verwendet'
 
 
 @admin_bp.route('/admin/erziehung/<string:kind>', methods=['GET', 'POST'])
@@ -176,9 +209,46 @@ def admin_erziehung_pool_delete(kind, entry_id):
         flash('Eintrag nicht gefunden.')
         return redirect(url_for('admin.admin_erziehung_pool', kind=kind))
 
+    # Ein gebundener Eintrag laesst sich nicht loeschen, ohne dokumentierte
+    # Ereignisse zu beschaedigen. Das Datenmodell sieht dafuer "inaktiv" vor:
+    # der Eintrag verschwindet aus den Auswahllisten, bestehende Ereignisse
+    # bleiben lesbar.
+    usage = _pool_entry_usage(kind, entry)
+    if usage:
+        hinweis = (
+            f'„{entry.name}" kann nicht gelöscht werden: {usage}. '
+            'Setzen Sie den Eintrag stattdessen auf „inaktiv" – dann erscheint er '
+            'in neuen Ereignissen nicht mehr, bleibt in bestehenden aber lesbar.'
+        )
+        flash(hinweis)
+        return redirect(url_for('admin.admin_erziehung_pool', kind=kind))
+
+    name = entry.name
     db.session.delete(entry)
     db.session.commit()
-    flash('Eintrag gelöscht.')
+    flash(f'„{name}" gelöscht.')
+    return redirect(url_for('admin.admin_erziehung_pool', kind=kind))
+
+
+@admin_bp.route('/admin/erziehung/<string:kind>/deaktivieren/<int:entry_id>', methods=['POST'])
+@admin_required(redirect_endpoint='admin.admin_erziehung_dashboard', message=None)
+def admin_erziehung_pool_deactivate(kind, entry_id):
+    cfg = _erziehung_pool_config(kind)
+    if not cfg:
+        return redirect(url_for('admin.admin_erziehung_dashboard'))
+
+    entry = db.session.get(cfg['model'], entry_id)
+    if not entry:
+        flash('Eintrag nicht gefunden.')
+        return redirect(url_for('admin.admin_erziehung_pool', kind=kind))
+
+    if entry.is_active:
+        entry.is_active = False
+        db.session.commit()
+        flash(f'„{entry.name}" ist jetzt inaktiv und wird in neuen Ereignissen nicht mehr angeboten.')
+    else:
+        flash(f'„{entry.name}" ist bereits inaktiv.')
+
     return redirect(url_for('admin.admin_erziehung_pool', kind=kind))
 
 
@@ -674,19 +744,77 @@ def admin_bogen_edit(b_id):
     return render_template('admin_bogen_edit.html', bogen=bogen, titel_prefix=titel_prefix, next_url=next_url)
 
 
+def _item_dependencies(item_ids):
+    """Zaehlt, was an einer Menge von Kompetenzen haengt.
+
+    Liefert eine Liste lesbarer Angaben; ist sie leer, kann geloescht werden.
+    """
+    item_ids = list(item_ids)
+    if not item_ids:
+        return []
+
+    angaben = []
+
+    beobachtungen = Beobachtung.query.filter(Beobachtung.item_id.in_(item_ids)).count()
+    if beobachtungen:
+        kinder = (
+            db.session.query(func.count(func.distinct(Beobachtung.schueler_id)))
+            .filter(Beobachtung.item_id.in_(item_ids))
+            .scalar()
+        ) or 0
+        wort = 'Beobachtung' if beobachtungen == 1 else 'Beobachtungen'
+        angabe = f'{beobachtungen} {wort}'
+        if kinder:
+            angabe += f' zu {kinder} {"Kind" if kinder == 1 else "Kindern"}'
+        angaben.append(angabe)
+
+    aufgaben = WorkPlanTaskCompetency.query.filter(
+        WorkPlanTaskCompetency.item_id.in_(item_ids)
+    ).count()
+    if aufgaben:
+        wort = 'Aufgabe' if aufgaben == 1 else 'Aufgaben'
+        angaben.append(f'{aufgaben} {wort} in Arbeitsplänen')
+
+    vorlagen = ClassTaskTemplateCompetency.query.filter(
+        ClassTaskTemplateCompetency.item_id.in_(item_ids)
+    ).count()
+    if vorlagen:
+        wort = 'Vorlage' if vorlagen == 1 else 'Vorlagen'
+        angaben.append(f'{vorlagen} {wort} in Aufgabenbibliotheken')
+
+    return angaben
+
+
 @admin_bp.route('/admin/bogen/delete/<int:b_id>', methods=['POST'])
 @admin_required(redirect_endpoint='system.index', message=None)
 def admin_bogen_delete(b_id):
     bogen = get_or_404_session(Bogen, b_id)
 
-    items = Item.query.filter_by(bogen_id=b_id).all()
-    for item in items:
-        Beobachtung.query.filter_by(item_id=item.id).delete()
-        db.session.delete(item)
+    item_ids = [row[0] for row in db.session.query(Item.id).filter(Item.bogen_id == b_id).all()]
 
+    # Ein Bogen sammelt die Dokumentation eines ganzen Schuljahres. Solange daran
+    # etwas haengt, wird nicht geloescht - die Beobachtungen aller Kinder zu
+    # diesem Bogen waeren sonst mit einem Klick fort.
+    angaben = _item_dependencies(item_ids)
+    if angaben:
+        flash(
+            f'Bogen „{bogen.titel}" kann nicht gelöscht werden. '
+            f'Daran hängen noch: {", ".join(angaben)}.'
+        )
+        return redirect(url_for('admin.admin_boegen'))
+
+    titel = bogen.titel
+    for item in Item.query.filter_by(bogen_id=b_id).all():
+        db.session.delete(item)
     db.session.delete(bogen)
     db.session.commit()
-    flash(f'Bogen "{bogen.titel}" und alle zugehörigen Items/Daten gelöscht.')
+
+    anzahl = len(item_ids)
+    if anzahl:
+        wort = 'Kompetenz' if anzahl == 1 else 'Kompetenzen'
+        flash(f'Bogen „{titel}" mit {anzahl} {wort} gelöscht.')
+    else:
+        flash(f'Bogen „{titel}" gelöscht.')
     return redirect(url_for('admin.admin_boegen'))
 
 
@@ -732,11 +860,18 @@ def admin_item_delete(i_id):
     item = get_or_404_session(Item, i_id)
     bogen_id = item.bogen_id
 
-    Beobachtung.query.filter_by(item_id=i_id).delete()
+    angaben = _item_dependencies([item.id])
+    if angaben:
+        flash(
+            f'Kompetenz „{item.text}" kann nicht gelöscht werden. '
+            f'Daran hängen noch: {", ".join(angaben)}.'
+        )
+        return redirect(url_for('admin.admin_items', b_id=bogen_id))
 
+    text = item.text
     db.session.delete(item)
     db.session.commit()
-    flash('Item gelöscht.')
+    flash(f'Kompetenz „{text}" gelöscht.')
     return redirect(url_for('admin.admin_items', b_id=bogen_id))
 
 
