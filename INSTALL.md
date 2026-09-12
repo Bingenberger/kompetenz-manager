@@ -343,6 +343,7 @@ Ausfuehrliche Beschreibung:
 - `migrate_sqlite_to_postgres.py`: Datenmigration
 - `migrate_uploads_to_protected.py`: Upload-Migration
 - `cleanup_orphan_uploads.py`: entfernt Uploads ohne Datenbankbezug
+- `competency_matrix.py`: Berechnung der Klassenuebersicht
 - `deploy/`: Service- und Betriebsdateien
 - `static/vendor/`: lokal ausgelieferte Fremdbestandteile (Bootstrap, Schriften) inkl. Anleitung zum Aktualisieren
 - `odt_templates/`: Exportvorlagen

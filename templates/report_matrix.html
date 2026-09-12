@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .matrix-toolbar {
+        border-radius: 16px;
+        border: 1px solid rgba(87,117,144,0.14);
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(255,255,255,0.90));
+        box-shadow: 0 10px 22px rgba(31,41,51,0.05);
+        padding: 1rem;
+    }
+
+    /* --- Stufen: dieselben Schwellen wie im Einzelbericht --- */
+    .lvl-stark   { background: rgba(67,170,139,0.20);  color: #276b58; }
+    .lvl-sicher  { background: rgba(39,125,161,0.16);  color: #1f5f7a; }
+    .lvl-teils   { background: rgba(249,199,79,0.34);  color: #6f5308; }
+    .lvl-schwach { background: rgba(249,65,68,0.18);   color: #99201f; }
+    .lvl-leer    { color: #9aabb8; }
+
+    .legend-dot {
+        display: inline-block;
+        width: .85rem;
+        height: .85rem;
+        border-radius: 4px;
+        vertical-align: -1px;
+        margin-right: .3rem;
+    }
+
+    .matrix-wrap {
+        overflow-x: auto;
+        border: 1px solid rgba(87,117,144,0.16);
+        border-radius: 14px;
+        background: #fff;
+    }
+    table.matrix {
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 0;
+        font-size: .88rem;
+    }
+    table.matrix th,
+    table.matrix td {
+        border-bottom: 1px solid rgba(87,117,144,0.12);
+        padding: .4rem .3rem;
+        text-align: center;
+        white-space: nowrap;
+    }
+    table.matrix thead th {
+        background: #f3f8fa;
+        font-weight: 700;
+        color: #3b4a59;
+        border-bottom: 2px solid rgba(87,117,144,0.22);
+    }
+    table.matrix .bereich-head {
+        font-size: .74rem;
+        text-transform: uppercase;
+        letter-spacing: .05em;
+        color: #5f7387;
+        border-right: 1px solid rgba(87,117,144,0.22);
+        border-bottom: 1px solid rgba(87,117,144,0.12);
+    }
+
+    /* Namensspalte bleibt beim Querscrollen stehen. */
+    table.matrix .name-col {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background: #fff;
+        text-align: left;
+        min-width: 11rem;
+        border-right: 1px solid rgba(87,117,144,0.22);
+        font-weight: 600;
+    }
+    table.matrix thead .name-col { background: #f3f8fa; z-index: 3; }
+    table.matrix tbody tr:hover td:not(.name-col) { filter: brightness(0.97); }
+    table.matrix tbody tr:hover .name-col { background: #f8fbfc; }
+
+    table.matrix .cell {
+        min-width: 3rem;
+        font-variant-numeric: tabular-nums;
+        font-weight: 700;
+        padding: 0;
+    }
+    table.matrix .cell a {
+        display: block;
+        padding: .45rem .3rem;
+        text-decoration: none;
+        color: inherit;
+    }
+    table.matrix .cell a:hover { text-decoration: underline; }
+
+    table.matrix .total-col,
+    table.matrix .total-row td {
+        background: #eef4f7;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+    table.matrix .total-row .name-col { background: #eef4f7; }
+    table.matrix .total-col { border-left: 1px solid rgba(87,117,144,0.22); }
+    table.matrix .archived { color: #7c8a97; font-style: italic; }
+
+    .insight-card {
+        border-radius: 14px;
+        border: 1px solid rgba(87,117,144,0.14);
+        background: #fff;
+        padding: .9rem 1rem;
+        height: 100%;
+    }
+    .insight-card ol { margin: .4rem 0 0; padding-left: 1.2rem; }
+    .insight-card li { margin-bottom: .25rem; }
+
+    .col-num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.5rem;
+        height: 1.5rem;
+        border-radius: 5px;
+        background: rgba(39,125,161,0.12);
+        color: #1f5f7a;
+        font-size: .78rem;
+        font-weight: 700;
+        font-variant-numeric: tabular-nums;
+    }
+
+    @media (max-width: 575px) {
+        table.matrix .name-col { min-width: 8.5rem; font-size: .82rem; }
+        table.matrix { font-size: .82rem; }
+    }
+</style>
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+    <div>
+        <span class="section-label">Auswertung</span>
+        <h1 class="mt-2 mb-0" style="font-size: clamp(1.4rem, 2.2vw, 1.9rem);">Klassenübersicht</h1>
+    </div>
+    <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">
+        {{ bi('house', 'bi-icon-sm') }} <span>Zur Startseite</span>
+    </a>
+</div>
+
+<form method="GET" class="matrix-toolbar mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-sm-4">
+            <label class="form-label" for="matrix-klasse">Klasse</label>
+            <select class="form-select" id="matrix-klasse" name="klasse" onchange="this.form.submit()">
+                {% for k in klassen %}
+                <option value="{{ k }}" {% if k == klasse %}selected{% endif %}>Klasse {{ k }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-sm-5">
+            <label class="form-label" for="matrix-bogen">Beobachtungsbogen</label>
+            <select class="form-select" id="matrix-bogen" name="bogen_id" onchange="this.form.submit()">
+                {% for b in boegen %}
+                <option value="{{ b.id }}" {% if bogen and b.id == bogen.id %}selected{% endif %}>{{ b.titel }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-sm-3">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="matrix-archived" name="show" value="archived"
+                       {% if show_archived %}checked{% endif %} onchange="this.form.submit()">
+                <label class="form-check-label" for="matrix-archived">Archivierte Kinder mitzeigen</label>
+            </div>
+        </div>
+    </div>
+    <noscript>
+        <button type="submit" class="btn btn-primary mt-3">Anzeigen</button>
+    </noscript>
+</form>
+
+{% if not klassen %}
+<div class="alert alert-info">Noch keine Klassen vorhanden. Bitte zuerst Schülerdaten anlegen.</div>
+{% elif not boegen %}
+<div class="alert alert-info">
+    Noch kein Beobachtungsbogen vorhanden.
+    <a href="{{ url_for('admin.admin_boegen') }}">Bogen anlegen</a>
+</div>
+{% elif matrix and not matrix.students %}
+<div class="alert alert-info">
+    In Klasse {{ klasse }} sind keine {% if not show_archived %}aktiven {% endif %}Kinder eingetragen.
+    {% if not show_archived %}
+    <a href="{{ url_for('report.report_matrix', klasse=klasse, bogen_id=bogen.id if bogen else None, show='archived') }}">Archivierte Kinder mitzeigen</a>
+    {% endif %}
+</div>
+{% elif matrix and not matrix.competencies %}
+<div class="alert alert-info">
+    Der Bogen „{{ bogen.titel }}" enthält noch keine Kompetenzen.
+    <a href="{{ url_for('admin.admin_items', b_id=bogen.id) }}">Kompetenzen anlegen</a>
+</div>
+{% elif matrix %}
+
+<div class="row g-3 mb-4">
+    <div class="col-lg-4">
+        <div class="insight-card">
+            <span class="section-label">Erfassungsstand</span>
+            <div class="d-flex align-items-baseline gap-2 mt-2">
+                <span class="h3 fw-bold mb-0">{{ matrix.summary.coverage }}%</span>
+                <span class="text-muted small">
+                    {{ matrix.summary.cells_filled }} von {{ matrix.summary.cells_total }} Feldern
+                </span>
+            </div>
+            <p class="text-muted small mb-0 mt-1">
+                {{ matrix.students|length }} {% if matrix.students|length == 1 %}Kind{% else %}Kinder{% endif %},
+                {{ matrix.competencies|length }} {% if matrix.competencies|length == 1 %}Kompetenz{% else %}Kompetenzen{% endif %}{% if matrix.summary.average %},
+                Klassenmittel {{ matrix.summary.average }}{% endif %}
+            </p>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="insight-card">
+            <span class="section-label">Niedrigstes Klassenmittel</span>
+            {% if weakest %}
+            <ol class="small">
+                {% for item, werte in weakest %}
+                <li>
+                    {{ item.text }}
+                    <span class="text-muted">({{ werte.average }})</span>
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <p class="text-muted small mb-0 mt-2">Noch keine Beobachtungen erfasst.</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="insight-card">
+            <span class="section-label">Niedrigster Gesamtwert</span>
+            {% if attention %}
+            <ol class="small">
+                {% for student, werte in attention %}
+                <li>
+                    <a href="{{ url_for('report.report_schueler', schueler_id=student.id, bogen_id=bogen.id, next=request.full_path) }}"
+                       class="text-reset">{{ student.vorname }} {{ student.nachname }}</a>
+                    <span class="text-muted">({{ werte.average }})</span>
+                </li>
+                {% endfor %}
+            </ol>
+            {% else %}
+            <p class="text-muted small mb-0 mt-2">Noch keine Beobachtungen erfasst.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="d-flex flex-wrap align-items-center gap-3 mb-2 small text-muted">
+    <span><span class="legend-dot" style="background: rgba(67,170,139,0.55);"></span>ab 3,5 sicher beherrscht</span>
+    <span><span class="legend-dot" style="background: rgba(39,125,161,0.45);"></span>ab 2,5 überwiegend sicher</span>
+    <span><span class="legend-dot" style="background: rgba(249,199,79,0.75);"></span>ab 1,5 teilweise</span>
+    <span><span class="legend-dot" style="background: rgba(249,65,68,0.45);"></span>unter 1,5 reicht noch nicht</span>
+    <span><span class="legend-dot" style="background: #e9eff3;"></span>keine Beobachtung – Klick öffnet den Schnelleintrag</span>
+</div>
+
+<div class="matrix-wrap mb-2">
+    <table class="matrix">
+        <thead>
+            <tr>
+                <th class="name-col" rowspan="2">Kind</th>
+                {% for gruppe in matrix.bereiche %}
+                <th class="bereich-head" colspan="{{ gruppe['competencies']|length }}">{{ gruppe.name }}</th>
+                {% endfor %}
+                <th class="total-col" rowspan="2" title="Mittelwert über alle Kompetenzen dieses Bogens">Ø Kind</th>
+            </tr>
+            <tr>
+                {% set spalte = namespace(nummer=0) %}
+                {% for gruppe in matrix.bereiche %}
+                    {% for item in gruppe['competencies'] %}
+                    {% set spalte.nummer = spalte.nummer + 1 %}
+                    <th title="{{ item.text }}"><span class="col-num">{{ spalte.nummer }}</span></th>
+                    {% endfor %}
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            {% for student in matrix.students %}
+            <tr>
+                <td class="name-col {% if not student.is_active %}archived{% endif %}">
+                    {{ student.nachname }}, {{ student.vorname }}
+                    {% if not student.is_active %}<span class="badge bg-secondary ms-1">archiviert</span>{% endif %}
+                </td>
+                {% for item in matrix.competencies %}
+                    {% set zelle = matrix.cells.get((student.id, item.id)) %}
+                    {% if zelle %}
+                    <td class="cell lvl-{{ zelle.level }}">
+                        <a href="{{ url_for('report.report_schueler', schueler_id=student.id, bogen_id=bogen.id, next=request.full_path) }}"
+                           title="{{ student.vorname }} {{ student.nachname }} – {{ item.text }}: Ø {{ zelle.average }} aus {{ zelle.count }} {% if zelle.count == 1 %}Eintrag{% else %}Einträgen{% endif %}">{{ zelle.average }}</a>
+                    </td>
+                    {% else %}
+                    <td class="cell lvl-leer">
+                        <a href="{{ url_for('erfassung.erfassen_einzel', schueler_id=student.id, bogen_id=bogen.id, bereich=item.bereich, item_id=item.id, next=request.full_path) }}"
+                           title="Noch keine Beobachtung: {{ student.vorname }} {{ student.nachname }} – {{ item.text }}. Klick öffnet den Schnelleintrag.">–</a>
+                    </td>
+                    {% endif %}
+                {% endfor %}
+                {% set gesamt = matrix.student_totals[student.id] %}
+                <td class="total-col {% if gesamt.level %}lvl-{{ gesamt.level }}{% endif %}"
+                    title="{{ gesamt.count }} {% if gesamt.count == 1 %}Eintrag{% else %}Einträge{% endif %}, {{ gesamt.gaps }} Kompetenz(en) ohne Beobachtung">
+                    {{ gesamt.average if gesamt.average is not none else '–' }}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr class="total-row">
+                <td class="name-col">Ø Klasse</td>
+                {% for item in matrix.competencies %}
+                    {% set gesamt = matrix.item_totals[item.id] %}
+                    <td class="{% if gesamt.level %}lvl-{{ gesamt.level }}{% else %}lvl-leer{% endif %}"
+                        title="{{ item.text }}: {% if gesamt.average is not none %}Ø {{ gesamt.average }} aus {{ gesamt.count }} {% if gesamt.count == 1 %}Eintrag{% else %}Einträgen{% endif %}{% else %}keine Beobachtungen{% endif %}">
+                        {{ gesamt.average if gesamt.average is not none else '–' }}
+                    </td>
+                {% endfor %}
+                <td class="total-col">{{ matrix.summary.average if matrix.summary.average is not none else '–' }}</td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+<p class="text-muted small mb-4">
+    Bei vielen Kompetenzen lässt sich die Tabelle seitlich verschieben; die Namensspalte bleibt stehen.
+</p>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-light">
+        <strong>Die Kompetenzen dieses Bogens</strong>
+        <span class="text-muted small ms-2">Nummern wie in der Tabelle</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm table-striped mb-0 align-middle">
+            <thead>
+                <tr>
+                    <th style="width: 3rem;">Nr.</th>
+                    <th>Bereich</th>
+                    <th>Kompetenz</th>
+                    <th class="text-end" style="width: 7rem;">Ø Klasse</th>
+                    <th class="text-end" style="width: 9rem;">ohne Beobachtung</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set zeile = namespace(nummer=0) %}
+                {% for gruppe in matrix.bereiche %}
+                    {% for item in gruppe['competencies'] %}
+                    {% set zeile.nummer = zeile.nummer + 1 %}
+                    {% set gesamt = matrix.item_totals[item.id] %}
+                    <tr>
+                        <td><span class="col-num">{{ zeile.nummer }}</span></td>
+                        <td class="text-muted small">{{ gruppe.name }}</td>
+                        <td>{{ item.text }}</td>
+                        <td class="text-end {% if gesamt.level %}lvl-{{ gesamt.level }}{% endif %}"
+                            style="font-variant-numeric: tabular-nums; font-weight: 700;">
+                            {{ gesamt.average if gesamt.average is not none else '–' }}
+                        </td>
+                        <td class="text-end">
+                            {% if gesamt.gaps %}
+                            <span class="badge bg-warning text-dark">{{ gesamt.gaps }} von {{ matrix.students|length }}</span>
+                            {% else %}
+                            <span class="text-muted small">vollständig</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endif %}
+{% endblock %}

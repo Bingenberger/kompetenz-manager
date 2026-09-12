@@ -9,6 +9,7 @@ Die Anwendung ist fuer den praktischen Schulalltag gebaut: klassische Server-Tem
 - Beobachtungsboegen verwalten und ausfuellen
 - Schnelleintraege, Klassendurchlaeufe und komplette Bogen-Erfassung
 - Berichte pro Kind und Beobachtungsbogen
+- Klassenuebersicht als Matrix: alle Kinder einer Klasse mal alle Kompetenzen eines Bogens
 - Elternkontakte als Notiz oder Protokoll dokumentieren
 - Elterngespraeche vorbereiten und durchfuehren
 - Foerderplaene anlegen, evaluieren und fortschreiben
@@ -24,6 +25,7 @@ Die Anwendung ist fuer den praktischen Schulalltag gebaut: klassische Server-Tem
 - Beobachtungsboegen (`Bogen`, `Item`)
 - Einzelbeobachtungen mit Kommentar und Foto
 - Verlaufsauswertung und Berichtsansichten
+- Klassenuebersicht (`competency_matrix.py`): Kinder mal Kompetenzen mit Klassen- und Kindmittel, Erfassungsstand und direktem Sprung in den Schnelleintrag fuer fehlende Beobachtungen
 
 ### Elternkontakte
 

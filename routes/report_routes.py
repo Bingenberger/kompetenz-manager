@@ -4,9 +4,20 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, s
 from flask_login import current_user, login_required
 
 from extensions import db
+from competency_matrix import (
+    build_matrix,
+    classes_with_students,
+    most_documented_bogen,
+    students_needing_attention,
+    weakest_items,
+)
 from models import Beobachtung, Bogen, Item, Schueler
 from school_year import active_school_year_start
-from student_selection import get_grouped_student_choices_for_user, get_prioritized_students_for_user
+from student_selection import (
+    get_grouped_student_choices_for_user,
+    get_prioritized_students_for_user,
+    get_user_klassenkontext,
+)
 from uploads import loesche_upload_dateien
 
 
@@ -82,6 +93,60 @@ def report_schueler():
         color_map=color_map,
         now=jetzt,
         next_url=next_url,
+    )
+
+
+def _default_klasse_for_user(user, klassen):
+    """Eigene Klasse zuerst, dann Fachklasse, sonst die erste vorhandene."""
+    kontext = get_user_klassenkontext(user)
+    if kontext['klassenleitung'] in klassen:
+        return kontext['klassenleitung']
+    for klasse in sorted(kontext['fachklassen'], key=lambda wert: wert.lower()):
+        if klasse in klassen:
+            return klasse
+    return klassen[0] if klassen else ''
+
+
+@report_bp.route('/report/matrix')
+@login_required
+def report_matrix():
+    boegen = Bogen.query.order_by(Bogen.titel.asc()).all()
+
+    show_archived = request.args.get('show') == 'archived'
+    klasse = (request.args.get('klasse') or '').strip()
+    bogen_id = (request.args.get('bogen_id') or '').strip()
+
+    klassen = classes_with_students(include_archived=show_archived)
+    # Eine ausdruecklich angefragte Klasse wird nicht stillschweigend getauscht,
+    # auch wenn dort nur archivierte Kinder liegen - die Ansicht sagt dann, dass
+    # der Archiv-Schalter fehlt, statt eine andere Klasse zu zeigen.
+    if klasse and klasse not in klassen and klasse in classes_with_students(include_archived=True):
+        klassen = sorted(set(klassen) | {klasse}, key=lambda wert: wert.lower())
+    if klasse not in klassen:
+        klasse = _default_klasse_for_user(current_user, klassen)
+
+    bogen = None
+    if bogen_id.isdigit():
+        bogen = db.session.get(Bogen, int(bogen_id))
+    if bogen is None and klasse:
+        bogen = most_documented_bogen(klasse, boegen, include_archived=show_archived)
+    if bogen is None and boegen:
+        bogen = boegen[0]
+
+    matrix = None
+    if klasse and bogen:
+        matrix = build_matrix(klasse, bogen, include_archived=show_archived)
+
+    return render_template(
+        'report_matrix.html',
+        klassen=klassen,
+        boegen=boegen,
+        klasse=klasse,
+        bogen=bogen,
+        show_archived=show_archived,
+        matrix=matrix,
+        weakest=weakest_items(matrix) if matrix else [],
+        attention=students_needing_attention(matrix) if matrix else [],
     )
 
 

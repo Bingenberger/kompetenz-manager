@@ -387,6 +387,19 @@
                 </div>
             </div>
 
+            <div class="stack-card fade-in fade-in-delay-2" style="border-color: rgba(77,144,142,0.22);">
+                <div class="stack-head" style="background: linear-gradient(90deg, rgba(77,144,142,0.12), rgba(39,125,161,0.08)); border-radius: 16px 16px 0 0;">
+                    <span class="section-label">Auswertung</span>
+                    <h3 class="mt-2 mb-0">Klassenübersicht</h3>
+                </div>
+                <div class="stack-body d-grid gap-3">
+                    <p class="text-muted mb-0">Alle Kinder einer Klasse und alle Kompetenzen eines Bogens in einer Tabelle: Wo steht die Klasse, und wo fehlen noch Beobachtungen?</p>
+                    <a href="{{ url_for('report.report_matrix') }}" class="btn btn-info btn-lg w-100 text-white icon-btn justify-content-center">
+                        {{ bi('grid-3x3', 'bi-icon') }} <span>Klassenübersicht öffnen</span>
+                    </a>
+                </div>
+            </div>
+
             <div class="stack-card fade-in fade-in-delay-3">
                 <div class="stack-head">
                     <span class="section-label">Schülerakte</span>
