@@ -87,6 +87,18 @@
             </form>
             <p class="small text-muted mt-3 mb-0">Zur Orientierung: PR 16 entspricht etwa T-Wert 40 und Lesequotient 85, PR 10 etwa T-Wert 37.</p>
         </div>
+
+        <div class="surface-panel p-4 mt-4">
+            <h3 class="h5 mb-1">Schullogo</h3>
+            <p class="small text-muted">Erscheint oben rechts in den Stufenauswertungen (ODT und PDF). PNG oder JPEG, höchstens 2 MB. Es bleibt auf diesem Server.</p>
+            <form method="POST" action="{{ url_for('diagnostik.admin_logo') }}" enctype="multipart/form-data" class="d-flex flex-wrap gap-2 align-items-center">
+                {{ csrf_input() }}
+                <input type="file" name="logo" accept="image/png,image/jpeg" class="form-control form-control-sm" style="max-width: 16rem;">
+                <button type="submit" class="btn btn-sm btn-outline-primary">Hochladen</button>
+                {% if logo_vorhanden %}<button type="submit" name="aktion" value="entfernen" class="btn btn-sm btn-outline-danger" formnovalidate>Entfernen</button>{% endif %}
+            </form>
+            <div class="small mt-2 {% if logo_vorhanden %}text-success{% else %}text-muted{% endif %}">{{ 'Logo ist hinterlegt.' if logo_vorhanden else 'Noch kein Logo hinterlegt.' }}</div>
+        </div>
     </div>
 </div>
 {% endblock %}

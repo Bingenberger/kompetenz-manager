@@ -4,7 +4,7 @@ import json
 from collections import Counter
 from datetime import date, datetime
 
-from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask import Blueprint, abort, flash, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import func
 
@@ -30,6 +30,9 @@ from diagnostik import (
     zeitlabel,
     zeitpunkte_fuer,
 )
+import schullogo
+from odt_export import build_odt_document, convert_odt_bytes_to_pdf
+from stufenauswertung import erstelle_auswertung, legende
 from diagnostik_import import ImportDatei, ImportFehler, ImportZeile, lese_import, ordne_kinder_zu
 from extensions import db
 from jahrgang import JAHRGAENGE, klassen_jahrgaenge
@@ -95,6 +98,7 @@ def admin_katalog():
     )
     return render_template(
         'admin_diagnostik.html',
+        logo_vorhanden=schullogo.lade() is not None,
         verfahren=verfahren,
         grenzen=risikogrenzen(SystemKonfiguration.query.first()),
         stufen=STUFEN,
@@ -938,6 +942,173 @@ def foerderangaben_speichern(schueler_id):
     db.session.commit()
     flash(f'Förderangaben {schuljahr} für {schueler.vorname} {schueler.nachname} gespeichert.')
     return redirect(ziel)
+
+
+# ----------------------------------------------------------------------
+# Stufenauswertung
+# ----------------------------------------------------------------------
+
+def _stufenauswertung_parameter(config):
+    """Gewählte Auswertung aus der Anfrage (GET oder POST), mit Vorbelegung."""
+    verfahren_liste = (
+        DiagnostikVerfahren.query.filter_by(is_active=True)
+        .order_by(DiagnostikVerfahren.sort_order, DiagnostikVerfahren.name).all()
+    )
+    schuljahr_aktuell = config.schuljahr if config and config.schuljahr else None
+    verfahren_id = (request.values.get('verfahren_id') or '').strip()
+    verfahren = next((v for v in verfahren_liste if str(v.id) == verfahren_id), None)
+    jahrgang_roh = (request.values.get('jahrgang') or '').strip()
+    return {
+        'verfahren_liste': verfahren_liste,
+        'verfahren': verfahren,
+        'schuljahr_aktuell': schuljahr_aktuell,
+        'schuljahr': normalize_school_year(request.values.get('schuljahr')) or schuljahr_aktuell,
+        'halbjahr': request.values.get('halbjahr') if request.values.get('halbjahr') in HALBJAHRE else aktuelles_halbjahr(),
+        'jahrgang': int(jahrgang_roh) if jahrgang_roh.isdigit() and int(jahrgang_roh) in JAHRGAENGE else None,
+    }
+
+
+def _erstelle_stufenauswertung(parameter, config):
+    if not (parameter['verfahren'] and parameter['schuljahr'] and parameter['jahrgang']):
+        return None
+    erlaubt = None if current_user.is_admin else set(zugaengliche_klassen(current_user))
+    return erstelle_auswertung(
+        parameter['verfahren'], parameter['schuljahr'], parameter['halbjahr'], parameter['jahrgang'],
+        risikogrenzen(config), erlaubte_klassen=erlaubt,
+    )
+
+
+@diagnostik_bp.route('/diagnostik/stufenauswertung', methods=['GET', 'POST'])
+@login_required
+def stufenauswertung():
+    config = SystemKonfiguration.query.first()
+    parameter = _stufenauswertung_parameter(config)
+    ziel = url_for(
+        'diagnostik.stufenauswertung', verfahren_id=parameter['verfahren'].id if parameter['verfahren'] else None,
+        schuljahr=parameter['schuljahr'], halbjahr=parameter['halbjahr'], jahrgang=parameter['jahrgang'],
+    )
+
+    if request.method == 'POST':
+        gespeichert = 0
+        for roh in request.form.getlist('kinder'):
+            kind = db.session.get(Schueler, int(roh)) if roh.isdigit() else None
+            if not kind or not darf_kind_sehen(current_user, kind):
+                continue
+            speichere_foerderangaben(kind.id, parameter['schuljahr'], {
+                feld: request.form.get(f'{feld}_{kind.id}') == '1'
+                for feld in ('nachteilsausgleich', 'foerderkurs', 'externe_foerderung')
+            } | {
+                'foerderschwerpunkt': request.form.get(f'foerderschwerpunkt_{kind.id}'),
+                'anmerkungen': request.form.get(f'anmerkungen_{kind.id}'),
+            }, current_user.id)
+            gespeichert += 1
+        db.session.commit()
+        flash(f'Förderangaben für {gespeichert} Kind(er) gespeichert.')
+        return redirect(ziel + '#liste')
+
+    return render_template(
+        'diagnostik_stufenauswertung.html',
+        auswertung=_erstelle_stufenauswertung(parameter, config),
+        legende=legende,
+        schuljahre=_schuljahr_auswahl(parameter['schuljahr_aktuell'], parameter['schuljahr']),
+        halbjahre=HALBJAHRE,
+        jahrgaenge=JAHRGAENGE,
+        nur_eigene_klassen=not current_user.is_admin,
+        **parameter,
+    )
+
+
+@diagnostik_bp.route('/admin/diagnostik/logo', methods=['POST'])
+@admin_required(redirect_endpoint='admin.admin_dashboard', message=ADMIN_MELDUNG)
+def admin_logo():
+    if request.form.get('aktion') == 'entfernen':
+        schullogo.entferne()
+        flash('Schullogo entfernt.')
+    else:
+        upload = request.files.get('logo')
+        fehler = schullogo.speichere(upload.read(schullogo.MAX_BYTES + 1)) if upload and upload.filename else 'Bitte eine Datei auswählen.'
+        flash(fehler or 'Schullogo gespeichert. Es erscheint in den Stufenauswertungen.')
+    return redirect(url_for('diagnostik.admin_katalog'))
+
+
+def _stufenauswertung_bloecke(a):
+    zahl = lambda wert: f'{wert:.1f}'.replace('.', ',') if wert is not None else '–'
+    bloecke = []
+    logo = schullogo.lade()
+    if logo:
+        bloecke.append({'type': 'image', **logo})
+    bloecke.append({'type': 'paragraph', 'style': 'Titel', 'text': f'Auswertung {a["verfahren"].name}'})
+    durchgefuehrt = '–'
+    if a['datum_von']:
+        durchgefuehrt = a['datum_von'].strftime('%d.%m.%Y')
+        if a['datum_bis'] != a['datum_von']:
+            durchgefuehrt += ' – ' + a['datum_bis'].strftime('%d.%m.%Y')
+    bloecke.append({'type': 'table', 'head': ['Schuljahr', 'Zeitpunkt', 'Jahrgangsstufe', 'Testform', 'Durchgeführt', 'Kinder'],
+                    'rows': [[a['schuljahr'], HALBJAHRE[a['halbjahr']], str(a['jahrgang']), ', '.join(a['testformen']),
+                              durchgefuehrt, str(a['anzahl'])]],
+                    'widths': [3, 3, 3, 4, 5, 2]})
+
+    bloecke.append({'type': 'heading', 'level': 1, 'text': 'Durchschnittswerte'})
+    kopf = ['Klasse', 'Kinder'] + [s.label for s in a['spalten']] + [a['stufen'][s][0] for s in a['stufen_reihenfolge']]
+    breiten_schnitt = [2.4, 1.5] + [1.6] * len(a['spalten']) + [2.4] * len(a['stufen_reihenfolge'])
+    zeilen = []
+    for z in a['klassen'] + ([a['gesamt']] if a['gesamt'] and len(a['klassen']) > 1 else []):
+        zeilen.append([z.klasse, str(z.anzahl)] + [zahl(w) for w in z.durchschnitte] + [str(z.stufen[s]) for s in a['stufen_reihenfolge']])
+    bloecke.append({'type': 'table', 'head': kopf, 'rows': zeilen, 'widths': breiten_schnitt})
+
+    grenze = a['grenzen'].get('beobachten') or a['grenzen'].get('auffaellig') or a['grenzen'].get('deutlich')
+    bloecke.append({'type': 'heading', 'level': 1,
+                    'text': f'Auffällige Kinder (mindestens ein Teilbereich bis PR {grenze})' if grenze else 'Auffällige Kinder'})
+    if a['liste']:
+        kopf = ['Name', 'Klasse'] + [a['kuerzel'](n) for n in a['risikospalten']] + ['Stufe', 'NTA', 'FK', 'FP', 'EF',
+                                                                                    'Schwerpunkt der individuellen Förderung', 'Anmerkungen zum Kind']
+        zeilen = []
+        for z in a['liste']:
+            werte = []
+            for _, pr, abgeleitet, tendenz in z.werte:
+                werte.append('–' if pr is None else f'{pr}{"*" if abgeleitet else ""}{" " + a["tendenz_zeichen"][tendenz] if tendenz else ""}')
+            f = z.angaben
+            zeilen.append([f'{z.schueler.nachname}, {z.schueler.vorname}', z.klasse] + werte + [
+                a['stufen'][z.stufe][0],
+                'X' if f and f.nachteilsausgleich else '', 'X' if f and f.foerderkurs else '',
+                'X' if z.foerderplan else '', 'X' if f and f.externe_foerderung else '',
+                (f.foerderschwerpunkt or '') if f else '', (f.anmerkungen or '') if f else '',
+            ])
+        breiten = [3.4, 1.7] + [1.3] * len(a['risikospalten']) + [2.3, 1.0, 1.0, 1.0, 1.0, 5.0, 5.0]
+        bloecke.append({'type': 'table', 'head': kopf, 'rows': zeilen, 'widths': breiten})
+    else:
+        bloecke.append({'type': 'paragraph', 'text': 'Kein Kind mit Risikostufe.'})
+    bloecke.append({'type': 'paragraph', 'style': 'Klein', 'text': legende(a)})
+    bloecke.append({'type': 'paragraph', 'style': 'Klein', 'text': f'Erstellt am {a["erstellt_am"].strftime("%d.%m.%Y")} mit KompetenzKompass.'})
+    return bloecke
+
+
+@diagnostik_bp.route('/diagnostik/stufenauswertung/export/<string:format>')
+@login_required
+def stufenauswertung_export(format):
+    if format not in ('odt', 'pdf'):
+        abort(404)
+    config = SystemKonfiguration.query.first()
+    parameter = _stufenauswertung_parameter(config)
+    auswertung = _erstelle_stufenauswertung(parameter, config)
+    zurueck = url_for('diagnostik.stufenauswertung', verfahren_id=parameter['verfahren'].id if parameter['verfahren'] else None,
+                      schuljahr=parameter['schuljahr'], halbjahr=parameter['halbjahr'], jahrgang=parameter['jahrgang'])
+    if not auswertung or not auswertung['anzahl']:
+        flash('Für diese Auswahl gibt es keine Ergebnisse.')
+        return redirect(zurueck)
+    odt = build_odt_document(_stufenauswertung_bloecke(auswertung), querformat=True)
+    sauber = lambda text: ''.join(z if z.isalnum() or z in '-_' else '-' for z in text)
+    stamm = (f'Stufenauswertung_{sauber(auswertung["verfahren"].name)}_{auswertung["schuljahr"].replace("/", "-")}'
+             f'_{HALBJAHRE[auswertung["halbjahr"]]}_Jg{auswertung["jahrgang"]}')
+    if format == 'odt':
+        return send_file(odt, as_attachment=True, download_name=f'{stamm}.odt',
+                         mimetype='application/vnd.oasis.opendocument.text')
+    try:
+        pdf = convert_odt_bytes_to_pdf(odt)
+    except RuntimeError as fehler:
+        flash(f'PDF-Export fehlgeschlagen: {fehler}. Der ODT-Export funktioniert unabhängig davon.')
+        return redirect(zurueck)
+    return send_file(pdf, as_attachment=True, download_name=f'{stamm}.pdf', mimetype='application/pdf')
 
 
 def register_diagnostik_routes(app):

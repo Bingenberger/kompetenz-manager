@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .stufe-tabelle th, .stufe-tabelle td { vertical-align: middle; }
+    .stufe-tabelle tfoot td { font-weight: 700; background: rgba(77,144,142,0.06); }
+    .liste-tabelle td { vertical-align: top; }
+    .liste-tabelle textarea { min-width: 12rem; }
+    .tendenz { font-weight: 700; margin-left: .15rem; }
+</style>
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Diagnostik</span>
+        <h2 class="h4 mt-2 mb-1">Stufenauswertung</h2>
+        <p class="text-muted mb-0">Durchschnitte je Klasse und auffällige Kinder einer Testung über die ganze Jahrgangsstufe – als Grundlage für die Förderplanung, zum Herunterladen als ODT oder PDF.</p>
+    </div>
+    <a href="{{ url_for('diagnostik.uebersicht') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zur Übersicht</span></a>
+</div>
+
+<form method="GET" class="surface-panel p-4 mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label" for="sa-verfahren">Verfahren</label>
+            <select name="verfahren_id" id="sa-verfahren" class="form-select" required>
+                <option value="">Bitte wählen …</option>
+                {% for v in verfahren_liste %}<option value="{{ v.id }}" {% if verfahren and v.id == verfahren.id %}selected{% endif %}>{{ v.name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" for="sa-schuljahr">Schuljahr</label>
+            <select name="schuljahr" id="sa-schuljahr" class="form-select">
+                {% for j in schuljahre %}<option value="{{ j }}" {% if j == schuljahr %}selected{% endif %}>{{ j }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" for="sa-halbjahr">Zeitpunkt</label>
+            <select name="halbjahr" id="sa-halbjahr" class="form-select">
+                {% for key, label in halbjahre.items() %}<option value="{{ key }}" {% if key == halbjahr %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" for="sa-jahrgang">Jahrgangsstufe</label>
+            <select name="jahrgang" id="sa-jahrgang" class="form-select" required>
+                <option value="">…</option>
+                {% for j in jahrgaenge %}<option value="{{ j }}" {% if j == jahrgang %}selected{% endif %}>{{ j }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('bar-chart-line', 'bi-icon-sm') }} <span>Auswerten</span></button>
+        </div>
+    </div>
+    {% if nur_eigene_klassen %}<p class="small text-muted mt-3 mb-0">Die Auswertung enthält nur Kinder Ihrer Klassen. Die ganze Jahrgangsstufe sieht die Verwaltung.</p>{% endif %}
+</form>
+
+{% if auswertung %}
+{% set a = auswertung %}
+<div class="surface-panel p-4 mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+        <div>
+            <h3 class="h4 mb-2">Auswertung {{ a.verfahren.name }}</h3>
+            <div class="d-flex flex-wrap gap-4 small">
+                <div><span class="text-muted">Schuljahr</span><br><strong>{{ a.schuljahr }}</strong></div>
+                <div><span class="text-muted">Zeitpunkt</span><br><strong>{{ halbjahre[a.halbjahr] }}</strong></div>
+                <div><span class="text-muted">Jahrgangsstufe</span><br><strong>{{ a.jahrgang }}</strong></div>
+                <div><span class="text-muted">Testform</span><br><strong>{{ a.testformen|join(', ') or '–' }}</strong></div>
+                <div><span class="text-muted">Durchgeführt</span><br><strong>{% if a.datum_von %}{{ a.datum_von.strftime('%d.%m.%Y') }}{% if a.datum_bis != a.datum_von %} – {{ a.datum_bis.strftime('%d.%m.%Y') }}{% endif %}{% else %}–{% endif %}</strong></div>
+                <div><span class="text-muted">Kinder</span><br><strong>{{ a.anzahl }}</strong></div>
+            </div>
+        </div>
+        {% if a.anzahl %}
+        {% set export = {'verfahren_id': a.verfahren.id, 'schuljahr': a.schuljahr, 'halbjahr': a.halbjahr, 'jahrgang': a.jahrgang} %}
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('diagnostik.stufenauswertung_export', format='odt', **export) }}" class="btn btn-outline-primary icon-btn">{{ bi('file-earmark-text', 'bi-icon-sm') }} <span>ODT</span></a>
+            <a href="{{ url_for('diagnostik.stufenauswertung_export', format='pdf', **export) }}" class="btn btn-outline-primary icon-btn">{{ bi('file-earmark-pdf', 'bi-icon-sm') }} <span>PDF</span></a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if not a.anzahl %}
+<div class="alert alert-info">Für {{ a.verfahren.name }}, {{ halbjahre[a.halbjahr] }} {{ a.schuljahr }}, Jahrgangsstufe {{ a.jahrgang }} sind keine Ergebnisse eingetragen.</div>
+{% else %}
+<div class="table-panel mb-4">
+    <div class="table-toolbar"><div class="table-toolbar-title">Durchschnittswerte</div></div>
+    <div class="table-responsive">
+        <table class="table table-sm mb-0 stufe-tabelle">
+            <thead class="table-light">
+                <tr>
+                    <th>Klasse</th><th class="text-end">Kinder</th>
+                    {% for s in a.spalten %}<th class="text-end" title="{{ s.kennwert }}">{{ s.label }}</th>{% endfor %}
+                    {% for stufe in a.stufen_reihenfolge %}<th class="text-end"><span class="badge text-bg-{{ a.stufen[stufe][1] }}">{{ a.stufen[stufe][0] }}</span></th>{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for z in a.klassen %}
+                <tr>
+                    <td>{{ z.klasse }}</td><td class="text-end">{{ z.anzahl }}</td>
+                    {% for wert in z.durchschnitte %}<td class="text-end">{{ '%.1f'|format(wert) if wert is not none else '–' }}</td>{% endfor %}
+                    {% for stufe in a.stufen_reihenfolge %}<td class="text-end">{{ z.stufen[stufe] }}</td>{% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+            {% if a.klassen|length > 1 %}
+            <tfoot>
+                <tr>
+                    <td>{{ a.gesamt.klasse }}</td><td class="text-end">{{ a.gesamt.anzahl }}</td>
+                    {% for wert in a.gesamt.durchschnitte %}<td class="text-end">{{ '%.1f'|format(wert) if wert is not none else '–' }}</td>{% endfor %}
+                    {% for stufe in a.stufen_reihenfolge %}<td class="text-end">{{ a.gesamt.stufen[stufe] }}</td>{% endfor %}
+                </tr>
+            </tfoot>
+            {% endif %}
+        </table>
+    </div>
+</div>
+
+<form method="POST" id="liste">
+    {{ csrf_input() }}
+    {% for feld in ['verfahren_id', 'schuljahr', 'halbjahr', 'jahrgang'] %}<input type="hidden" name="{{ feld }}" value="{{ request.args.get(feld, '') }}">{% endfor %}
+    <div class="table-panel">
+        <div class="table-toolbar">
+            <div>
+                <div class="table-toolbar-title">Auffällige Kinder ({{ a.liste|length }})</div>
+                <div class="small text-muted">Alle Kinder mit einer Risikostufe (bis PR {{ a.grenzen.get('beobachten', a.grenzen.get('auffaellig', a.grenzen.get('deutlich', '–'))) }}). Die Förderangaben gelten für das Schuljahr {{ a.schuljahr }}.</div>
+            </div>
+            {% if a.liste %}<button type="submit" class="btn btn-sm btn-primary icon-btn">{{ bi('floppy', 'bi-icon-sm') }} <span>Förderangaben speichern</span></button>{% endif %}
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 liste-tabelle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th><th>Klasse</th>
+                        {% for name in a.risikospalten %}<th class="text-center" title="{{ name }}">{{ a.kuerzel(name) }}</th>{% endfor %}
+                        <th>Stufe</th>
+                        {% for feld, kurz, lang in a.foerder_kuerzel %}{% if kurz == 'EF' %}<th class="text-center" title="Förderplan">FP</th>{% endif %}<th class="text-center" title="{{ lang }}">{{ kurz }}</th>{% endfor %}
+                        <th>Schwerpunkt der individuellen Förderung</th><th>Anmerkungen zum Kind</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for z in a.liste %}
+                    {% set kid = z.schueler.id %}
+                    <tr>
+                        <td class="text-nowrap"><input type="hidden" name="kinder" value="{{ kid }}"><a href="{{ url_for('system.schuelerakte', schueler_id=kid) }}#akte-diagnostik">{{ z.schueler.nachname }}, {{ z.schueler.vorname }}</a></td>
+                        <td>{{ z.klasse }}</td>
+                        {% for name, pr, abgeleitet, tendenz in z.werte %}
+                        <td class="text-center text-nowrap {% if z.ausloeser|selectattr('kennwert.name', 'equalto', name)|list %}fw-bold text-danger-emphasis{% endif %}">
+                            {% if pr is not none %}{{ pr }}{% if abgeleitet %}*{% endif %}{% if tendenz %}<span class="tendenz" title="{{ tendenz }}">{{ a.tendenz_zeichen[tendenz] }}</span>{% endif %}{% else %}–{% endif %}
+                        </td>
+                        {% endfor %}
+                        <td><span class="badge text-bg-{{ a.stufen[z.stufe][1] }}">{{ a.stufen[z.stufe][0] }}</span></td>
+                        {% for feld, kurz, lang in a.foerder_kuerzel %}
+                        {% if kurz == 'EF' %}<td class="text-center">{{ 'X' if z.foerderplan else '' }}</td>{% endif %}
+                        <td class="text-center"><input class="form-check-input" type="checkbox" name="{{ feld }}_{{ kid }}" value="1" aria-label="{{ lang }}" {% if z.angaben and z.angaben[feld] %}checked{% endif %}></td>
+                        {% endfor %}
+                        <td><textarea class="form-control form-control-sm" rows="2" name="foerderschwerpunkt_{{ kid }}" aria-label="Schwerpunkt der Förderung">{{ z.angaben.foerderschwerpunkt if z.angaben and z.angaben.foerderschwerpunkt else '' }}</textarea></td>
+                        <td><textarea class="form-control form-control-sm" rows="2" name="anmerkungen_{{ kid }}" aria-label="Anmerkungen zum Kind">{{ z.angaben.anmerkungen if z.angaben and z.angaben.anmerkungen else '' }}</textarea></td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="99" class="text-center text-muted py-4">Kein Kind mit Risikostufe.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <p class="small text-muted mt-2">{{ legende(a) }}</p>
+</form>
+{% endif %}
+{% endif %}
+{% endblock %}

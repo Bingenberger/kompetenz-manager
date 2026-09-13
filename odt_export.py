@@ -302,27 +302,42 @@ _DOC_NAMESPACES = (
     ' xmlns:text="urn:oasis:names:tc:opendocument:xmlns:text:1.0"'
     ' xmlns:table="urn:oasis:names:tc:opendocument:xmlns:table:1.0"'
     ' xmlns:fo="urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0"'
+    ' xmlns:draw="urn:oasis:names:tc:opendocument:xmlns:drawing:1.0"'
+    ' xmlns:svg="urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0"'
+    ' xmlns:xlink="http://www.w3.org/1999/xlink"'
 )
 
 _DOC_STYLES_XML = """<?xml version="1.0" encoding="UTF-8"?>
 <office:document-styles {ns} office:version="1.2">
+ <office:font-face-decls>
+  <style:font-face style:name="Liberation Sans" svg:font-family="'Liberation Sans'" style:font-family-generic="swiss" style:font-pitch="variable"/>
+ </office:font-face-decls>
  <office:styles>
+  <style:default-style style:family="paragraph">
+   <style:text-properties style:font-name="Liberation Sans" fo:font-size="10pt" fo:language="de" fo:country="DE"/>
+  </style:default-style>
   <style:style style:name="Standard" style:family="paragraph">
    <style:text-properties style:font-name="Liberation Sans" fo:font-size="10pt"/>
   </style:style>
  </office:styles>
  <office:automatic-styles>
   <style:page-layout style:name="pm1">
-   <style:page-layout-properties fo:page-width="21cm" fo:page-height="29.7cm"
-     style:print-orientation="portrait" fo:margin-top="2cm" fo:margin-bottom="2cm"
-     fo:margin-left="2cm" fo:margin-right="2cm"/>
+   <style:page-layout-properties fo:page-width="{breite}" fo:page-height="{hoehe}"
+     style:print-orientation="{ausrichtung}" fo:margin-top="{rand}" fo:margin-bottom="{rand}"
+     fo:margin-left="{rand}" fo:margin-right="{rand}"/>
   </style:page-layout>
  </office:automatic-styles>
  <office:master-styles>
   <style:master-page style:name="Standard" style:page-layout-name="pm1"/>
  </office:master-styles>
 </office:document-styles>
-""".format(ns=_DOC_NAMESPACES)
+"""
+
+
+def _doc_styles_xml(querformat=False):
+    if querformat:
+        return _DOC_STYLES_XML.format(ns=_DOC_NAMESPACES, breite="29.7cm", hoehe="21cm", ausrichtung="landscape", rand="1.5cm")
+    return _DOC_STYLES_XML.format(ns=_DOC_NAMESPACES, breite="21cm", hoehe="29.7cm", ausrichtung="portrait", rand="2cm")
 
 _DOC_AUTOMATIC_STYLES = """
   <style:style style:name="Titel" style:family="paragraph">
@@ -351,7 +366,14 @@ _DOC_AUTOMATIC_STYLES = """
    <style:text-properties fo:font-size="1pt"/>
   </style:style>
   <style:style style:name="Tab" style:family="table">
-   <style:table-properties style:width="17cm" table:align="left" fo:margin-bottom="0.3cm"/>
+   <style:table-properties style:width="{tabellenbreite}" table:align="left" fo:margin-bottom="0.3cm"/>
+  </style:style>
+  <style:style style:name="Bildrahmen" style:family="graphic">
+   <style:graphic-properties style:wrap="none" style:vertical-pos="top" style:horizontal-pos="right"
+     style:horizontal-rel="paragraph"/>
+  </style:style>
+  <style:style style:name="Rechts" style:family="paragraph">
+   <style:paragraph-properties fo:text-align="end" fo:margin-bottom="0.1cm"/>
   </style:style>
   <style:style style:name="TabSpalte" style:family="table-column">
    <style:table-column-properties style:use-optimal-column-width="true"/>
@@ -394,14 +416,26 @@ def _doc_cell(value, head=False):
     )
 
 
-def _doc_table(rows, head=None, name="T"):
+def _doc_table(rows, head=None, name="T", breiten=None, gesamtbreite_cm=17.0, spaltenstile=None):
+    """Tabelle; breiten sind relative Spaltenanteile (optional)."""
     if not rows and not head:
         return ""
     spalten = len(head) if head else max(len(row) for row in rows)
     teile = [f'<table:table table:name="{name}" table:style-name="Tab">']
-    teile.append(
-        f'<table:table-column table:style-name="TabSpalte" table:number-columns-repeated="{spalten}"/>'
-    )
+    if breiten and len(breiten) == spalten and spaltenstile is not None:
+        summe = float(sum(breiten)) or 1.0
+        for index, anteil in enumerate(breiten):
+            stil = f"{name}S{index}"
+            spaltenstile.append(
+                f'<style:style style:name="{stil}" style:family="table-column">'
+                f'<style:table-column-properties style:column-width="{gesamtbreite_cm * anteil / summe:.2f}cm"/>'
+                f'</style:style>'
+            )
+            teile.append(f'<table:table-column table:style-name="{stil}"/>')
+    else:
+        teile.append(
+            f'<table:table-column table:style-name="TabSpalte" table:number-columns-repeated="{spalten}"/>'
+        )
     if head:
         teile.append('<table:table-header-rows><table:table-row>')
         teile.extend(_doc_cell(zelle, head=True) for zelle in head)
@@ -416,7 +450,21 @@ def _doc_table(rows, head=None, name="T"):
     return "".join(teile)
 
 
-def build_odt_document(blocks):
+def _doc_image(nummer, block):
+    endung = {"image/png": "png", "image/jpeg": "jpg"}.get(block.get("mime"), "png")
+    pfad = f"Pictures/bild{nummer}.{endung}"
+    breite = float(block.get("width_cm") or 4)
+    hoehe = float(block.get("height_cm") or 3)
+    xml = (
+        f'<text:p text:style-name="Rechts"><draw:frame draw:style-name="Bildrahmen" draw:name="Bild{nummer}"'
+        f' text:anchor-type="as-char" svg:width="{breite:.2f}cm" svg:height="{hoehe:.2f}cm" draw:z-index="0">'
+        f'<draw:image xlink:href="{pfad}" xlink:type="simple" xlink:show="embed" xlink:actuate="onLoad"/>'
+        f'</draw:frame></text:p>'
+    )
+    return xml, pfad, block.get("mime") or "image/png", block["data"]
+
+
+def build_odt_document(blocks, querformat=False):
     """Baut ein ODT aus einer Folge von Bloecken und gibt BytesIO zurueck.
 
     Unterstuetzte Bloecke, jeweils als dict mit 'type':
@@ -424,11 +472,19 @@ def build_odt_document(blocks):
         heading    text, level (1 oder 2)
         paragraph  text, optional style ('Text', 'Klein', 'Titel')
         fields     rows als Liste von (Bezeichnung, Wert)
-        table      head als Liste, rows als Liste von Listen
+        table      head als Liste, rows als Liste von Listen, optional widths
+                   (relative Spaltenbreiten, eine Zahl je Spalte)
         pagebreak  erzwingt eine neue Seite, ohne weitere Angaben
+        image      data (Bytes), mime (image/png|image/jpeg), width_cm, height_cm -
+                   rechtsbündig, etwa für ein Logo
+
+    querformat: DIN A4 quer, etwa für breite Tabellen.
     """
     body = []
     tabellen = 0
+    bilder = []
+    spaltenstile = []
+    tabellenbreite = 26.7 if querformat else 17.0
 
     for block in blocks or []:
         art = block.get("type")
@@ -446,16 +502,22 @@ def build_odt_document(blocks):
             tabellen += 1
             body.append(_doc_table(
                 block.get("rows") or [], head=block.get("head"), name=f"T{tabellen}",
+                breiten=block.get("widths"), gesamtbreite_cm=tabellenbreite, spaltenstile=spaltenstile,
             ))
         elif art == "pagebreak":
             body.append('<text:p text:style-name="Seitenumbruch"/>')
+        elif art == "image":
+            xml, pfad, mime, daten = _doc_image(len(bilder) + 1, block)
+            body.append(xml)
+            bilder.append((pfad, mime, daten))
         else:
             raise ValueError(f"Unbekannter Blocktyp: {art!r}")
 
+    stile = _DOC_AUTOMATIC_STYLES.replace("{tabellenbreite}", f"{tabellenbreite}cm") + "".join(spaltenstile)
     content = (
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         f'<office:document-content {_DOC_NAMESPACES} office:version="1.2">'
-        f'<office:automatic-styles>{_DOC_AUTOMATIC_STYLES}</office:automatic-styles>'
+        f'<office:automatic-styles>{stile}</office:automatic-styles>'
         f'<office:body><office:text>{"".join(body)}</office:text></office:body>'
         '</office:document-content>'
     )
@@ -468,7 +530,8 @@ def build_odt_document(blocks):
         f'<manifest:file-entry manifest:full-path="/" manifest:media-type="{ODT_MIMETYPE}"/>'
         '<manifest:file-entry manifest:full-path="content.xml" manifest:media-type="text/xml"/>'
         '<manifest:file-entry manifest:full-path="styles.xml" manifest:media-type="text/xml"/>'
-        '</manifest:manifest>'
+        + ''.join(f'<manifest:file-entry manifest:full-path="{pfad}" manifest:media-type="{mime}"/>' for pfad, mime, _ in bilder)
+        + '</manifest:manifest>'
     )
 
     output = BytesIO()
@@ -479,8 +542,10 @@ def build_odt_document(blocks):
             zipfile.ZipInfo("mimetype"), ODT_MIMETYPE, compress_type=zipfile.ZIP_STORED,
         )
         dst.writestr("META-INF/manifest.xml", manifest, compress_type=zipfile.ZIP_DEFLATED)
-        dst.writestr("styles.xml", _DOC_STYLES_XML, compress_type=zipfile.ZIP_DEFLATED)
+        dst.writestr("styles.xml", _doc_styles_xml(querformat), compress_type=zipfile.ZIP_DEFLATED)
         dst.writestr("content.xml", content, compress_type=zipfile.ZIP_DEFLATED)
+        for pfad, _, daten in bilder:
+            dst.writestr(pfad, daten, compress_type=zipfile.ZIP_STORED)
 
     output.seek(0)
     return output

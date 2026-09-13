@@ -12,6 +12,7 @@
         {% if klasse %}
         <a href="{{ url_for('diagnostik.erfassen', klasse=klasse) }}" class="btn btn-primary icon-btn">{{ bi('clipboard-data', 'bi-icon-sm') }} <span>Ergebnisse eintragen</span></a>
         <a href="{{ url_for('diagnostik.importieren', klasse=klasse) }}" class="btn btn-outline-primary icon-btn">{{ bi('upload', 'bi-icon-sm') }} <span>Import</span></a>
+        <a href="{{ url_for('diagnostik.stufenauswertung') }}" class="btn btn-outline-primary icon-btn">{{ bi('file-earmark-text', 'bi-icon-sm') }} <span>Stufenauswertung</span></a>
         {% endif %}
         <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span></a>
     </div>
