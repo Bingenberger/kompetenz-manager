@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Diagnostik</span>
+        <h2 class="h4 mt-2 mb-1">Ergebnisse eintragen</h2>
+        <p class="text-muted mb-0">
+            {% if einzelkind %}Für {{ einzelkind.vorname }} {{ einzelkind.nachname }} ({{ einzelkind.klasse }}).
+            {% else %}Klasse und Test wählen – dann alle Kinder in einer Tabelle eintragen.{% endif %}
+        </p>
+    </div>
+    <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span></a>
+</div>
+
+{% if not klassen and not einzelkind %}
+<div class="alert alert-info">Ihnen ist keine Klasse zugeordnet.</div>
+{% else %}
+<form method="GET" class="surface-panel p-4">
+    {% if einzelkind %}<input type="hidden" name="schueler_id" value="{{ einzelkind.id }}">{% endif %}
+    <div class="row g-3 align-items-end">
+        {% if not einzelkind %}
+        <div class="col-md-3">
+            <label class="form-label" for="d-klasse">Klasse</label>
+            <select name="klasse" id="d-klasse" class="form-select" onchange="this.form.submit()" required>
+                <option value="">Bitte wählen …</option>
+                {% for k in klassen %}<option value="{{ k }}" {% if k == klasse %}selected{% endif %}>{{ k }}</option>{% endfor %}
+            </select>
+        </div>
+        {% endif %}
+        <div class="col-md-3">
+            <label class="form-label" for="d-testform">Test</label>
+            <select name="testform_id" id="d-testform" class="form-select" required>
+                <option value="">Bitte wählen …</option>
+                {% set verfahren_namen = [] %}
+                {% for t in testformen %}
+                <option value="{{ t.id }}">{{ t.name }}{% if t.name != t.verfahren.name %} ({{ t.verfahren.name }}){% endif %}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" for="d-schuljahr">Schuljahr</label>
+            <select name="schuljahr" id="d-schuljahr" class="form-select">
+                {% for j in schuljahre %}<option value="{{ j }}" {% if j == schuljahr %}selected{% endif %}>{{ j }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" for="d-halbjahr">Zeitpunkt</label>
+            <select name="halbjahr" id="d-halbjahr" class="form-select">
+                {% for key, label in halbjahre.items() %}<option value="{{ key }}" {% if key == halbjahr %}selected{% endif %}>{{ label }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('table', 'bi-icon-sm') }} <span>Weiter</span></button>
+        </div>
+    </div>
+
+    {% if vorschlaege %}
+    <div class="mt-4">
+        <div class="small text-muted mb-2">Laut Testplan für {{ einzelkind.vorname if einzelkind else 'Klasse ' ~ klasse }}:</div>
+        <div class="d-flex flex-wrap gap-2">
+            {% for z in vorschlaege %}
+            {% set ziel = {'testform_id': z.testform.id, 'schuljahr': schuljahr, 'halbjahr': z.halbjahr} %}
+            {% if einzelkind %}{% set _ = ziel.update({'schueler_id': einzelkind.id}) %}{% else %}{% set _ = ziel.update({'klasse': klasse}) %}{% endif %}
+            <a href="{{ url_for('diagnostik.erfassen', **ziel) }}" class="btn btn-sm {% if z.halbjahr == halbjahr %}btn-outline-primary{% else %}btn-outline-secondary{% endif %}">
+                {{ z.testform.name }} · {{ z.label }}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% elif klasse %}
+    <p class="small text-muted mt-3 mb-0">Für die Jahrgänge dieser Klasse ist kein Test geplant{% if not einzelkind %} – oder der Klasse ist noch kein Jahrgang zugeordnet{% endif %}. Jeder aktive Test lässt sich trotzdem wählen.</p>
+    {% endif %}
+</form>
+{% endif %}
+{% endblock %}

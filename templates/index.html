@@ -403,6 +403,19 @@
                 </div>
             </div>
 
+            <div class="stack-card fade-in fade-in-delay-2" style="border-color: rgba(87,117,144,0.22);">
+                <div class="stack-head" style="background: linear-gradient(90deg, rgba(87,117,144,0.12), rgba(77,144,142,0.08)); border-radius: 16px 16px 0 0;">
+                    <span class="section-label">Diagnostik</span>
+                    <h3 class="mt-2 mb-0">HSP, Lesescreening & Co.</h3>
+                </div>
+                <div class="stack-body d-grid gap-3" id="diagnostik-karte">
+                    <p class="text-muted mb-0">Ergebnisse standardisierter Tests eintragen und Risikokinder über die Schuljahre im Blick behalten.</p>
+                    <a href="{{ url_for('diagnostik.erfassen') }}" class="btn btn-outline-secondary btn-lg w-100 icon-btn justify-content-center">
+                        {{ bi('clipboard-data', 'bi-icon') }} <span>Ergebnisse eintragen</span>
+                    </a>
+                </div>
+            </div>
+
             <div class="stack-card fade-in fade-in-delay-3">
                 <div class="stack-head">
                     <span class="section-label">Schülerakte</span>

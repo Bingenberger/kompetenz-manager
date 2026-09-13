@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .diagnostik-raster th, .diagnostik-raster td { vertical-align: middle; }
+    .diagnostik-raster .kind-spalte { position: sticky; left: 0; background: #fff; z-index: 2; min-width: 11rem; }
+    .diagnostik-raster thead .kind-spalte { background: var(--bs-table-bg, #f8f9fa); }
+    .diagnostik-raster input[type=number] { width: 4.6rem; padding-left: .35rem; padding-right: .35rem; }
+    .diagnostik-raster .gruppe-start { border-left: 2px solid rgba(87,117,144,0.2); }
+    .diagnostik-raster tr.nicht-geplant .kind-spalte { color: var(--bs-secondary-color); }
+</style>
+
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Diagnostik · {{ testform.verfahren.name }}</span>
+        <h2 class="h4 mt-2 mb-1">{{ testform.name }} – {{ halbjahre[halbjahr] }} {{ schuljahr }}</h2>
+        <p class="text-muted mb-0">
+            {% if einzelkind %}{{ einzelkind.vorname }} {{ einzelkind.nachname }} ({{ einzelkind.klasse }}){% else %}Klasse {{ klasse }} · {{ kinder|length }} Kinder{% endif %}.
+            Werte aus dem Auswertungsbogen eintragen; leere Felder bleiben leer. Eine ganz geleerte Zeile entfernt ein vorhandenes Ergebnis.
+        </p>
+    </div>
+    <div class="toolbar-actions">
+        {% set zurueck = {'schueler_id': einzelkind.id} if einzelkind else {'klasse': klasse} %}
+        <a href="{{ url_for('diagnostik.erfassen', schuljahr=schuljahr, halbjahr=halbjahr, **zurueck) }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Anderer Test</span></a>
+    </div>
+</div>
+
+<form method="POST">
+    {{ csrf_input() }}
+    <input type="hidden" name="testform_id" value="{{ testform.id }}">
+    <input type="hidden" name="schuljahr" value="{{ schuljahr }}">
+    <input type="hidden" name="halbjahr" value="{{ halbjahr }}">
+    {% if einzelkind %}<input type="hidden" name="schueler_id" value="{{ einzelkind.id }}">{% else %}<input type="hidden" name="klasse" value="{{ klasse }}">{% endif %}
+
+    <div class="surface-panel p-3 mb-3 d-flex flex-wrap align-items-end gap-3">
+        <div>
+            <label class="form-label mb-1" for="d-datum">Testdatum</label>
+            <input type="date" name="datum" id="d-datum" class="form-control" value="{{ datum.isoformat() if datum else '' }}" required>
+        </div>
+        <div class="small text-muted">
+            Zulässig: RW ab 0 · PR 0–100 · T 10–90 · LQ 40–160.
+            Fehlt der Prozentrang, wird er aus T-Wert oder LQ abgeleitet.
+        </div>
+    </div>
+
+    <div class="table-panel">
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 diagnostik-raster">
+                <thead class="table-light">
+                    <tr>
+                        <th rowspan="2" class="kind-spalte">Kind</th>
+                        <th rowspan="2" class="text-center">Stufe</th>
+                        {% for k in kennwerte %}
+                        <th colspan="{{ k.wertarten|length }}" class="text-center gruppe-start {% if k.leitwert %}fw-bold{% else %}fw-normal{% endif %}">{{ k.name }}</th>
+                        {% endfor %}
+                        <th rowspan="2" class="gruppe-start">Bemerkung</th>
+                    </tr>
+                    <tr>
+                        {% for k in kennwerte %}
+                        {% for art in k.wertarten %}
+                        <th class="text-center small {% if loop.first %}gruppe-start{% endif %}" title="{{ wertarten[art][0] }}">{{ wertarten[art][1] }}</th>
+                        {% endfor %}
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for kind in kinder %}
+                    {% set jg = effective_jahrgang(kind) %}
+                    <tr class="{% if geplante_jahrgaenge and jg not in geplante_jahrgaenge %}nicht-geplant{% endif %}">
+                        <td class="kind-spalte">
+                            <div class="fw-semibold">{{ kind.nachname }}, {{ kind.vorname }}</div>
+                            <div class="small text-muted">{% if jg %}Jg. {{ jg }}{% endif %}{% if geplante_jahrgaenge and jg not in geplante_jahrgaenge %} · laut Plan nicht vorgesehen{% endif %}</div>
+                        </td>
+                        <td class="text-center">
+                            {% set a = auswertungen.get(kind.id) %}
+                            {% if a and a.stufe %}
+                            <span class="badge text-bg-{{ stufen[a.stufe][1] }}" title="niedrigster PR {{ a.niedrigster_prozentrang }}">{{ stufen[a.stufe][0] }}</span>
+                            {% elif a and a.leitwerte %}
+                            <span class="small text-muted">PR {{ a.niedrigster_prozentrang }}</span>
+                            {% endif %}
+                        </td>
+                        {% for k in kennwerte %}
+                        {% for art in k.wertarten %}
+                        {% set feld = 'w_' ~ kind.id ~ '_' ~ k.id ~ '_' ~ art %}
+                        <td class="text-center {% if loop.first %}gruppe-start{% endif %}">
+                            <input type="number" inputmode="numeric" name="{{ feld }}" value="{{ eingaben.get(feld, '') }}"
+                                   min="{{ wertarten[art][2] }}" max="{{ wertarten[art][3] }}"
+                                   class="form-control form-control-sm text-center {% if feld in fehler %}is-invalid{% endif %}"
+                                   aria-label="{{ kind.vorname }} {{ kind.nachname }}: {{ k.name }} {{ wertarten[art][0] }}">
+                        </td>
+                        {% endfor %}
+                        {% endfor %}
+                        <td class="gruppe-start">
+                            <input type="text" name="bemerkung_{{ kind.id }}" value="{{ eingaben.get('bemerkung_' ~ kind.id, '') }}" class="form-control form-control-sm" style="min-width: 9rem;" aria-label="Bemerkung zu {{ kind.vorname }}">
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="99" class="text-center text-muted py-4">Keine aktiven Kinder in dieser Klasse.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
+        <button type="submit" class="btn btn-primary icon-btn">{{ bi('floppy', 'bi-icon-sm') }} <span>Ergebnisse speichern</span></button>
+        <span class="small text-muted">Fett: Leitwerte, die für Risikostufe und Verlauf zählen.</span>
+    </div>
+</form>
+{% endblock %}

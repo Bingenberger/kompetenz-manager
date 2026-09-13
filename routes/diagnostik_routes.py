@@ -1,12 +1,28 @@
 """Standardisierte Diagnostik: Katalog (Verwaltung), Eingabe und Auswertung."""
 
-from flask import Blueprint, flash, redirect, render_template, request, url_for
+from datetime import date, datetime
+
+from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
 
 from authz import admin_required
 from db_utils import get_or_404_session
-from diagnostik import HALBJAHRE, STUFEN, WERTARTEN, risikogrenzen
+from diagnostik import (
+    HALBJAHRE,
+    STUFEN,
+    WERTART_BEREICH,
+    WERTARTEN,
+    aktuelles_halbjahr,
+    auswerten,
+    risikogrenzen,
+    zeitlabel,
+    zeitpunkte_fuer,
+)
 from extensions import db
-from jahrgang import JAHRGAENGE
+from jahrgang import JAHRGAENGE, klassen_jahrgaenge
+from school_year import normalize_school_year
+from student_selection import get_distinct_klassen, get_user_klassenkontext
+from transition_plan import effective_jahrgang
 from models import (
     DiagnostikErgebnis,
     DiagnostikKennwert,
@@ -14,6 +30,7 @@ from models import (
     DiagnostikVerfahren,
     DiagnostikWert,
     DiagnostikZeitpunkt,
+    Schueler,
     SystemKonfiguration,
 )
 
@@ -300,6 +317,252 @@ def admin_testform_loeschen(testform_id):
     db.session.commit()
     flash(f'Testform „{name}“ gelöscht.')
     return redirect(url_for('diagnostik.admin_verfahren', verfahren_id=verfahren_id))
+
+
+# ----------------------------------------------------------------------
+# Eingabe für Lehrkräfte
+# ----------------------------------------------------------------------
+
+def zugaengliche_klassen(user):
+    """Klassen, deren Ergebnisse eine Lehrkraft eintragen und sehen darf."""
+    if user.is_admin:
+        return get_distinct_klassen()
+    kontext = get_user_klassenkontext(user)
+    klassen = set(kontext.get('fachklassen') or set())
+    if kontext.get('klassenleitung'):
+        klassen.add(kontext['klassenleitung'])
+    return sorted(klassen, key=str.lower)
+
+
+def darf_kind_sehen(user, schueler):
+    if not schueler:
+        return False
+    if user.is_admin:
+        return True
+    return bool(schueler.klasse) and schueler.klasse in zugaengliche_klassen(user)
+
+
+def _aktive_testformen():
+    return (
+        DiagnostikTestform.query
+        .join(DiagnostikVerfahren)
+        .filter(DiagnostikTestform.is_active.is_(True), DiagnostikVerfahren.is_active.is_(True))
+        .order_by(DiagnostikVerfahren.sort_order, DiagnostikTestform.sort_order)
+        .all()
+    )
+
+
+def _schuljahr_auswahl(aktuell):
+    """Aktuelles und vorheriges Schuljahr - für Nachträge."""
+    jahre = []
+    if aktuell:
+        beginn = int(aktuell[:4])
+        jahre = [aktuell, f'{beginn - 1}/{beginn}']
+    return jahre
+
+
+def _parse_datum(raw):
+    try:
+        return datetime.strptime((raw or '').strip(), '%Y-%m-%d').date()
+    except ValueError:
+        return None
+
+
+@diagnostik_bp.route('/diagnostik/erfassen', methods=['GET', 'POST'])
+@login_required
+def erfassen():
+    config = SystemKonfiguration.query.first()
+    schuljahr_aktuell = config.schuljahr if config and config.schuljahr else None
+    klassen = zugaengliche_klassen(current_user)
+
+    klasse = (request.values.get('klasse') or '').strip()
+    schueler_id = (request.values.get('schueler_id') or '').strip()
+    einzelkind = None
+    if schueler_id.isdigit():
+        einzelkind = get_or_404_session(Schueler, int(schueler_id))
+        if not darf_kind_sehen(current_user, einzelkind):
+            abort(403)
+        klasse = einzelkind.klasse or ''
+    elif klasse and klasse not in klassen:
+        abort(403)
+
+    testform = None
+    testform_id = (request.values.get('testform_id') or '').strip()
+    if testform_id.isdigit():
+        testform = get_or_404_session(DiagnostikTestform, int(testform_id))
+
+    schuljahr = normalize_school_year(request.values.get('schuljahr')) or schuljahr_aktuell
+    halbjahr = request.values.get('halbjahr') if request.values.get('halbjahr') in HALBJAHRE else aktuelles_halbjahr()
+
+    # Schritt 1: Klasse und Test wählen
+    if not testform or not (klasse or einzelkind) or not schuljahr:
+        if not schuljahr_aktuell:
+            flash('Bitte zuerst in der Verwaltung das aktuelle Schuljahr festlegen.')
+        if einzelkind:
+            jahrgaenge_der_klasse = [j for j in [effective_jahrgang(einzelkind)] if j]
+        else:
+            jahrgaenge_der_klasse = klassen_jahrgaenge(klasse) if klasse else []
+        vorschlaege = []
+        for jahrgang in jahrgaenge_der_klasse:
+            vorschlaege.extend(zeitpunkte_fuer(jahrgang))
+        return render_template(
+            'diagnostik_auswahl.html',
+            klassen=klassen,
+            klasse=klasse,
+            einzelkind=einzelkind,
+            testformen=_aktive_testformen(),
+            vorschlaege=vorschlaege,
+            schuljahre=_schuljahr_auswahl(schuljahr_aktuell),
+            schuljahr=schuljahr,
+            halbjahre=HALBJAHRE,
+            halbjahr=halbjahr,
+        )
+
+    # Schritt 2: Tabelle
+    if einzelkind:
+        kinder = [einzelkind]
+    else:
+        kinder = (
+            Schueler.query
+            .filter(Schueler.klasse == klasse, Schueler.is_active.is_(True))
+            .order_by(Schueler.nachname, Schueler.vorname)
+            .all()
+        )
+    vorhanden = {
+        ergebnis.schueler_id: ergebnis
+        for ergebnis in DiagnostikErgebnis.query.filter(
+            DiagnostikErgebnis.testform_id == testform.id,
+            DiagnostikErgebnis.schuljahr == schuljahr,
+            DiagnostikErgebnis.halbjahr == halbjahr,
+            DiagnostikErgebnis.schueler_id.in_([k.id for k in kinder] or [0]),
+        ).all()
+    }
+    kennwerte = testform.kennwerte
+    datum = _parse_datum(request.form.get('datum')) if request.method == 'POST' else None
+    eingaben = {}
+    fehler = set()
+
+    if request.method == 'POST':
+        zeilen = []
+        for kind in kinder:
+            werte = {}
+            for kennwert in kennwerte:
+                for art in kennwert.wertarten:
+                    feld = f'w_{kind.id}_{kennwert.id}_{art}'
+                    roh = (request.form.get(feld) or '').strip()
+                    eingaben[feld] = roh
+                    minimum, maximum = WERTART_BEREICH[art]
+                    zahl, gueltig = _int_oder_none(roh, minimum, maximum)
+                    if not gueltig:
+                        fehler.add(feld)
+                    elif zahl is not None:
+                        werte[(kennwert.id, art)] = zahl
+            bemerkung = (request.form.get(f'bemerkung_{kind.id}') or '').strip()
+            eingaben[f'bemerkung_{kind.id}'] = bemerkung
+            zeilen.append((kind, werte, bemerkung))
+
+        if fehler:
+            flash(f'{len(fehler)} Eingabe(n) liegen außerhalb des zulässigen Bereichs und sind markiert. Es wurde nichts gespeichert.')
+        elif not datum:
+            flash('Bitte das Testdatum angeben.')
+        else:
+            gespeichert = entfernt = 0
+            for kind, werte, bemerkung in zeilen:
+                ergebnis = vorhanden.get(kind.id)
+                if not werte:
+                    if ergebnis:
+                        db.session.delete(ergebnis)
+                        entfernt += 1
+                    continue
+                if not ergebnis:
+                    ergebnis = DiagnostikErgebnis(
+                        schueler_id=kind.id, testform_id=testform.id,
+                        schuljahr=schuljahr, halbjahr=halbjahr,
+                    )
+                    db.session.add(ergebnis)
+                ergebnis.datum = datum
+                ergebnis.jahrgang = effective_jahrgang(kind)
+                ergebnis.bemerkung = bemerkung or None
+                ergebnis.erfasst_von_user_id = current_user.id
+                for kennwert in kennwerte:
+                    wert = ergebnis.wert_fuer(kennwert.id) if ergebnis.id else None
+                    neue = {art: werte.get((kennwert.id, art)) for art in kennwert.wertarten}
+                    if not any(v is not None for v in neue.values()):
+                        if wert:
+                            ergebnis.werte.remove(wert)
+                        continue
+                    if not wert:
+                        wert = DiagnostikWert(kennwert_id=kennwert.id)
+                        ergebnis.werte.append(wert)
+                    for art in ('rohwert', 'prozentrang', 't_wert', 'lesequotient'):
+                        setattr(wert, art, neue.get(art))
+                gespeichert += 1
+            db.session.commit()
+            teile = [f'{gespeichert} Ergebnis(se) gespeichert']
+            if entfernt:
+                teile.append(f'{entfernt} geleert und entfernt')
+            flash(f'{testform.name}, {zeitlabel(schuljahr, halbjahr)}: ' + ', '.join(teile) + '.')
+            ziel = {'testform_id': testform.id, 'schuljahr': schuljahr, 'halbjahr': halbjahr}
+            if einzelkind:
+                ziel['schueler_id'] = einzelkind.id
+            else:
+                ziel['klasse'] = klasse
+            return redirect(url_for('diagnostik.erfassen', **ziel))
+
+    if request.method == 'GET':
+        for kind in kinder:
+            ergebnis = vorhanden.get(kind.id)
+            if not ergebnis:
+                continue
+            datum = datum or ergebnis.datum
+            eingaben[f'bemerkung_{kind.id}'] = ergebnis.bemerkung or ''
+            for wert in ergebnis.werte:
+                for art in ('rohwert', 'prozentrang', 't_wert', 'lesequotient'):
+                    if getattr(wert, art) is not None:
+                        eingaben[f'w_{kind.id}_{wert.kennwert_id}_{art}'] = getattr(wert, art)
+
+    grenzen = risikogrenzen(config)
+    stufen_je_kind = {
+        kind_id: auswerten(ergebnis, grenzen) for kind_id, ergebnis in vorhanden.items()
+    } if request.method == 'GET' else {}
+    geplante_jahrgaenge = {z.jahrgang for z in testform.zeitpunkte if z.halbjahr == halbjahr}
+    return render_template(
+        'diagnostik_erfassen.html',
+        testform=testform,
+        kennwerte=kennwerte,
+        kinder=kinder,
+        klasse=klasse,
+        einzelkind=einzelkind,
+        schuljahr=schuljahr,
+        halbjahr=halbjahr,
+        halbjahre=HALBJAHRE,
+        datum=datum or date.today(),
+        eingaben=eingaben,
+        fehler=fehler,
+        vorhanden=vorhanden,
+        auswertungen=stufen_je_kind,
+        stufen=STUFEN,
+        wertarten={schluessel: (label, kuerzel, minimum, maximum) for schluessel, label, kuerzel, minimum, maximum in WERTARTEN},
+        geplante_jahrgaenge=geplante_jahrgaenge,
+        effective_jahrgang=effective_jahrgang,
+    )
+
+
+@diagnostik_bp.route('/diagnostik/ergebnis/<int:ergebnis_id>/loeschen', methods=['POST'])
+@login_required
+def ergebnis_loeschen(ergebnis_id):
+    ergebnis = get_or_404_session(DiagnostikErgebnis, ergebnis_id)
+    if not darf_kind_sehen(current_user, ergebnis.schueler):
+        abort(403)
+    schueler_id = ergebnis.schueler_id
+    beschreibung = f'{ergebnis.testform.name}, {zeitlabel(ergebnis.schuljahr, ergebnis.halbjahr)}'
+    db.session.delete(ergebnis)
+    db.session.commit()
+    flash(f'Ergebnis {beschreibung} gelöscht.')
+    ziel = (request.form.get('next') or '').strip()
+    if ziel.startswith('/') and not ziel.startswith('//'):
+        return redirect(ziel)
+    return redirect(url_for('system.schuelerakte', schueler_id=schueler_id))
 
 
 def register_diagnostik_routes(app):
