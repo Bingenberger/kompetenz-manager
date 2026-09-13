@@ -140,7 +140,7 @@
                                         {{ bi('search', 'bi-icon') }} <span>Öffnen</span>
                                     </button>
                                     {% if selected_s_id %}
-                                    <a href="{{ url_for('system.schuelerakte', tab='dropdown') }}" class="btn btn-outline-secondary icon-btn">
+                                    <a href="{{ url_for('system.schuelerakte', tab='dropdown', schueler_id='') }}" class="btn btn-outline-secondary icon-btn">
                                         {{ bi('x-circle', 'bi-icon') }} <span>Zurücksetzen</span>
                                     </a>
                                     {% endif %}

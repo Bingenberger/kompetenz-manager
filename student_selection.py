@@ -1,4 +1,32 @@
+from flask import has_request_context, request, session
+
 from models import Schueler, UserKlassenzuordnung
+
+# Das zuletzt gewaehlte Kind bleibt beim Wechsel zwischen Akte, Erfassen und
+# Elternkontakten gewaehlt. Gemerkt wird in der Sitzung, nicht in der Datenbank.
+KIND_SESSION_KEY = 'aktuelles_kind_id'
+
+
+def merke_kind(schueler):
+    if has_request_context() and schueler is not None:
+        session[KIND_SESSION_KEY] = schueler.id
+
+
+def vergiss_kind():
+    if has_request_context():
+        session.pop(KIND_SESSION_KEY, None)
+
+
+def gemerktes_kind_id():
+    if not has_request_context():
+        return None
+    wert = session.get(KIND_SESSION_KEY)
+    return int(wert) if isinstance(wert, int) or (isinstance(wert, str) and wert.isdigit()) else None
+
+
+def _kind_ausdruecklich_abgewaehlt():
+    """True, wenn die Anfrage schueler_id leer mitschickt ("Kind wechseln")."""
+    return has_request_context() and 'schueler_id' in request.values and not (request.values.get('schueler_id') or '').strip()
 
 
 def get_user_klassenkontext(user):
@@ -179,6 +207,17 @@ def get_tabbed_student_selection_for_user(user, selected_s_id=None, requested_ta
 
     selected_student = None
     selected_s_id = (selected_s_id or "").strip()
+    if not selected_s_id:
+        if _kind_ausdruecklich_abgewaehlt():
+            vergiss_kind()
+        elif gemerktes_kind_id() is not None:
+            # Kein Kind angefragt: das zuletzt gewaehlte vorschlagen, sofern es
+            # in der Auswahl vorkommt.
+            erinnert = next((s for s in students if s.id == gemerktes_kind_id()), None)
+            if erinnert is not None:
+                selected_s_id = str(erinnert.id)
+            else:
+                vergiss_kind()
     if selected_s_id:
         try:
             s_id_int = int(selected_s_id)
@@ -204,6 +243,9 @@ def get_tabbed_student_selection_for_user(user, selected_s_id=None, requested_ta
         if selected_student and selected_student.id not in allowed_ids:
             selected_student = None
             selected_s_id = ""
+
+    if selected_student is not None and selected_s_id:
+        merke_kind(selected_student)
 
     if auto_select_first and not selected_student:
         if active_tab_def and active_tab_def["kind"] in {"class", "archive"} and active_tab_def["students"]:

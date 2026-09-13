@@ -86,7 +86,7 @@
                         <div class="col-md-4 d-flex gap-2">
                             <button type="submit" class="btn btn-primary icon-btn">{{ bi('search', 'bi-icon') }} <span>Anzeigen</span></button>
                             {% if selected_s_id %}
-                            <a href="{{ url_for('erfassung.elternkontakte_start', tab='dropdown') }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Zurücksetzen</span></a>
+                            <a href="{{ url_for('erfassung.elternkontakte_start', tab='dropdown', schueler_id='') }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Zurücksetzen</span></a>
                             {% endif %}
                         </div>
                     </form>

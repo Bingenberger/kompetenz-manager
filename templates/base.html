@@ -85,6 +85,26 @@
             font-weight: 700;
         }
         .nav-search { width: clamp(9rem, 22vw, 16rem); }
+        .kind-chip {
+            display: inline-flex;
+            align-items: stretch;
+            border-radius: 999px;
+            background: rgba(255,255,255,0.94);
+            color: #1f5f7a;
+            font-size: .85rem;
+            font-weight: 700;
+            overflow: hidden;
+        }
+        .kind-chip a {
+            display: inline-flex; align-items: center; gap: .35rem;
+            padding: .3rem .2rem .3rem .7rem; color: inherit; text-decoration: none;
+        }
+        .kind-chip small { color: #5f7387; font-weight: 600; margin-left: .1rem; }
+        .kind-chip button {
+            border: 0; background: transparent; color: #5f7387; font-size: 1.05rem; line-height: 1;
+            padding: 0 .6rem 0 .4rem; cursor: pointer;
+        }
+        .kind-chip button:hover { color: #b3372f; }
         .nav-search .form-control {
             border-color: rgba(255,255,255,0.45);
         }
@@ -856,6 +876,16 @@
 
  {% if current_user.is_authenticated %}
     <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
+        {% if aktuelles_kind %}
+        <span class="kind-chip" title="Zuletzt gewähltes Kind – wird auf den Seiten vorbelegt">
+            <a href="{{ url_for('system.schuelerakte', schueler_id=aktuelles_kind.id) }}">{{ bi('person', 'bi-icon-sm') }} <span>{{ aktuelles_kind.vorname }} {{ aktuelles_kind.nachname }}</span><small>{{ aktuelles_kind.klasse }}</small></a>
+            <form method="POST" action="{{ url_for('system.kind_abwaehlen') }}" class="m-0">
+                {{ csrf_input() }}
+                <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                <button type="submit" title="Kind abwählen" aria-label="{{ aktuelles_kind.vorname }} {{ aktuelles_kind.nachname }} abwählen">×</button>
+            </form>
+        </span>
+        {% endif %}
         <form method="GET" action="{{ url_for('system.suche') }}" class="m-0 nav-search" role="search">
             <div class="input-group input-group-sm">
                 <input type="search" class="form-control" name="q" id="nav-suche"

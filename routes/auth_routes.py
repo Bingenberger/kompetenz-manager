@@ -11,6 +11,7 @@ from csrf_protection import clear_csrf_token, rotate_csrf_token
 from extensions import db
 from mail_versand import mail_konfiguration
 from models import AuthRateLimit, BenachrichtigungAbbestellt, User, UserKlassenzuordnung
+from student_selection import vergiss_kind
 from time_utils import utc_now
 
 auth_bp = Blueprint('auth', __name__)
@@ -156,6 +157,7 @@ def login():
 def logout():
     logout_user()
     clear_csrf_token()
+    vergiss_kind()
     flash('Erfolgreich ausgeloggt.')
     return redirect(url_for('auth.login'))
 

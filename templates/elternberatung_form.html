@@ -104,7 +104,7 @@
                         <div class="col-md-4 d-flex gap-2">
                             <button type="submit" class="btn btn-primary icon-btn">{{ bi('search', 'bi-icon') }} <span>Anzeigen</span></button>
                             {% if selected_s_id %}
-                            <a href="{{ url_for('erfassung.elternberatung', tab='dropdown', next=next_url if next_url else None) }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Zurücksetzen</span></a>
+                            <a href="{{ url_for('erfassung.elternberatung', tab='dropdown', schueler_id='', next=next_url if next_url else None) }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Zurücksetzen</span></a>
                             {% endif %}
                         </div>
                     </form>

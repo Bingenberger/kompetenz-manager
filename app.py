@@ -15,8 +15,9 @@ from db_health_checks import (
     warn_if_user_name_columns_missing,
 )
 from extensions import db, login_manager
-from models import Notification, User
+from models import Notification, Schueler, User
 from navigation import navigation
+from student_selection import gemerktes_kind_id
 from routes.admin_routes import register_admin_routes
 from routes.diagnostik_routes import register_diagnostik_routes
 from routes.auth_routes import register_auth_routes
@@ -126,8 +127,10 @@ def create_app(config_overrides=None):
     @app.context_processor
     def inject_navigation():
         if not getattr(current_user, 'is_authenticated', False):
-            return {'nav': None}
-        return {'nav': navigation()}
+            return {'nav': None, 'aktuelles_kind': None}
+        kind_id = gemerktes_kind_id()
+        kind = db.session.get(Schueler, kind_id) if kind_id else None
+        return {'nav': navigation(), 'aktuelles_kind': kind if kind and kind.is_active else None}
 
     @app.context_processor
     def inject_notification_data():

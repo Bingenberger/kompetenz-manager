@@ -102,7 +102,7 @@
                     <div class="small text-muted">1. Kind</div>
                     <div class="fw-semibold">{{ selected_student.vorname }} {{ selected_student.nachname }} ({{ selected_student.klasse or '-' }})</div>
                 </div>
-                <a class="btn btn-sm btn-outline-secondary icon-btn" href="{{ url_for('erfassung.erfassen_einzel', tab=active_tab, next=next_url if next_url else None) }}">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Kind wechseln</span></a>
+                <a class="btn btn-sm btn-outline-secondary icon-btn" href="{{ url_for('erfassung.erfassen_einzel', tab=active_tab, schueler_id='', next=next_url if next_url else None) }}">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Kind wechseln</span></a>
             </div>
         </div>
 

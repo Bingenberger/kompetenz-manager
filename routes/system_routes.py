@@ -19,6 +19,7 @@ from search import search as run_search
 from jahrgang import ensure_klasse, resolve_student_jahrgang
 from student_record import collect_record, filename_stem, record_blocks
 from student_selection import (
+    vergiss_kind,
     get_grouped_student_choices_for_user,
     get_prioritized_students_for_user,
     get_tabbed_student_selection_for_user,
@@ -1086,6 +1087,16 @@ def media_erziehung_attachment(attachment_id):
         download_name=attachment.original_name or attachment.file_path.rsplit('/', 1)[-1],
         mimetype=attachment.mime_type or None,
     )
+
+
+@system_bp.route('/kind/abwaehlen', methods=['POST'])
+@login_required
+def kind_abwaehlen():
+    vergiss_kind()
+    ziel = (request.form.get('next') or '').strip()
+    if ziel.startswith('/') and not ziel.startswith('//'):
+        return redirect(ziel)
+    return redirect(url_for('system.index'))
 
 
 @system_bp.route('/benachrichtigungen/<int:notification_id>/open', methods=['POST'])

@@ -37,7 +37,7 @@ from diagnostik_import import ImportDatei, ImportFehler, ImportZeile, lese_impor
 from extensions import db
 from jahrgang import JAHRGAENGE, klassen_jahrgaenge
 from school_year import normalize_school_year
-from student_selection import get_distinct_klassen, get_user_klassenkontext
+from student_selection import get_distinct_klassen, get_user_klassenkontext, merke_kind
 from transition_plan import effective_jahrgang
 from models import (
     DiagnostikErgebnis,
@@ -436,6 +436,7 @@ def erfassen():
         einzelkind = get_or_404_session(Schueler, int(schueler_id))
         if not darf_kind_sehen(current_user, einzelkind):
             return _kein_zugriff(schueler=einzelkind)
+        merke_kind(einzelkind)
         klasse = (einzelkind.klasse or '').strip()
     elif klasse and klasse not in klassen:
         return _kein_zugriff(klasse=klasse)
