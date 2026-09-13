@@ -25,8 +25,10 @@
                         <strong>{{ user.username }}</strong>
                         {% if user.is_admin %}<span class="badge bg-primary ms-2">Admin</span>{% endif %}
                         {% if not user.is_admin %}<span class="badge bg-secondary ms-2">Lehrkraft</span>{% endif %}
-                        {% if user.full_name %}
-                        <div class="small text-muted">{{ user.full_name }}</div>
+                        {% if user.full_name or user.email %}
+                        <div class="small text-muted">
+                            {{ user.full_name }}{% if user.full_name and user.email %} · {% endif %}{{ user.email or '' }}
+                        </div>
                         {% endif %}
                         {% set z = zuordnungen_by_user.get(user.id) %}
                         {% if z and (z.klassenleitung or z.fachklassen) %}
@@ -42,7 +44,7 @@
                     </div>
                     <div class="d-flex flex-wrap gap-2 justify-content-end">
                         {% if user.username != 'admin' %}
-                        <a href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-btn">{{ bi('person-gear', 'bi-icon-sm') }} <span>Name bearbeiten</span></a>
+                        <a href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-btn">{{ bi('person-gear', 'bi-icon-sm') }} <span>Bearbeiten</span></a>
                         <a href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=request.full_path if request.query_string else request.path) }}#passwort" class="btn btn-sm btn-outline-warning icon-btn">{{ bi('key', 'bi-icon-sm') }} <span>Passwort</span></a>
                         <a href="{{ url_for('admin.admin_user_assignments', user_id=user.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('mortarboard', 'bi-icon-sm') }} <span>Klassen zuordnen</span></a>
                         <form method="POST" action="{{ url_for('admin.admin_user_delete', user_id=user.id) }}" style="display:inline;" data-confirm-title="Benutzer löschen" data-confirm-message="Benutzer wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
@@ -50,7 +52,7 @@
                             <button type="submit" class="btn btn-sm btn-outline-danger icon-btn">{{ bi('trash', 'bi-icon-sm') }} <span>Löschen</span></button>
                         </form>
                         {% else %}
-                        <a href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-btn">{{ bi('person-gear', 'bi-icon-sm') }} <span>Name bearbeiten</span></a>
+                        <a href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-btn">{{ bi('person-gear', 'bi-icon-sm') }} <span>Bearbeiten</span></a>
                         <span class="text-muted small">Systemkonto</span>
                         {% endif %}
                     </div>
@@ -67,28 +69,33 @@
                 <form method="POST">
                     {{ csrf_input() }}
                     <div class="mb-3">
-                        <label class="form-label">Benutzername</label>
-                        <input type="text" name="username" class="form-control" placeholder="z.B. k.mueller" required>
+                        <label class="form-label" for="neu-username">Benutzername</label>
+                        <input type="text" name="username" id="neu-username" class="form-control" placeholder="z.B. k.mueller" value="{{ eingaben.get('username', '') }}" required>
                     </div>
-                    <div class="row g-2">
-                        <div class="col-md-6">
-                            <label class="form-label">Vorname (optional)</label>
-                            <input type="text" name="vorname" class="form-control">
+                    <div class="row g-2 mb-3">
+                        <div class="col-12">
+                            <label class="form-label" for="neu-vorname">Vorname (optional)</label>
+                            <input type="text" name="vorname" id="neu-vorname" class="form-control" value="{{ eingaben.get('vorname', '') }}">
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label">Nachname (optional)</label>
-                            <input type="text" name="nachname" class="form-control">
+                        <div class="col-12">
+                            <label class="form-label" for="neu-nachname">Nachname (optional)</label>
+                            <input type="text" name="nachname" id="neu-nachname" class="form-control" value="{{ eingaben.get('nachname', '') }}">
                         </div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Start-Passwort</label>
-                        <input type="text" name="password" class="form-control" required>
+                        <label class="form-label" for="neu-email">E-Mail-Adresse (optional)</label>
+                        <input type="email" name="email" id="neu-email" class="form-control" value="{{ eingaben.get('email', '') }}" autocomplete="off">
+                        <div class="form-text">Für Benachrichtigungen per E-Mail. Die Lehrkraft kann sie später selbst ändern.</div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Rolle</label>
-                        <select name="role" class="form-select">
-                            <option value="teacher" selected>Lehrkraft</option>
-                            <option value="admin">Admin</option>
+                        <label class="form-label" for="neu-passwort">Start-Passwort</label>
+                        <input type="text" name="password" id="neu-passwort" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="neu-rolle">Rolle</label>
+                        <select name="role" id="neu-rolle" class="form-select">
+                            <option value="teacher" {% if eingaben.get('role') != 'admin' %}selected{% endif %}>Lehrkraft</option>
+                            <option value="admin" {% if eingaben.get('role') == 'admin' %}selected{% endif %}>Admin</option>
                         </select>
                     </div>
                     <p class="small text-muted mb-3">Klassenzuordnungen können nach dem Anlegen über „Klassen zuordnen“ gepflegt werden.</p>

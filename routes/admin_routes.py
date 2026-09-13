@@ -495,14 +495,20 @@ def admin_users():
         role = (request.form.get('role') or 'teacher').strip().lower()
         if role not in {'admin', 'teacher'}:
             role = 'teacher'
+        email, email_fehler = normalize_email(request.form.get('email'))
 
         if not username:
             flash('Bitte einen Benutzernamen eingeben.')
         elif User.query.filter_by(username=username).first():
             flash('Benutzername existiert bereits!')
+        elif email_fehler:
+            flash(email_fehler)
         else:
             hashed_pw = generate_password_hash(password)
-            new_user = User(username=username, vorname=vorname, nachname=nachname, password_hash=hashed_pw, role=role)
+            new_user = User(
+                username=username, vorname=vorname, nachname=nachname, email=email,
+                password_hash=hashed_pw, role=role,
+            )
             db.session.add(new_user)
             db.session.commit()
             flash(f'Benutzer {username} angelegt.')
@@ -520,7 +526,11 @@ def admin_users():
     for data in zuordnungen_by_user.values():
         data["fachklassen"] = sorted(set(data["fachklassen"]), key=lambda x: x.lower())
 
-    return render_template('admin_users.html', users=users, zuordnungen_by_user=zuordnungen_by_user)
+    # Nach einem Fehler beim Anlegen die Eingaben stehen lassen (ohne Passwort).
+    eingaben = request.form if request.method == 'POST' else {}
+    return render_template(
+        'admin_users.html', users=users, zuordnungen_by_user=zuordnungen_by_user, eingaben=eingaben,
+    )
 
 
 @admin_bp.route('/admin/users/delete/<int:user_id>', methods=['POST'])
@@ -551,7 +561,7 @@ def admin_user_edit(user_id):
         email, email_fehler = normalize_email(request.form.get('email'))
         if email_fehler:
             flash(email_fehler)
-            return render_template('admin_user_edit.html', user=user, next_url=next_url)
+            return _render_user_edit(user, next_url)
         user.email = email
         requested_role = (request.form.get('role') or user.role or 'teacher').strip().lower()
         if requested_role not in {'admin', 'teacher'}:
@@ -561,14 +571,27 @@ def admin_user_edit(user_id):
             admin_count = User.query.filter_by(role='admin').count()
             if admin_count <= 1:
                 flash('Der letzte Administrator kann nicht auf Lehrkraft zurückgesetzt werden.')
-                return render_template('admin_user_edit.html', user=user, next_url=next_url)
+                return _render_user_edit(user, next_url)
 
         user.role = requested_role
         db.session.commit()
         flash(f'Benutzerdaten für {user.username} gespeichert.')
         return redirect(_safe_next_url(next_url, url_for('admin.admin_users')))
 
-    return render_template('admin_user_edit.html', user=user, next_url=next_url)
+    return _render_user_edit(user, next_url)
+
+
+def _render_user_edit(user, next_url):
+    zuordnungen = UserKlassenzuordnung.query.filter_by(user_id=user.id).all()
+    return render_template(
+        'admin_user_edit.html',
+        user=user,
+        next_url=next_url,
+        klassenleitung=next((z.klasse for z in zuordnungen if z.rolle == 'klassenleitung'), None),
+        fachklassen=sorted({z.klasse for z in zuordnungen if z.rolle == 'fach'}, key=str.lower),
+        mail_takte=MAIL_TAKTE,
+        mail_aktiv=mail_konfiguration() is not None,
+    )
 
 
 @admin_bp.route('/admin/users/reset-password/<int:user_id>', methods=['POST'])

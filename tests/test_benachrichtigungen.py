@@ -467,6 +467,44 @@ class BenachrichtigungenTestCase(unittest.TestCase):
         self.assertIn('Testmail an ada@schule.test verschickt', response.get_data(as_text=True))
         self.assertEqual('KompetenzKompass: Testmail', self.outbox[0]['Subject'])
 
+    def test_new_user_can_be_created_with_email(self):
+        self._login('admin')
+        self.client.post('/admin/users', data={
+            '_csrf_token': self._token('/admin/users'), 'username': 'neu', 'vorname': 'Nora',
+            'nachname': 'Neu', 'email': 'nora@schule.test', 'password': 'startpass', 'role': 'teacher',
+        })
+        with self.app.app_context():
+            self.assertEqual('nora@schule.test', User.query.filter_by(username='neu').one().email)
+        html = self.client.get('/admin/users').get_data(as_text=True)
+        self.assertIn('nora@schule.test', html)
+        self.assertNotIn('Name bearbeiten', html)
+        self.assertIn('<span>Bearbeiten</span>', html)
+
+    def test_invalid_email_on_creation_keeps_the_input(self):
+        self._login('admin')
+        response = self.client.post('/admin/users', data={
+            '_csrf_token': self._token('/admin/users'), 'username': 'neu', 'vorname': 'Nora',
+            'email': 'kaputt', 'password': 'startpass', 'role': 'admin',
+        }, follow_redirects=True)
+        html = response.get_data(as_text=True)
+        self.assertIn('keine gültige E-Mail-Adresse', html)
+        self.assertIn('value="neu"', html)
+        self.assertIn('value="Nora"', html)
+        self.assertRegex(html, r'<option value="admin"\s+selected>')
+        with self.app.app_context():
+            self.assertIsNone(User.query.filter_by(username='neu').first())
+
+    def test_user_edit_page_shows_profile_classes_and_password(self):
+        self._setze_mail('klassenleitung', 'klara@schule.test', 'sofort')
+        self._login('admin')
+        html = self.client.get(f'/admin/users/edit/{self.ids["klassenleitung"]}').get_data(as_text=True)
+        self.assertIn('value="klara@schule.test"', html)
+        self.assertIn('Sofort (nach wenigen Minuten)', html)
+        self.assertIn('Klassen zuordnen', html)
+        self.assertIn('>3a</span>', html)
+        self.assertIn('id="passwort"', html)
+        self.assertIn('class="col-lg-7"', html)
+
     def test_admin_mail_page_requires_admin(self):
         self._login('klassenleitung')
         response = self.client.get('/admin/benachrichtigungen', follow_redirects=True)
