@@ -42,6 +42,17 @@
         <div class="col-md-6 col-xl-3">
             <div class="card h-100 border-0 shadow-sm">
                 <div class="card-body text-center p-4">
+                    <div class="display-4 mb-3">{{ bi('clipboard-data', 'bi-icon-xl') }}</div>
+                    <h3 class="h4">Diagnostik</h3>
+                    <p class="text-muted">Testverfahren, erhobene Werte, Testplan und Risikogrenzen.</p>
+                    <a href="{{ url_for('diagnostik.admin_katalog') }}" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('clipboard-data', 'bi-icon-sm') }} <span>Katalog</span></a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-xl-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center p-4">
                     <div class="display-4 mb-3">{{ bi('envelope', 'bi-icon-xl') }}</div>
                     <h3 class="h4">E-Mail-Versand</h3>
                     <p class="text-muted">Status des Mailversands, Testmail und wer Benachrichtigungen per E-Mail erhält.</p>

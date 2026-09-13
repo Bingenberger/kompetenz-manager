@@ -17,6 +17,7 @@ from db_health_checks import (
 from extensions import db, login_manager
 from models import Notification, User
 from routes.admin_routes import register_admin_routes
+from routes.diagnostik_routes import register_diagnostik_routes
 from routes.auth_routes import register_auth_routes
 from routes.erziehung_routes import register_erziehung_routes
 from routes.erfassung_routes import register_erfassung_routes
@@ -152,6 +153,7 @@ def create_app(config_overrides=None):
     register_report_routes(app)
     register_foerderplan_routes(app)
     register_workplan_routes(app)
+    register_diagnostik_routes(app)
     register_system_routes(app)
 
     return app

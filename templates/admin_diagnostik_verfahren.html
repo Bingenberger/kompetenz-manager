@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Diagnostik-Katalog</span>
+        <h2 class="h4 mt-2 mb-0">{{ 'Verfahren: ' ~ verfahren.name if verfahren.id else 'Neues Verfahren' }}</h2>
+    </div>
+    <a href="{{ url_for('diagnostik.admin_katalog') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zum Katalog</span></a>
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="surface-panel p-4 p-md-5">
+            <form method="POST">
+                {{ csrf_input() }}
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="v-name">Name</label>
+                        <input type="text" class="form-control" id="v-name" name="name" value="{{ verfahren.name or '' }}" maxlength="100" required>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="v-bereich">Lernbereich</label>
+                        <input type="text" class="form-control" id="v-bereich" name="bereich" value="{{ verfahren.bereich or '' }}" list="bereiche" maxlength="50" required>
+                        <datalist id="bereiche">{% for b in bereiche %}<option value="{{ b }}">{% endfor %}</datalist>
+                        <div class="form-text">Verfahren mit gleichem Lernbereich bilden einen gemeinsamen Verlauf.</div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label" for="v-beschreibung">Beschreibung</label>
+                        <textarea class="form-control" id="v-beschreibung" name="beschreibung" rows="3">{{ verfahren.beschreibung or '' }}</textarea>
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="v-aktiv" name="is_active" value="1" {% if verfahren.is_active is none or verfahren.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="v-aktiv">Aktiv – erscheint bei der Eingabe und im Testplan</label>
+                        </div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary icon-btn mt-4">{{ bi('floppy', 'bi-icon-sm') }} <span>Speichern</span></button>
+            </form>
+        </div>
+    </div>
+
+    {% if verfahren.id %}
+    <div class="col-lg-5 d-flex flex-column gap-4">
+        <div class="surface-panel p-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h3 class="h5 mb-0">Testformen</h3>
+                <a href="{{ url_for('diagnostik.admin_testform', verfahren_id=verfahren.id) }}" class="btn btn-sm btn-outline-success icon-btn">{{ bi('plus-circle', 'bi-icon-sm') }} <span>Neue Testform</span></a>
+            </div>
+            <ul class="list-group">
+                {% for t in verfahren.testformen %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <a href="{{ url_for('diagnostik.admin_testform', verfahren_id=verfahren.id, testform_id=t.id) }}">{{ t.name }}</a>
+                    <span class="small text-muted">{{ t.zeitpunkte_sortiert|map(attribute='label')|join(', ') or 'nicht geplant' }}</span>
+                </li>
+                {% else %}
+                <li class="list-group-item text-muted">Noch keine Testform.</li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="surface-panel p-4">
+            <h3 class="h6">Verfahren löschen</h3>
+            {% if ergebnisse %}
+            <p class="small text-muted mb-0">Es gibt {{ ergebnisse }} eingetragene Ergebnis(se). Das Verfahren lässt sich deshalb nicht löschen, nur deaktivieren.</p>
+            {% else %}
+            <form method="POST" action="{{ url_for('diagnostik.admin_verfahren_loeschen', verfahren_id=verfahren.id) }}" data-confirm-title="Verfahren löschen" data-confirm-message="„{{ verfahren.name }}“ mit allen Testformen löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
+                {{ csrf_input() }}
+                <button type="submit" class="btn btn-sm btn-outline-danger icon-btn">{{ bi('trash', 'bi-icon-sm') }} <span>Löschen</span></button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Administration</span>
+        <h2 class="h4 mt-2 mb-1">Diagnostik-Katalog</h2>
+        <p class="text-muted mb-0">Verfahren, Testformen, erhobene Werte und Testplan. Normwerte werden aus dem Auswertungsbogen eingetragen, nicht berechnet.</p>
+    </div>
+    <div class="toolbar-actions">
+        <a href="{{ url_for('diagnostik.admin_verfahren') }}" class="btn btn-success icon-btn">{{ bi('plus-circle', 'bi-icon-sm') }} <span>Neues Verfahren</span></a>
+        <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span></a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-xl-8">
+        {% for v in verfahren %}
+        <div class="table-panel mb-4">
+            <div class="table-toolbar">
+                <div>
+                    <div class="table-toolbar-title">
+                        {{ v.name }}
+                        <span class="badge bg-light text-secondary border ms-1">{{ v.bereich }}</span>
+                        {% if not v.is_active %}<span class="badge bg-secondary ms-1">inaktiv</span>{% endif %}
+                    </div>
+                    {% if v.beschreibung %}<div class="small text-muted">{{ v.beschreibung }}</div>{% endif %}
+                </div>
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('diagnostik.admin_testform', verfahren_id=v.id) }}" class="btn btn-sm btn-outline-success icon-btn">{{ bi('plus-circle', 'bi-icon-sm') }} <span>Testform</span></a>
+                    <a href="{{ url_for('diagnostik.admin_verfahren', verfahren_id=v.id) }}" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span></a>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light"><tr><th>Testform</th><th>Kennwerte</th><th>Testplan</th><th class="text-end">Ergebnisse</th></tr></thead>
+                    <tbody>
+                        {% for t in v.testformen %}
+                        <tr class="{% if not t.is_active %}text-muted{% endif %}">
+                            <td class="text-nowrap">
+                                <a href="{{ url_for('diagnostik.admin_testform', verfahren_id=v.id, testform_id=t.id) }}" class="fw-semibold">{{ t.name }}</a>
+                                {% if not t.is_active %}<span class="badge bg-secondary ms-1">inaktiv</span>{% endif %}
+                            </td>
+                            <td class="small">
+                                {% for k in t.kennwerte %}
+                                <div>
+                                    {% if k.leitwert %}<strong title="Leitwert: zählt für Risiko und Verlauf">{{ k.name }}</strong>{% else %}{{ k.name }}{% endif %}
+                                    <span class="text-muted">({% for art in k.wertarten %}{{ wertart_kuerzel[art] }}{% if not loop.last %}, {% endif %}{% endfor %})</span>
+                                </div>
+                                {% endfor %}
+                            </td>
+                            <td class="small">
+                                {% for z in t.zeitpunkte_sortiert %}<span class="badge bg-info-subtle text-info-emphasis border me-1 mb-1">{{ z.label }}</span>{% else %}<span class="text-muted">nicht geplant</span>{% endfor %}
+                            </td>
+                            <td class="text-end">{{ ergebnisse_je_testform.get(t.id, 0) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="4" class="text-muted text-center py-3">Noch keine Testform.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-info">Noch keine Verfahren angelegt.</div>
+        {% endfor %}
+        <p class="small text-muted"><strong>Fett</strong> gesetzte Kennwerte sind Leitwerte: Ihr Prozentrang bestimmt Risikostufe und Verlauf. RW = Rohwert, PR = Prozentrang, T = T-Wert, LQ = Lesequotient.</p>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="surface-panel p-4">
+            <h3 class="h5 mb-1">Risikostufen</h3>
+            <p class="small text-muted">Ein Ergebnis erhält die schwerste Stufe, deren Grenze der niedrigste Prozentrang seiner Leitwerte erreicht. Leeres Feld: Stufe ausgeschaltet.</p>
+            <form method="POST" action="{{ url_for('diagnostik.admin_grenzen') }}">
+                {{ csrf_input() }}
+                {% for stufe in ['beobachten', 'auffaellig', 'deutlich'] %}
+                {% set label, farbe = stufen[stufe] %}
+                <div class="input-group mb-2">
+                    <label class="input-group-text flex-grow-1 justify-content-between" for="grenze-{{ stufe }}">
+                        <span class="badge text-bg-{{ farbe }}">{{ label }}</span> <span class="small">bis PR</span>
+                    </label>
+                    <input type="number" min="0" max="100" class="form-control" style="max-width: 6rem;" name="{{ stufe }}" id="grenze-{{ stufe }}" value="{{ grenzen.get(stufe, '') }}">
+                </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary icon-btn mt-2">{{ bi('floppy', 'bi-icon-sm') }} <span>Grenzen speichern</span></button>
+            </form>
+            <p class="small text-muted mt-3 mb-0">Zur Orientierung: PR 16 entspricht etwa T-Wert 40 und Lesequotient 85, PR 10 etwa T-Wert 37.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
