@@ -479,8 +479,8 @@ class BenachrichtigungenTestCase(unittest.TestCase):
         self.assertIn('nora@schule.test', html)
         self.assertNotIn('Name bearbeiten', html)
         self.assertIn('>Bearbeiten</span>', html)
-        # Filter: "andere" hat keine Klasse und (wie "fach") keine E-Mail.
-        self.assertIn('Ohne Klasse <span class="badge text-bg-warning ms-1">1</span>', html)
+        # Filter: "andere" und das neue Konto haben noch keine Klasse.
+        self.assertIn('Ohne Klasse <span class="badge text-bg-warning ms-1">2</span>', html)
         self.assertRegex(html, r'data-suche="[^"]*nora@schule.test[^"]*"')
         self.assertLess(html.index('Nora Neu'), html.index('Otto Test'), 'nicht nach Nachnamen sortiert')
 
