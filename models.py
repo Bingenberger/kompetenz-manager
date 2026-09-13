@@ -111,6 +111,10 @@ class User(UserMixin, db.Model):
     nachname = db.Column(db.String(100), nullable=True)
     password_hash = db.Column(db.String(200))
     role = db.Column(db.String(20), nullable=False, default='teacher')
+    # Fuer Benachrichtigungen per E-Mail. Ohne Adresse gibt es nur die Glocke.
+    email = db.Column(db.String(255), nullable=True)
+    # 'sofort' | 'taeglich' | 'aus' - siehe benachrichtigungen.MAIL_TAKTE
+    mail_takt = db.Column(db.String(20), nullable=False, default='taeglich', server_default='taeglich')
 
     @property
     def full_name(self):
@@ -227,6 +231,8 @@ class Elternkontakt(db.Model):
     vereinbarungen_eltern = db.Column(db.Text, nullable=True)
     naechste_schritte = db.Column(db.Text, nullable=True)
     naechster_termin = db.Column(db.Date, nullable=True)
+    # Fuer welches Termindatum schon erinnert wurde (benachrichtigungen.py).
+    erinnert_fuer_termin = db.Column(db.Date, nullable=True)
 
     schueler = db.relationship('Schueler', backref=db.backref('elternkontakte', cascade='all, delete-orphan'))
     user = db.relationship('User', backref='elternkontakte')
@@ -277,8 +283,23 @@ class Notification(db.Model):
     target_url = db.Column(db.String(255), nullable=True)
     is_read = db.Column(db.Boolean, nullable=False, default=False)
     created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    # Art aus benachrichtigungen.ARTEN; leer bei Altbestand.
+    kind = db.Column(db.String(50), nullable=True, index=True)
+    # Gesetzt, sobald der Mailversand die Benachrichtigung erledigt hat -
+    # verschickt oder bewusst uebergangen. Leer heisst: noch offen.
+    mailed_at = db.Column(db.DateTime, nullable=True, index=True)
 
-    user = db.relationship('User', backref='notifications')
+    user = db.relationship('User', backref=db.backref('notifications', cascade='all, delete-orphan'))
+
+
+class BenachrichtigungAbbestellt(db.Model):
+    """Eine Benachrichtigungsart, die eine Lehrkraft nicht erhalten will."""
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    art = db.Column(db.String(50), primary_key=True)
+
+    user = db.relationship(
+        'User', backref=db.backref('abbestellte_benachrichtigungen', cascade='all, delete-orphan'),
+    )
 
 
 class AuthRateLimit(db.Model):

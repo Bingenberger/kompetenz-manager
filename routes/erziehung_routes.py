@@ -3,6 +3,7 @@ from datetime import datetime
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 
+import benachrichtigungen as bn
 from extensions import db
 from models import (
     Elternkontakt,
@@ -16,7 +17,6 @@ from models import (
     ErziehungsEreignisVorlage,
     ErziehungsKonsequenz,
     ErziehungsOrt,
-    Notification,
     Schueler,
     User,
 )
@@ -233,20 +233,63 @@ def _append_log(event, action, details):
 
 
 def _create_assignment_notification(event, assigned_user_id):
-    if not assigned_user_id or assigned_user_id == getattr(current_user, 'id', None):
-        return
-    assigned_user = db.session.get(User, assigned_user_id)
-    if not assigned_user:
-        return
+    """Benachrichtigt die neu zugewiesene Lehrkraft; gibt die Empfaenger zurueck."""
+    if not assigned_user_id:
+        return set()
     student_name = _name_for_student(event.student_id)
     event_name = _name_for_template(event.event_template_id)
-    db.session.add(
-        Notification(
-            user_id=assigned_user_id,
-            title=f'Neuer zugewiesener Fall: {student_name}',
-            message=f'{event_name} vom {event.datum.strftime("%d.%m.%Y")} wurde Ihnen zugewiesen.',
-            target_url=url_for('erziehung.erziehung_view', event_id=event.id),
-        )
+    return bn.benachrichtige(
+        bn.ERZIEHUNG_ZUGEWIESEN,
+        [assigned_user_id],
+        f'Neuer zugewiesener Fall: {student_name}',
+        text=f'{event_name} vom {event.datum.strftime("%d.%m.%Y")} wurde Ihnen zugewiesen{bn.von_wem()}.',
+        ziel=url_for('erziehung.erziehung_view', event_id=event.id),
+    )
+
+
+def _event_children(event):
+    """Das Kind des Ereignisses und die betroffenen Kinder."""
+    ids = {event.student_id} | {row.student_id for row in event.affected_students}
+    return Schueler.query.filter(Schueler.id.in_(ids)).all() if ids else []
+
+
+def _notify_event_created(event, already_notified):
+    """Klassenleitungen der beteiligten Kinder erfahren von einem neuen Ereignis."""
+    student = db.session.get(Schueler, event.student_id)
+    bn.benachrichtige(
+        bn.ERZIEHUNG_NEU,
+        bn.klassenleitungen_fuer_kinder(_event_children(event)),
+        f'Neues Ereignis: {bn.kind_name(student)}',
+        text=f'{_name_for_template(event.event_template_id)} vom {event.datum.strftime("%d.%m.%Y")}{bn.von_wem()}.',
+        ziel=url_for('erziehung.erziehung_view', event_id=event.id),
+        ausser=already_notified,
+    )
+
+
+def _notify_event_updated(event, changes, already_notified):
+    """Klassenleitungen, anlegende und zustaendige Lehrkraft erfahren von Aenderungen."""
+    was = [
+        label for key, label in (
+            ('status_changed', 'Status'),
+            ('content_changed', 'Inhalt'),
+            ('links_changed', 'Verknüpfungen'),
+            ('attachments_changed', 'Anhänge'),
+        ) if changes.get(key)
+    ]
+    if not was:
+        return
+    student = db.session.get(Schueler, event.student_id)
+    text = f'{_name_for_template(event.event_template_id)} vom {event.datum.strftime("%d.%m.%Y")}: {", ".join(was)} geändert{bn.von_wem()}.'
+    if changes.get('status_changed'):
+        text += f' {changes["status_changed"]}'
+    bn.benachrichtige(
+        bn.ERZIEHUNG_UPDATE,
+        bn.klassenleitungen_fuer_kinder(_event_children(event))
+        | {event.created_by_user_id, event.assigned_user_id},
+        f'Ereignis aktualisiert: {bn.kind_name(student)}',
+        text=text,
+        ziel=url_for('erziehung.erziehung_view', event_id=event.id),
+        ausser=already_notified,
     )
 
 
@@ -529,7 +572,8 @@ def erziehung_new():
             _replace_relations(event, selected_student)
             _store_attachments(event)
             _append_log(event, 'created', _describe_event_creation(event))
-            _create_assignment_notification(event, event.assigned_user_id)
+            zugewiesen = _create_assignment_notification(event, event.assigned_user_id)
+            _notify_event_created(event, zugewiesen)
             db.session.commit()
             flash('Ereignis gespeichert.')
             return redirect(url_for('erziehung.erziehung_view', event_id=event.id, next=_safe_next_url(next_url, url_for('erziehung.erziehung_list'))))
@@ -595,8 +639,10 @@ def erziehung_edit(event_id):
                 _append_log(event, 'links_changed', changes['links_changed'])
             if changes['attachments_changed']:
                 _append_log(event, 'attachment_added', changes['attachments_changed'])
+            zugewiesen = set()
             if before['assigned_user_id'] != after['assigned_user_id']:
-                _create_assignment_notification(event, event.assigned_user_id)
+                zugewiesen = _create_assignment_notification(event, event.assigned_user_id)
+            _notify_event_updated(event, changes, zugewiesen)
             db.session.commit()
             flash('Ereignis aktualisiert.')
             return redirect(url_for('erziehung.erziehung_view', event_id=event.id, next=_safe_next_url(next_url, url_for('erziehung.erziehung_list'))))

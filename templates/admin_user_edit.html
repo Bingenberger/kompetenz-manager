@@ -33,6 +33,10 @@
                         <input type="text" name="nachname" class="form-control" value="{{ user.nachname or '' }}">
                     </div>
                     <div class="col-md-6">
+                        <label class="form-label" for="user-email">E-Mail-Adresse</label>
+                        <input type="email" name="email" id="user-email" class="form-control" value="{{ user.email or '' }}">
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label">Rolle</label>
                         <select name="role" class="form-select">
                             <option value="teacher" {% if user.role != 'admin' %}selected{% endif %}>Lehrkraft</option>

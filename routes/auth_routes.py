@@ -4,12 +4,29 @@ from flask import Blueprint, current_app, flash, redirect, render_template, requ
 from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
+import re
+
+from benachrichtigungen import ARTEN, MAIL_TAKTE, abbestellte_arten, normalisiere_takt
 from csrf_protection import clear_csrf_token, rotate_csrf_token
 from extensions import db
-from models import AuthRateLimit, User, UserKlassenzuordnung
+from mail_versand import mail_konfiguration
+from models import AuthRateLimit, BenachrichtigungAbbestellt, User, UserKlassenzuordnung
 from time_utils import utc_now
 
 auth_bp = Blueprint('auth', __name__)
+
+# Bewusst schlicht: ob eine Adresse wirklich existiert, zeigt erst die Zustellung.
+EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+
+
+def normalize_email(raw):
+    """(Adresse oder None, Fehlertext oder None)."""
+    value = (raw or '').strip()
+    if not value:
+        return None, None
+    if len(value) > 255 or not EMAIL_RE.match(value):
+        return None, f'„{value}“ ist keine gültige E-Mail-Adresse.'
+    return value, None
 
 
 def _rate_limit_window():
@@ -163,6 +180,22 @@ def user_menu():
             flash('Profil gespeichert.')
             return redirect(url_for('auth.user_menu'))
 
+        if form_action == 'benachrichtigungen':
+            email, fehler = normalize_email(request.form.get('email'))
+            if fehler:
+                flash(fehler)
+                return redirect(url_for('auth.user_menu') + '#benachrichtigungen')
+            current_user.email = email
+            current_user.mail_takt = normalisiere_takt(request.form.get('mail_takt'))
+            gewuenscht = set(request.form.getlist('arten'))
+            BenachrichtigungAbbestellt.query.filter_by(user_id=current_user.id).delete()
+            for art in ARTEN:
+                if art not in gewuenscht:
+                    db.session.add(BenachrichtigungAbbestellt(user_id=current_user.id, art=art))
+            db.session.commit()
+            flash('Benachrichtigungen gespeichert.')
+            return redirect(url_for('auth.user_menu') + '#benachrichtigungen')
+
         if form_action == 'password':
             altes_pw = request.form.get('altes_pw')
             neues_pw = request.form.get('neues_pw')
@@ -189,6 +222,10 @@ def user_menu():
         'user_menu.html',
         klassenleitung=klassenleitung,
         fachklassen=fachklassen,
+        arten=ARTEN,
+        abbestellt=abbestellte_arten(current_user.id),
+        mail_takte=MAIL_TAKTE,
+        mail_aktiv=mail_konfiguration() is not None,
     )
 
 

@@ -405,6 +405,10 @@ trap - EXIT
 
 log "Update abgeschlossen"
 info "Version:  $(git rev-parse --short HEAD)  $(git log -1 --pretty=%s)"
+if [[ ! -f "/etc/cron.d/$APP_NAME-benachrichtigungen" ]]; then
+  warn "E-Mail-Benachrichtigungen sind noch nicht eingerichtet - einmalig als root:"
+  info "  bash $APP_DIR/deploy/install_benachrichtigungen.sh"
+fi
 info "Status:   systemctl status $SERVICE_NAME"
 info "Logs:     journalctl -u $SERVICE_NAME -n 100"
 printf '\n'

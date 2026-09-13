@@ -13,6 +13,7 @@ Repository: <https://github.com/Bingenberger/kompetenz-manager>
 | `deploy/install_service.sh` | Erstinstallation als systemd-Dienst | einmalig |
 | `deploy/adopt_git.sh` | bestehende, manuell kopierte Installation auf Git umstellen | einmalig |
 | `deploy/update.sh` | Update einspielen | bei jedem Release |
+| `deploy/install_benachrichtigungen.sh` | Versand der Benachrichtigungs-E-Mails per Cron | einmalig |
 
 ---
 
@@ -215,3 +216,54 @@ sudo systemctl restart kompetenzkompass
 
 Muss zusätzlich die Datenbank zurück, das passende Verzeichnis unter `backups/`
 verwenden (`manifest.txt` nennt Zeitpunkt und Datenbanktyp).
+
+---
+
+## 6. E-Mail-Benachrichtigungen
+
+Benachrichtigungen erscheinen immer unter der Glocke. Per E-Mail kommen sie,
+sobald ein Mailserver eingetragen und der Versandlauf eingerichtet ist. Jede
+Lehrkraft hinterlegt ihre Adresse und wählt im Konto „sofort“, „täglich“ oder
+„keine E-Mails“.
+
+**1. Zugangsdaten** in die Env-Datei des Dienstes
+(`/etc/kompetenzkompass/kompetenzkompass.env`):
+
+```bash
+MAIL_SERVER=smtp.example.org
+MAIL_PORT=587
+MAIL_SECURITY=starttls        # starttls (587) | ssl (465) | none (25, nur intern)
+MAIL_USERNAME=kompetenzkompass@example.org
+MAIL_PASSWORD=geheim
+MAIL_FROM="KompetenzKompass <kompetenzkompass@example.org>"
+APP_BASE_URL=https://kompass.example.org   # für die Links in den E-Mails
+```
+
+Werte mit Leerzeichen in Anführungszeichen setzen. Die E-Mails enthalten Namen
+von Kindern und Inhalte der Benachrichtigung – deshalb nur einen Mailserver
+verwenden, der für schulische personenbezogene Daten zugelassen ist.
+
+**2. Dienst neu starten**, damit die App die Werte kennt:
+
+```bash
+sudo systemctl restart kompetenzkompass
+```
+
+Unter *Verwaltung → E-Mail-Versand* zeigt die App die Einstellungen und
+verschickt eine Testmail an die eigene Adresse.
+
+**3. Versandlauf einrichten** (einmalig, als root):
+
+```bash
+bash /pfad/zur/app/deploy/install_benachrichtigungen.sh
+```
+
+Das legt einen Cron-Eintrag an: alle fünf Minuten die Sofort-Mails, montags
+bis freitags um 15 Uhr die Sammelmails und die Terminerinnerungen. Uhrzeit und
+Tage lassen sich beim Aufruf ändern, z. B.
+`DAILY_HOUR=14 DAILY_MINUTE=30 DAILY_WEEKDAYS='*' bash deploy/install_benachrichtigungen.sh`.
+Protokoll: `/var/log/kompetenzkompass/benachrichtigungen.log`.
+
+Schlägt eine Zustellung fehl, bleibt die Benachrichtigung offen und der
+nächste Lauf versucht es erneut. Nach sieben Tagen wird sie nicht mehr
+verschickt, bleibt aber unter der Glocke.

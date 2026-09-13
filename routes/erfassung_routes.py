@@ -6,6 +6,7 @@ from flask import Blueprint, abort, flash, redirect, render_template, request, s
 from flask_login import current_user, login_required
 from sqlalchemy import func
 
+import benachrichtigungen as bn
 from change_log import describe, describe_creation, snapshot
 from extensions import db
 from models import (
@@ -50,6 +51,20 @@ KONTAKT_FELDER = (
     ('naechste_schritte', 'Nächste Schritte'),
     ('naechster_termin', 'Nächster Termin'),
 )
+
+
+def _notify_parent_contact(kontakt):
+    """Die Klassenleitung erfaehrt von einem neuen Elternkontakt."""
+    schueler = db.session.get(Schueler, kontakt.schueler_id)
+    art = 'Gesprächsprotokoll' if kontakt.eintrag_typ == 'protokoll' else 'Notiz'
+    thema = kontakt.betreff or kontakt.kontaktform
+    bn.benachrichtige(
+        bn.ELTERNKONTAKT_NEU,
+        bn.klassenleitungen_fuer_kinder([schueler]),
+        f'Neuer Elternkontakt: {bn.kind_name(schueler)}',
+        text=f'{art}{f" „{thema}“" if thema else ""}{bn.von_wem()}.',
+        ziel=url_for('erfassung.elternkontakt_view', kontakt_id=kontakt.id),
+    )
 
 
 def _kontakt_log(kontakt, action, details):
@@ -918,6 +933,7 @@ def elternkontakt_notiz():
         db.session.add(kontakt)
         db.session.flush()
         _kontakt_log(kontakt, 'created', describe_creation(kontakt, KONTAKT_FELDER))
+        _notify_parent_contact(kontakt)
         db.session.commit()
         flash('Elternkontakt-Notiz gespeichert.')
         if overlay_mode:
@@ -975,6 +991,7 @@ def elternkontakt_protokoll():
         db.session.add(kontakt)
         db.session.flush()
         _kontakt_log(kontakt, 'created', describe_creation(kontakt, KONTAKT_FELDER))
+        _notify_parent_contact(kontakt)
         db.session.commit()
         flash('Elterngesprächsprotokoll gespeichert.')
         if overlay_mode:

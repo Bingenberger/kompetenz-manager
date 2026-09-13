@@ -84,6 +84,10 @@ def create_app(config_overrides=None):
     app.config['SESSION_COOKIE_SECURE'] = os.environ.get('SESSION_COOKIE_SECURE', '0' if is_debug else '1') == '1'
     app.config['REMEMBER_COOKIE_SECURE'] = os.environ.get('REMEMBER_COOKIE_SECURE', '0' if is_debug else '1') == '1'
     app.config['PREFERRED_URL_SCHEME'] = os.environ.get('PREFERRED_URL_SCHEME', 'https' if not is_debug else 'http')
+    # E-Mail-Versand der Benachrichtigungen (mail_versand.py). Ohne MAIL_SERVER
+    # gibt es nur die Glocke.
+    for key in ('MAIL_SERVER', 'MAIL_PORT', 'MAIL_SECURITY', 'MAIL_USERNAME', 'MAIL_PASSWORD', 'MAIL_FROM', 'APP_BASE_URL'):
+        app.config[key] = os.environ.get(key, '')
 
     if config_overrides:
         app.config.update(config_overrides)

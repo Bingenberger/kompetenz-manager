@@ -5,6 +5,10 @@ from sqlalchemy import func
 from flask_login import current_user, login_required
 from werkzeug.security import generate_password_hash
 
+import benachrichtigungen as bn
+from benachrichtigungen import MAIL_TAKTE
+from mail_versand import mail_konfiguration, sende_mail
+from routes.auth_routes import normalize_email
 from authz import admin_required
 from db_utils import get_or_404_session
 from extensions import db
@@ -21,6 +25,7 @@ from models import (
     ErziehungsOrt,
     Item,
     Klasse,
+    Notification,
     Schueler,
     Schuljahreswechsel,
     SystemKonfiguration,
@@ -543,6 +548,11 @@ def admin_user_edit(user_id):
     if request.method == 'POST':
         user.vorname = (request.form.get('vorname') or '').strip() or None
         user.nachname = (request.form.get('nachname') or '').strip() or None
+        email, email_fehler = normalize_email(request.form.get('email'))
+        if email_fehler:
+            flash(email_fehler)
+            return render_template('admin_user_edit.html', user=user, next_url=next_url)
+        user.email = email
         requested_role = (request.form.get('role') or user.role or 'teacher').strip().lower()
         if requested_role not in {'admin', 'teacher'}:
             requested_role = user.role or 'teacher'
@@ -622,7 +632,25 @@ def admin_user_assignments(user_id):
                     next_url=next_url,
                 )
 
+        bisher = {
+            (z.klasse, z.rolle) for z in UserKlassenzuordnung.query.filter_by(user_id=user.id).all()
+        }
         UserKlassenzuordnung.query.filter_by(user_id=user.id).delete()
+        neu = ([(klassenleitung_klasse, 'klassenleitung')] if klassenleitung_klasse else []) + [
+            (klasse, 'fach') for klasse in fachklassen
+        ]
+        hinzu = [eintrag for eintrag in neu if eintrag not in bisher]
+        if hinzu:
+            bn.benachrichtige(
+                bn.KLASSE_ZUGEORDNET,
+                [user.id],
+                'Neue Klassenzuordnung',
+                text='; '.join(
+                    f'{"Klassenleitung" if rolle == "klassenleitung" else "Fachlehrkraft"} in {klasse}'
+                    for klasse, rolle in hinzu
+                ) + f'{bn.von_wem()}.',
+                ziel=url_for('auth.user_menu'),
+            )
         if klassenleitung_klasse:
             db.session.add(UserKlassenzuordnung(user_id=user.id, klasse=klassenleitung_klasse, rolle='klassenleitung'))
         for klasse in fachklassen:
@@ -737,6 +765,7 @@ def admin_student_edit(s_id):
     next_url = (request.args.get('next') or request.form.get('next') or '').strip()
 
     if request.method == 'POST':
+        bisherige_klasse = schueler.klasse
         schueler.vorname = request.form.get('vorname')
         schueler.nachname = request.form.get('nachname')
         schueler.klasse = (request.form.get('klasse') or '').strip()
@@ -766,6 +795,14 @@ def admin_student_edit(s_id):
         if requested_active != schueler.is_active:
             schueler.is_active = requested_active
             schueler.archived_at = None if requested_active else utc_now()
+        if schueler.is_active and schueler.klasse and schueler.klasse != bisherige_klasse:
+            bn.benachrichtige(
+                bn.KIND_NEU_IN_KLASSE,
+                bn.klassenleitungen([schueler.klasse]),
+                f'Neu in Klasse {schueler.klasse}: {schueler.vorname} {schueler.nachname}',
+                text=f'Bisher in Klasse {bisherige_klasse}.' if bisherige_klasse else None,
+                ziel=url_for('system.schuelerakte', schueler_id=schueler.id),
+            )
         db.session.commit()
         flash('Schülerdaten aktualisiert.')
         return redirect(_safe_next_url(next_url, url_for('admin.admin_students')))
@@ -865,6 +902,51 @@ def admin_student_delete(s_id):
     flash(message)
 
     return redirect(url_for('admin.admin_students'))
+
+
+@admin_bp.route('/admin/benachrichtigungen', methods=['GET', 'POST'])
+@admin_required(
+    redirect_endpoint='admin.admin_dashboard',
+    message='Zugriff verweigert. Nur der Administrator darf den E-Mail-Versand einsehen.'
+)
+def admin_mail():
+    konfiguration = mail_konfiguration()
+
+    if request.method == 'POST':
+        if not konfiguration:
+            flash('Der E-Mail-Versand ist nicht eingerichtet.')
+        elif not current_user.email:
+            flash('Für eine Testmail zuerst im Konto eine eigene E-Mail-Adresse eintragen.')
+        else:
+            try:
+                sende_mail(
+                    current_user.email,
+                    'KompetenzKompass: Testmail',
+                    f'Hallo {current_user.display_name},\n\n'
+                    'diese Testmail zeigt: Der KompetenzKompass kann E-Mails verschicken.\n',
+                    konfiguration,
+                )
+            except Exception as fehler:  # noqa: BLE001 - dem Admin zeigen, was schiefging
+                flash(f'Testmail fehlgeschlagen: {type(fehler).__name__}: {fehler}')
+            else:
+                flash(f'Testmail an {current_user.email} verschickt.')
+        return redirect(url_for('admin.admin_mail'))
+
+    offen = (
+        Notification.query
+        .join(User, Notification.user_id == User.id)
+        .filter(Notification.mailed_at.is_(None), User.email.isnot(None), User.email != '')
+    )
+    lehrkraefte = User.query.order_by(User.nachname.asc(), User.vorname.asc(), User.username.asc()).all()
+    return render_template(
+        'admin_mail.html',
+        konfiguration=konfiguration,
+        lehrkraefte=lehrkraefte,
+        mail_takte=MAIL_TAKTE,
+        offen_sofort=offen.filter(User.mail_takt == 'sofort').order_by(Notification.created_at.asc()).first(),
+        offen_anzahl=offen.count(),
+        jetzt=utc_now(),
+    )
 
 
 @admin_bp.route('/admin/aufbewahrung')

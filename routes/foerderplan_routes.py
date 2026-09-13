@@ -5,6 +5,7 @@ import json
 from flask import Blueprint, abort, flash, redirect, render_template, request, send_file, url_for
 from flask_login import current_user, login_required
 
+import benachrichtigungen as bn
 from db_utils import get_or_404_session
 from change_log import describe, describe_creation, snapshot
 from extensions import db
@@ -44,6 +45,17 @@ PLAN_FELDER = (
     ('status', 'Status'),
     ('datum_evaluation', 'Evaluationsdatum'),
 )
+
+
+def _notify_plan_changed(plan, was):
+    """Klassenleitung und anlegende Lehrkraft erfahren von Aenderungen am Plan."""
+    bn.benachrichtige(
+        bn.FOERDERPLAN_UPDATE,
+        bn.klassenleitungen_fuer_kinder([plan.schueler]) | {plan.creator_user_id},
+        f'Förderplan {was}: {bn.kind_name(plan.schueler)}',
+        text=f'„{plan.titel}“{bn.von_wem()}.',
+        ziel=url_for('foerderplan.foerderplan_view', p_id=plan.id),
+    )
 
 
 def _plan_log(plan, action, details):
@@ -335,6 +347,13 @@ def foerderplan_neu(s_id):
             describe_creation(neuer_plan, PLAN_FELDER),
             _inhalte_beschreibung(neuer_plan),
         ])))
+        bn.benachrichtige(
+            bn.FOERDERPLAN_NEU,
+            bn.klassenleitungen_fuer_kinder([schueler]),
+            f'Neuer Förderplan: {bn.kind_name(schueler)}',
+            text=f'„{titel}“{bn.von_wem()}.',
+            ziel=url_for('foerderplan.foerderplan_view', p_id=neuer_plan.id),
+        )
         db.session.commit()
         flash(f'Förderplan "{titel}" erfolgreich angelegt!')
         return redirect(_safe_next_url(next_url, url_for('foerderplan.foerderplan_view', p_id=neuer_plan.id)))
@@ -654,6 +673,8 @@ def foerderplan_edit(p_id):
         if vorher_inhalte != nachher_inhalte:
             teile.append(f'Förderbereiche: {vorher_inhalte} → {nachher_inhalte}')
         _plan_log(plan, 'updated', '; '.join(filter(None, teile)))
+        if any(teile):
+            _notify_plan_changed(plan, 'bearbeitet')
 
         db.session.commit()
         flash(f'Förderplan "{plan.titel}" aktualisiert.')
@@ -826,6 +847,7 @@ def foerderplan_evaluate(p_id):
         if bewertet:
             teile.append(f'{bewertet} Förderbereich(e) bewertet')
         _plan_log(plan, 'evaluated', '; '.join(filter(None, teile)) or 'ohne Änderung gespeichert')
+        _notify_plan_changed(plan, 'geschlossen' if plan.status == 'geschlossen' else 'evaluiert')
 
         db.session.commit()
         flash('Förderplan evaluiert und gespeichert.')

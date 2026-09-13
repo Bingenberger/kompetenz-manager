@@ -37,6 +37,55 @@
             </form>
         </div>
 
+        <div class="surface-panel p-4 p-md-5 fade-in fade-in-delay-1 mt-4" id="benachrichtigungen">
+            <div class="mb-4">
+                <span class="section-label">Benachrichtigungen</span>
+                <h2 class="mt-2 mb-1">Glocke und E-Mail</h2>
+                <p class="text-muted mb-0">Worüber Sie benachrichtigt werden und ob zusätzlich eine E-Mail kommt.</p>
+            </div>
+
+            <form method="POST">
+                {{ csrf_input() }}
+                <input type="hidden" name="form_action" value="benachrichtigungen">
+
+                <div class="row g-3 mb-3">
+                    <div class="col-md-7">
+                        <label class="form-label" for="konto-email">E-Mail-Adresse</label>
+                        <input type="email" name="email" id="konto-email" class="form-control" value="{{ current_user.email or '' }}" autocomplete="email">
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label" for="konto-mail-takt">E-Mails</label>
+                        <select name="mail_takt" id="konto-mail-takt" class="form-select">
+                            {% for wert, label in mail_takte.items() %}
+                            <option value="{{ wert }}" {% if current_user.mail_takt == wert %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                {% if not mail_aktiv %}
+                <div class="alert alert-secondary py-2 small">
+                    Der E-Mail-Versand ist auf diesem Server noch nicht eingerichtet. Bis dahin erscheinen
+                    Benachrichtigungen nur unter der Glocke.
+                </div>
+                {% endif %}
+
+                <fieldset>
+                    <legend class="form-label fs-6 mb-2">Benachrichtigen bei</legend>
+                    {% for art, (label, beschreibung) in arten.items() %}
+                    <div class="form-check mb-2">
+                        <input class="form-check-input" type="checkbox" name="arten" value="{{ art }}" id="art-{{ art }}" {% if art not in abbestellt %}checked{% endif %}>
+                        <label class="form-check-label" for="art-{{ art }}">
+                            {{ label }}
+                            <span class="d-block small text-muted">{{ beschreibung }}</span>
+                        </label>
+                    </div>
+                    {% endfor %}
+                </fieldset>
+
+                <button type="submit" class="btn btn-primary icon-btn mt-3">{{ bi('bell', 'bi-icon') }} <span>Benachrichtigungen speichern</span></button>
+            </form>
+        </div>
+
         <div class="surface-panel p-4 p-md-5 fade-in fade-in-delay-1 mt-4" id="passwort">
             <div class="mb-4">
                 <span class="section-label">Sicherheit</span>

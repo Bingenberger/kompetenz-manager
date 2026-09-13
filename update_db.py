@@ -480,6 +480,54 @@ def _postgres_add_school_year_columns():
             print("Spalte 'bogen.pflicht' wurde für PostgreSQL ergänzt.")
         conn.commit()
 
+def _add_notification_columns():
+    """Spalten fuer Benachrichtigungen per E-Mail - SQLite und PostgreSQL."""
+    engine = db.engine
+    backend = engine.url.get_backend_name()
+    if backend == "sqlite":
+        def spalten(conn, tabelle):
+            return {
+                row["name"]
+                for row in conn.execute(text(f'PRAGMA table_info("{tabelle}")')).mappings().all()
+            }
+        tabellen = {"user": '"user"', "notification": "notification", "elternkontakt": "elternkontakt"}
+    elif backend in {"postgresql", "postgres"}:
+        def spalten(conn, tabelle):
+            return {
+                row[0]
+                for row in conn.execute(text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_schema = 'public' AND table_name = :tabelle"
+                ), {"tabelle": tabelle}).all()
+            }
+        tabellen = {"user": 'public."user"', "notification": "public.notification", "elternkontakt": "public.elternkontakt"}
+    else:
+        return
+
+    neue_spalten = [
+        ("user", "email", "VARCHAR(255)", None),
+        ("user", "mail_takt", "VARCHAR(20) NOT NULL DEFAULT 'taeglich'", None),
+        ("notification", "kind", "VARCHAR(50)", None),
+        # Bestehende Benachrichtigungen gelten als erledigt - sonst verschickte
+        # der erste Versandlauf den ganzen Altbestand.
+        ("notification", "mailed_at", "TIMESTAMP", "UPDATE {tabelle} SET mailed_at = created_at WHERE mailed_at IS NULL"),
+        ("elternkontakt", "erinnert_fuer_termin", "DATE", None),
+    ]
+    with engine.connect() as conn:
+        vorhanden = {}
+        for tabelle, spalte, typ, nacharbeit in neue_spalten:
+            if tabelle not in vorhanden:
+                vorhanden[tabelle] = spalten(conn, tabelle)
+            if spalte in vorhanden[tabelle]:
+                continue
+            ziel = tabellen[tabelle]
+            conn.execute(text(f"ALTER TABLE {ziel} ADD COLUMN {spalte} {typ}"))
+            if nacharbeit:
+                conn.execute(text(nacharbeit.format(tabelle=ziel)))
+            print(f"Spalte '{tabelle}.{spalte}' wurde ergänzt.")
+        conn.commit()
+
+
 # Wir aktivieren den "App Context", damit wir Zugriff auf die DB-Konfiguration haben
 with app.app_context():
     print("--- Starte Datenbank-Update ---")
@@ -502,6 +550,7 @@ with app.app_context():
     _postgres_add_missing_erziehung_event_columns()
     _sqlite_add_school_year_columns()
     _postgres_add_school_year_columns()
+    _add_notification_columns()
 
     # Jahrgaenge aus den Bestandsdaten ableiten. Idempotent: legt nur fehlende
     # Klassen an und fuellt nur leere Jahrgaenge, ueberschreibt nichts.
