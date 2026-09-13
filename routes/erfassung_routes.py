@@ -7,6 +7,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import func
 
 import benachrichtigungen as bn
+from elternberatung import beratungs_kontext
 from change_log import describe, describe_creation, snapshot
 from extensions import db
 from models import (
@@ -763,9 +764,11 @@ def elternberatung():
 
     bogen_context = {'bogen_rows': [], 'symbol_map': {}, 'color_map': {}}
     plan_context = {'active_plan': None, 'last_evaluated_plan': None}
+    beratung_kontext = {}
     if selected_student:
         bogen_context = _build_bogen_entries_for_student(selected_student.id)
         plan_context = _get_consultation_plan_context(selected_student.id)
+        beratung_kontext = beratungs_kontext(selected_student, bogen_context['bogen_rows'])
 
     return render_template(
         'elternberatung_form.html',
@@ -787,6 +790,7 @@ def elternberatung():
         active_plan=plan_context['active_plan'],
         last_evaluated_plan=plan_context['last_evaluated_plan'],
         next_url=next_url,
+        **beratung_kontext,
     )
 
 
@@ -811,6 +815,7 @@ def elternberatung_view(beratung_id):
         active_plan=plan_context['active_plan'],
         last_evaluated_plan=plan_context['last_evaluated_plan'],
         next_url=next_url,
+        **beratungs_kontext(beratung.schueler, bogen_context['bogen_rows']),
     )
 
 
