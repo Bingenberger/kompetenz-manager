@@ -78,7 +78,7 @@ class NavigationTestCase(unittest.TestCase):
         self.assertEqual('kinder', aktiver_bereich('system.schuelerakte'))
         self.assertEqual('erfassen', aktiver_bereich('erfassung.elternkontakt_notiz'))
         self.assertEqual('foerderung', aktiver_bereich('workplan.workplan_list_page'))
-        self.assertEqual('foerderung', aktiver_bereich('erziehung.erziehung_view'))
+        self.assertEqual('ereignisse', aktiver_bereich('erziehung.erziehung_view'))
         self.assertEqual('diagnostik', aktiver_bereich('diagnostik.stufenauswertung'))
         self.assertIsNone(aktiver_bereich('diagnostik.admin_katalog'))
         self.assertIsNone(aktiver_bereich('admin.admin_users'))
@@ -91,7 +91,9 @@ class NavigationTestCase(unittest.TestCase):
         self.assertEqual(('Erfassen', 'Elternkontakte'),
                          self._aktiv(self.client.get('/erfassen/elternkontakte/notiz').get_data(as_text=True)))
         self.assertEqual(('Auswertung', 'Klassenübersicht'), self._aktiv(self.client.get('/report/matrix').get_data(as_text=True)))
-        self.assertEqual(('Förderung', 'Ereignisse'), self._aktiv(self.client.get('/erziehung').get_data(as_text=True)))
+        self.assertEqual(('Förderung', 'Arbeitspläne'), self._aktiv(self.client.get('/arbeitsplaene').get_data(as_text=True)))
+        self.assertEqual(('Ereignisse', 'Übersicht'), self._aktiv(self.client.get('/erziehung').get_data(as_text=True)))
+        self.assertEqual(('Ereignisse', 'Neues Ereignis'), self._aktiv(self.client.get('/erziehung/neu').get_data(as_text=True)))
         self.assertEqual(('Diagnostik', 'Import'), self._aktiv(self.client.get('/diagnostik/import').get_data(as_text=True)))
 
     def test_admin_pages_have_navigation_without_active_area(self):
@@ -110,7 +112,7 @@ class NavigationTestCase(unittest.TestCase):
         self._login()
         html = self.client.get('/').get_data(as_text=True)
         fuss = re.search(r'<nav class="fussnav".*?</nav>', html, re.S).group(0)
-        for label in ('Start', 'Kinder', 'Erfassen', 'Auswertung', 'Förderung', 'Diagnostik'):
+        for label in ('Start', 'Kinder', 'Erfassen', 'Auswertung', 'Förderung', 'Ereignisse', 'Diagnostik'):
             self.assertIn(f'<span>{label}</span>', fuss)
 
     # ------------------------------------------------------------------

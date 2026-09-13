@@ -1,6 +1,6 @@
 """Die Bereiche der Anwendung und ihre Navigation.
 
-Sechs Bereiche in der Kopfzeile, je Bereich eine Unter-Navigation. Welche
+Sieben Bereiche in der Kopfzeile, je Bereich eine Unter-Navigation. Welche
 Seite zu welchem Bereich gehört, ergibt sich aus dem Endpunkt - so muss keine
 Vorlage wissen, wo sie hängt. Die Verwaltung ist kein Bereich, sondern das
 Zahnrad; ihre Seiten markieren keinen Bereich als aktiv.
@@ -28,7 +28,10 @@ BEREICHE = [
     ('foerderung', 'Förderung', 'heart-pulse', 'foerderplan.foerderplan_list', [
         ('Förderpläne', 'foerderplan.foerderplan_list', ('foerderplan.',)),
         ('Arbeitspläne', 'workplan.workplan_list_page', ('workplan.',)),
-        ('Ereignisse', 'erziehung.erziehung_list', ('erziehung.',)),
+    ]),
+    ('ereignisse', 'Ereignisse', 'shield-exclamation', 'erziehung.erziehung_list', [
+        ('Übersicht', 'erziehung.erziehung_list', ('erziehung.erziehung_list', 'erziehung.erziehung_view', 'erziehung.erziehung_edit')),
+        ('Neues Ereignis', 'erziehung.erziehung_new', ('erziehung.erziehung_new',)),
     ]),
     ('diagnostik', 'Diagnostik', 'clipboard-data', 'diagnostik.uebersicht', [
         ('Übersicht', 'diagnostik.uebersicht', ('diagnostik.uebersicht',)),
@@ -51,7 +54,7 @@ _BLUEPRINTS = {
     'report': 'auswertung',
     'foerderplan': 'foerderung',
     'workplan': 'foerderung',
-    'erziehung': 'foerderung',
+    'erziehung': 'ereignisse',
     'diagnostik': 'diagnostik',
 }
 
