@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="surface-panel p-4 p-md-5">
+    <span class="section-label">Diagnostik</span>
+    <h2 class="h4 mt-2 mb-3">Kein Zugriff</h2>
+    <p class="mb-2">
+        {% if schueler %}
+        {{ schueler.vorname }} {{ schueler.nachname }} ist in Klasse „{{ (schueler.klasse or '')|trim }}“ – diese Klasse ist Ihrem Konto nicht zugeordnet.
+        {% else %}
+        Die Klasse „{{ klasse }}“ ist Ihrem Konto nicht zugeordnet.
+        {% endif %}
+    </p>
+    <p class="text-muted mb-4">
+        {% if klassen %}Ihre Klassen: {{ klassen|join(', ') }}.{% else %}Ihrem Konto ist noch keine Klasse zugeordnet.{% endif %}
+        Zuordnungen pflegt die Verwaltung unter Kollegium → Klassen zuordnen.
+    </p>
+    <a href="{{ url_for('diagnostik.uebersicht') }}" class="btn btn-primary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zur Diagnostik-Übersicht</span></a>
+</div>
+{% endblock %}

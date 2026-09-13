@@ -561,7 +561,10 @@ with app.app_context():
 
     # Jahrgaenge aus den Bestandsdaten ableiten. Idempotent: legt nur fehlende
     # Klassen an und fuellt nur leere Jahrgaenge, ueberschreibt nichts.
-    from jahrgang import backfill_student_jahrgaenge, sync_klassen
+    from jahrgang import backfill_student_jahrgaenge, bereinige_klassennamen, sync_klassen
+    bereinigt = bereinige_klassennamen()
+    if bereinigt:
+        print(f"Leerzeichen am Rand von Klassennamen entfernt ({bereinigt} Datensatz/Datensätze).")
     neue_klassen = sync_klassen()
     if neue_klassen:
         print(f"Klassen angelegt: {', '.join(neue_klassen)}")

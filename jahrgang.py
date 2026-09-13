@@ -149,6 +149,64 @@ def referenced_class_names():
     )
 
 
+def bereinige_klassennamen():
+    """Entfernt Leerzeichen am Rand gespeicherter Klassennamen.
+
+    Ältere Versionen übernahmen die Klasse beim Bearbeiten eines Kindes
+    ungekürzt. Aus "1c " wurde so eine zweite, unsichtbar andere Klasse: Die
+    Formulare kürzen ihre Eingabe, suchen dann nach "1c" und finden weder die
+    Kinder noch die Berechtigung. Doppelte Einträge, die beim Kürzen entstehen,
+    werden zusammengeführt. Idempotent; gibt die Zahl geänderter Datensätze
+    zurück. Committet nicht.
+    """
+    geaendert = 0
+
+    for kind in Schueler.query.filter(Schueler.klasse.isnot(None)).all():
+        sauber = kind.klasse.strip()
+        if sauber != kind.klasse:
+            kind.klasse = sauber
+            geaendert += 1
+
+    for bibliothek in ClassTaskLibrary.query.all():
+        sauber = (bibliothek.class_name or '').strip()
+        if sauber != bibliothek.class_name:
+            bibliothek.class_name = sauber
+            geaendert += 1
+
+    zuordnungen = UserKlassenzuordnung.query.order_by(UserKlassenzuordnung.id).all()
+    belegt = {(z.user_id, z.klasse, z.rolle) for z in zuordnungen if z.klasse == z.klasse.strip()}
+    for zuordnung in zuordnungen:
+        sauber = zuordnung.klasse.strip()
+        if sauber == zuordnung.klasse:
+            continue
+        schluessel = (zuordnung.user_id, sauber, zuordnung.rolle)
+        if schluessel in belegt:
+            db.session.delete(zuordnung)  # dieselbe Zuordnung gibt es schon sauber
+        else:
+            zuordnung.klasse = sauber
+            belegt.add(schluessel)
+        geaendert += 1
+
+    klassen = Klasse.query.order_by(Klasse.id).all()
+    sauber_vorhanden = {klasse.name: klasse for klasse in klassen if klasse.name == klasse.name.strip()}
+    for klasse in klassen:
+        sauber = klasse.name.strip()
+        if sauber == klasse.name:
+            continue
+        ziel = sauber_vorhanden.get(sauber)
+        if ziel:
+            if not ziel.jahrgaenge and klasse.jahrgaenge:
+                ziel.jahrgang_zuordnungen = [KlasseJahrgang(jahrgang=j) for j in klasse.jahrgaenge]
+            db.session.delete(klasse)
+        else:
+            klasse.name = sauber
+            sauber_vorhanden[sauber] = klasse
+        geaendert += 1
+
+    db.session.flush()
+    return geaendert
+
+
 def sync_klassen():
     """Legt für jeden verwendeten Klassennamen eine Klasse an. Idempotent."""
     angelegt = []

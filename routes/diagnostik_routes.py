@@ -5,6 +5,7 @@ from datetime import date, datetime
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
+from sqlalchemy import func
 
 from authz import admin_required
 from db_utils import get_or_404_session
@@ -329,14 +330,19 @@ def admin_testform_loeschen(testform_id):
 # ----------------------------------------------------------------------
 
 def zugaengliche_klassen(user):
-    """Klassen, deren Ergebnisse eine Lehrkraft eintragen und sehen darf."""
+    """Klassen, deren Ergebnisse eine Lehrkraft eintragen und sehen darf.
+
+    Namen ohne Leerzeichen am Rand: Formulare kürzen ihre Eingabe, und ein
+    gespeichertes "1c " darf deshalb nicht zu einer Ablehnung von "1c" führen.
+    """
     if user.is_admin:
-        return get_distinct_klassen()
-    kontext = get_user_klassenkontext(user)
-    klassen = set(kontext.get('fachklassen') or set())
-    if kontext.get('klassenleitung'):
-        klassen.add(kontext['klassenleitung'])
-    return sorted(klassen, key=str.lower)
+        namen = get_distinct_klassen()
+    else:
+        kontext = get_user_klassenkontext(user)
+        namen = set(kontext.get('fachklassen') or set())
+        if kontext.get('klassenleitung'):
+            namen.add(kontext['klassenleitung'])
+    return sorted({(name or '').strip() for name in namen} - {''}, key=str.lower)
 
 
 def darf_kind_sehen(user, schueler):
@@ -344,7 +350,27 @@ def darf_kind_sehen(user, schueler):
         return False
     if user.is_admin:
         return True
-    return bool(schueler.klasse) and schueler.klasse in zugaengliche_klassen(user)
+    return bool((schueler.klasse or '').strip()) and schueler.klasse.strip() in zugaengliche_klassen(user)
+
+
+def _kinder_der_klasse(klasse):
+    """Aktive Kinder einer Klasse; der gespeicherte Name wird ohne Randleerzeichen verglichen."""
+    return (
+        Schueler.query
+        .filter(func.trim(Schueler.klasse) == klasse, Schueler.is_active.is_(True))
+        .order_by(Schueler.nachname, Schueler.vorname)
+        .all()
+    )
+
+
+def _kein_zugriff(klasse=None, schueler=None):
+    """403 mit Erklärung statt einer leeren Fehlerseite."""
+    return render_template(
+        'diagnostik_kein_zugriff.html',
+        klasse=klasse,
+        schueler=schueler,
+        klassen=zugaengliche_klassen(current_user),
+    ), 403
 
 
 def _aktive_testformen():
@@ -386,10 +412,10 @@ def erfassen():
     if schueler_id.isdigit():
         einzelkind = get_or_404_session(Schueler, int(schueler_id))
         if not darf_kind_sehen(current_user, einzelkind):
-            abort(403)
-        klasse = einzelkind.klasse or ''
+            return _kein_zugriff(schueler=einzelkind)
+        klasse = (einzelkind.klasse or '').strip()
     elif klasse and klasse not in klassen:
-        abort(403)
+        return _kein_zugriff(klasse=klasse)
 
     testform = None
     testform_id = (request.values.get('testform_id') or '').strip()
@@ -427,12 +453,7 @@ def erfassen():
     if einzelkind:
         kinder = [einzelkind]
     else:
-        kinder = (
-            Schueler.query
-            .filter(Schueler.klasse == klasse, Schueler.is_active.is_(True))
-            .order_by(Schueler.nachname, Schueler.vorname)
-            .all()
-        )
+        kinder = _kinder_der_klasse(klasse)
     vorhanden = {
         ergebnis.schueler_id: ergebnis
         for ergebnis in DiagnostikErgebnis.query.filter(
@@ -567,17 +588,12 @@ def uebersicht():
         kontext = get_user_klassenkontext(current_user)
         klasse = kontext.get('klassenleitung') if kontext.get('klassenleitung') in klassen else klassen[0]
     if klasse and klasse not in klassen:
-        abort(403)
+        return _kein_zugriff(klasse=klasse)
     nur_risiko = request.args.get('risiko') == '1'
 
     bereiche, zeilen, zaehler = [], [], {stufe: 0 for stufe in STUFEN}
     if klasse:
-        kinder = (
-            Schueler.query
-            .filter(Schueler.klasse == klasse, Schueler.is_active.is_(True))
-            .order_by(Schueler.nachname, Schueler.vorname)
-            .all()
-        )
+        kinder = _kinder_der_klasse(klasse)
         bereiche, zeilen = klassen_uebersicht(kinder, schuljahr, risikogrenzen(config))
         for zeile in zeilen:
             if zeile['stufe']:
@@ -607,12 +623,7 @@ MAX_IMPORT_BYTES = 8 * 1024 * 1024
 
 
 def _import_kinder(klasse):
-    return (
-        Schueler.query
-        .filter(Schueler.klasse == klasse, Schueler.is_active.is_(True))
-        .order_by(Schueler.nachname, Schueler.vorname)
-        .all()
-    )
+    return _kinder_der_klasse(klasse)
 
 
 def _passende_testformen(suchbegriff):
@@ -673,7 +684,7 @@ def importieren():
     klassen = zugaengliche_klassen(current_user)
     klasse = (request.form.get('klasse') or request.args.get('klasse') or '').strip()
     if klasse and klasse not in klassen:
-        abort(403)
+        return _kein_zugriff(klasse=klasse)
     aktion = request.form.get('aktion') if request.method == 'POST' else None
 
     def formular(**fehler_kontext):
