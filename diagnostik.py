@@ -119,11 +119,26 @@ class Leitwert:
 @dataclass
 class Auswertung:
     ergebnis: DiagnostikErgebnis
+    # Leitwerte: Verlauf und angezeigter Prozentrang
     leitwerte: list = field(default_factory=list)
+    # Risikowerte: bestimmen die Stufe
+    risikowerte: list = field(default_factory=list)
 
     @property
     def stufe(self):
-        return schwerste_stufe({leitwert.stufe for leitwert in self.leitwerte})
+        return schwerste_stufe({wert.stufe for wert in self.risikowerte})
+
+    @property
+    def ausloeser(self):
+        """Die Kennwerte, die die Stufe verursachen, niedrigster Prozentrang zuerst."""
+        stufe = self.stufe
+        if not stufe:
+            return []
+        return sorted((w for w in self.risikowerte if w.stufe == stufe), key=lambda w: w.prozentrang)
+
+    @property
+    def hat_werte(self):
+        return bool(self.leitwerte or self.risikowerte)
 
     @property
     def niedrigster_prozentrang(self):
@@ -135,14 +150,19 @@ def auswerten(ergebnis, grenzen):
     """Prozentränge und Stufen der Leitwerte eines Ergebnisses."""
     auswertung = Auswertung(ergebnis)
     for kennwert in ergebnis.testform.kennwerte:
-        if not kennwert.leitwert:
+        if not (kennwert.leitwert or kennwert.risiko):
             continue
         prozentrang, abgeleitet = prozentrang_aus(ergebnis.wert_fuer(kennwert.id))
         if prozentrang is None:
             continue
-        auswertung.leitwerte.append(
-            Leitwert(kennwert, prozentrang, abgeleitet, stufe_fuer(prozentrang, grenzen))
+        wert = Leitwert(
+            kennwert, prozentrang, abgeleitet,
+            stufe_fuer(prozentrang, grenzen) if kennwert.risiko else None,
         )
+        if kennwert.leitwert:
+            auswertung.leitwerte.append(wert)
+        if kennwert.risiko:
+            auswertung.risikowerte.append(wert)
     return auswertung
 
 
@@ -266,7 +286,7 @@ def verlauf(schueler, grenzen):
     ergebnis_liste = []
     for eintrag in bereiche.values():
         eintrag['zeiten'] = sorted(eintrag['zeiten'].items())
-        mit_werten = [a for a in eintrag['auswertungen'] if a.leitwerte]
+        mit_werten = [a for a in eintrag['auswertungen'] if a.hat_werte]
         eintrag['aktuell'] = mit_werten[-1] if mit_werten else None
         vorher = mit_werten[-2] if len(mit_werten) > 1 else None
         eintrag['trend'] = trend(
@@ -457,8 +477,9 @@ def zeitpunkte_fuer(jahrgang, halbjahr=None):
 # Vorbelegung
 # ----------------------------------------------------------------------
 
-def _kennwert(name, rw=True, pr=True, t=False, lq=False, leit=False):
-    return {'name': name, 'rohwert': rw, 'prozentrang': pr, 't_wert': t, 'lesequotient': lq, 'leitwert': leit}
+def _kennwert(name, rw=True, pr=True, t=False, lq=False, leit=False, risiko=None):
+    return {'name': name, 'rohwert': rw, 'prozentrang': pr, 't_wert': t, 'lesequotient': lq,
+            'leitwert': leit, 'risiko': leit if risiko is None else risiko}
 
 
 # Wie in den HSP-Auswertungsmappen der Schule: jeder Kennwert mit Rohwert
@@ -467,7 +488,7 @@ HSP_STRATEGIEN = ['Alphabetische Strategie', 'Orthografische Strategie', 'Morphe
 HSP_KENNWERTE = [
     _kennwert('Graphemtreffer', t=True, leit=True),
     _kennwert('Wörter richtig', t=True, leit=True),
-] + [_kennwert(name, t=True) for name in HSP_STRATEGIEN]
+] + [_kennwert(name, t=True, risiko=True) for name in HSP_STRATEGIEN]
 
 # Testplan nach den Auswertungsmappen: HSP zur Mitte und am Ende jeder Klasse.
 HSP_TESTPLAN = {

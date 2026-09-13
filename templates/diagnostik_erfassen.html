@@ -84,7 +84,7 @@
                         <td class="text-center">
                             {% set a = auswertungen.get(kind.id) %}
                             {% if a and a.stufe %}
-                            <span class="badge text-bg-{{ stufen[a.stufe][1] }}" title="niedrigster PR {{ a.niedrigster_prozentrang }}">{{ stufen[a.stufe][0] }}</span>
+                            <span class="badge text-bg-{{ stufen[a.stufe][1] }}" title="wegen {% for w in a.ausloeser %}{{ w.kennwert.name }} PR {{ w.prozentrang }}{% if not loop.last %}, {% endif %}{% endfor %}">{{ stufen[a.stufe][0] }}</span>
                             {% elif a and a.leitwerte %}
                             <span class="small text-muted">PR {{ a.niedrigster_prozentrang }}</span>
                             {% endif %}
@@ -121,7 +121,7 @@
 
     <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
         <button type="submit" class="btn btn-primary icon-btn">{{ bi('floppy', 'bi-icon-sm') }} <span>Ergebnisse speichern</span></button>
-        <span class="small text-muted">Fett: Leitwerte, die für Risikostufe und Verlauf zählen.</span>
+        <span class="small text-muted">Fett: Leitwerte für den Verlauf. Die Stufe berücksichtigt alle Kennwerte, die im Katalog für das Risiko zählen.</span>
     </div>
 </form>
 {% endblock %}

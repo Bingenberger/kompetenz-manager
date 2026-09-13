@@ -109,6 +109,20 @@ class DiagnostikAuswertungTestCase(unittest.TestCase):
         self.assertIn('ELFE II · Ende</a>', zeile_ben)
         self.assertNotIn('HSP 3 · Ende</a>', zeile_ben)
 
+    def test_overview_names_strategy_that_triggers_level(self):
+        with self.app.app_context():
+            ergebnis = DiagnostikErgebnis.query.filter_by(schueler_id=self.kinder['Ben']).one()
+            morph = next(k for k in ergebnis.testform.kennwerte if k.name == 'Morphematische Strategie')
+            ergebnis.werte.append(DiagnostikWert(kennwert_id=morph.id, rohwert=3, prozentrang=7))
+            db.session.commit()
+        self._login()
+        html = self.client.get('/diagnostik?klasse=3a&risiko=1').get_data(as_text=True)
+        zeile_ben = html[html.index('Test, Ben'):]
+        self.assertIn('PR 55', zeile_ben)                         # angezeigter PR bleibt der Leitwert
+        self.assertIn('deutlich auffällig', zeile_ben)
+        self.assertIn('wegen Morphematische Strategie (PR 7)', zeile_ben)
+        self.assertIn('1 deutlich auffällig', html)
+
     def test_risk_filter_hides_unremarkable_children(self):
         self._login()
         html = self.client.get('/diagnostik?klasse=3a&risiko=1').get_data(as_text=True)

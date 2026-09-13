@@ -125,8 +125,8 @@ class DiagnostikErfassenTestCase(unittest.TestCase):
         html = self.client.get(self._raster_pfad()).get_data(as_text=True)
         self.assertRegex(html, rf'name="{self._feld("Anna", "Graphemtreffer", "rohwert")}" value="210"')
         self.assertIn('value="nach Krankheit"', html)
-        self.assertIn('text-bg-danger" title="niedrigster PR 8">deutlich auffällig', html)  # Ben
-        self.assertIn('text-bg-warning" title="niedrigster PR 12">auffällig', html)        # Anna: T 38
+        self.assertIn('text-bg-danger" title="wegen Graphemtreffer PR 8">deutlich auffällig', html)  # Ben
+        self.assertIn('text-bg-warning" title="wegen Wörter richtig PR 12">auffällig', html)       # Anna: T 38
 
     def test_past_school_years_can_be_selected_with_plan_of_that_time(self):
         with self.app.app_context():

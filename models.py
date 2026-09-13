@@ -634,9 +634,12 @@ class DiagnostikKennwert(db.Model):
     prozentrang = db.Column(db.Boolean, nullable=False, default=True)
     t_wert = db.Column(db.Boolean, nullable=False, default=False)
     lesequotient = db.Column(db.Boolean, nullable=False, default=False)
-    # Leitwerte bestimmen Risikostufe und Verlaufsdiagramm; die uebrigen
-    # (etwa Strategien) werden nur festgehalten.
+    # Leitwerte bilden Verlauf, Diagramm und den angezeigten Prozentrang.
     leitwert = db.Column(db.Boolean, nullable=False, default=False)
+    # Kennwerte, deren Prozentrang in die Risikostufe eingeht - neben den
+    # Leitwerten etwa die HSP-Strategien. Getrennt vom Leitwert, damit das
+    # Diagramm nicht sechs Linien je HSP zeigt.
+    risiko = db.Column(db.Boolean, nullable=False, default=False)
 
     @property
     def wertarten(self):

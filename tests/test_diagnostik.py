@@ -125,6 +125,13 @@ class DiagnostikLogikTestCase(unittest.TestCase):
         hsp1 = self._testform('HSP 1+')
         self.assertEqual(['Mitte Klasse 1', 'Ende Klasse 1'], [z.label for z in hsp1.zeitpunkte_sortiert])
         self.assertEqual(['Graphemtreffer', 'Wörter richtig'], [k.name for k in hsp1.kennwerte if k.leitwert])
+        self.assertEqual(
+            ['Graphemtreffer', 'Wörter richtig', 'Alphabetische Strategie', 'Orthografische Strategie',
+             'Morphematische Strategie', 'Wortübergreifende Strategie'],
+            [k.name for k in hsp1.kennwerte if k.risiko],
+        )
+        elfe = self._testform('ELFE II')
+        self.assertEqual(['Gesamt'], [k.name for k in elfe.kennwerte if k.risiko])
         gesamt = [k for k in self._testform('ELFE II').kennwerte if k.leitwert]
         self.assertEqual(['Gesamt'], [k.name for k in gesamt])
         self.assertEqual(['rohwert', 'prozentrang', 't_wert'], gesamt[0].wertarten)
@@ -148,9 +155,35 @@ class DiagnostikLogikTestCase(unittest.TestCase):
         )
         auswertung = auswerten(ergebnis, risikogrenzen())
         self.assertEqual(['Graphemtreffer', 'Wörter richtig'], [l.kennwert.name for l in auswertung.leitwerte])
+        # Der angezeigte PR kommt aus den Leitwerten ...
         self.assertEqual(14, auswertung.niedrigster_prozentrang)
         self.assertTrue(auswertung.leitwerte[1].abgeleitet)
-        self.assertEqual(STUFE_AUFFAELLIG, auswertung.stufe, 'Strategiewert darf nicht zaehlen')
+        # ... die Stufe beruecksichtigt auch die Strategien.
+        self.assertEqual(STUFE_DEUTLICH, auswertung.stufe, 'Strategie-PR 2 zaehlt nicht fuer das Risiko')
+        self.assertEqual(['Alphabetische Strategie'], [w.kennwert.name for w in auswertung.ausloeser])
+
+    def test_values_without_risk_flag_do_not_count(self):
+        testform = self._testform('HSP 3')
+        for kennwert in testform.kennwerte:
+            if kennwert.name == 'Orthografische Strategie':
+                kennwert.risiko = False
+        db.session.commit()
+        ergebnis = self._ergebnis(
+            'HSP 3', '2025/2026', 'ende',
+            **{'Graphemtreffer': {'prozentrang': 60}, 'Wörter richtig': {'prozentrang': 55},
+               'Orthografische Strategie': {'prozentrang': 3}},
+        )
+        auswertung = auswerten(ergebnis, risikogrenzen())
+        self.assertIsNone(auswertung.stufe)
+        self.assertEqual([], auswertung.ausloeser)
+
+    def test_strategy_alone_can_make_a_result_count(self):
+        """Nur Strategiewerte eingetragen: Stufe ja, angezeigter PR nein."""
+        ergebnis = self._ergebnis('HSP 2', '2025/2026', 'ende', **{'Morphematische Strategie': {'prozentrang': 20}})
+        auswertung = auswerten(ergebnis, risikogrenzen())
+        self.assertEqual(STUFE_BEOBACHTEN, auswertung.stufe)
+        self.assertIsNone(auswertung.niedrigster_prozentrang)
+        self.assertTrue(auswertung.hat_werte)
 
     def test_reading_history_spans_sls_and_elfe(self):
         self._ergebnis('SLS 1-4', '2024/2025', 'ende', Leseleistung={'rohwert': 20, 'lesequotient': 82})

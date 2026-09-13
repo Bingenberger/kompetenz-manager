@@ -44,7 +44,8 @@
                             <td class="small">
                                 {% for k in t.kennwerte %}
                                 <div>
-                                    {% if k.leitwert %}<strong title="Leitwert: zählt für Risiko und Verlauf">{{ k.name }}</strong>{% else %}{{ k.name }}{% endif %}
+                                    {% if k.leitwert %}<strong title="Leitwert: Verlauf und Diagramm">{{ k.name }}</strong>{% else %}{{ k.name }}{% endif %}
+                                    {% if k.risiko %}<span class="badge bg-warning-subtle text-warning-emphasis border ms-1" title="Prozentrang zählt für die Risikostufe">Risiko</span>{% endif %}
                                     <span class="text-muted">({% for art in k.wertarten %}{{ wertart_kuerzel[art] }}{% if not loop.last %}, {% endif %}{% endfor %})</span>
                                 </div>
                                 {% endfor %}
@@ -64,13 +65,13 @@
         {% else %}
         <div class="alert alert-info">Noch keine Verfahren angelegt.</div>
         {% endfor %}
-        <p class="small text-muted"><strong>Fett</strong> gesetzte Kennwerte sind Leitwerte: Ihr Prozentrang bestimmt Risikostufe und Verlauf. RW = Rohwert, PR = Prozentrang, T = T-Wert, LQ = Lesequotient.</p>
+        <p class="small text-muted"><strong>Fett</strong>: Leitwerte, sie bilden Verlauf und Diagramm. <span class="badge bg-warning-subtle text-warning-emphasis border">Risiko</span>: Der Prozentrang zählt für die Risikostufe. RW = Rohwert, PR = Prozentrang, T = T-Wert, LQ = Lesequotient.</p>
     </div>
 
     <div class="col-xl-4">
         <div class="surface-panel p-4">
             <h3 class="h5 mb-1">Risikostufen</h3>
-            <p class="small text-muted">Ein Ergebnis erhält die schwerste Stufe, deren Grenze der niedrigste Prozentrang seiner Leitwerte erreicht. Leeres Feld: Stufe ausgeschaltet.</p>
+            <p class="small text-muted">Ein Ergebnis erhält die schwerste Stufe, die einer seiner Risiko-Kennwerte erreicht. Leeres Feld: Stufe ausgeschaltet.</p>
             <form method="POST" action="{{ url_for('diagnostik.admin_grenzen') }}">
                 {{ csrf_input() }}
                 {% for stufe in ['beobachten', 'auffaellig', 'deutlich'] %}

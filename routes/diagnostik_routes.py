@@ -306,6 +306,7 @@ def _uebernimm_kennwert(kennwert, praefix, name, fehler):
     for schluessel, aktiv in arten.items():
         setattr(kennwert, schluessel, aktiv)
     kennwert.leitwert = request.form.get(praefix + 'leitwert') == '1'
+    kennwert.risiko = request.form.get(praefix + 'risiko') == '1'
     position, gueltig = _int_oder_none(request.form.get(praefix + 'sort_order'), 0, 999)
     if gueltig and position is not None:
         kennwert.sort_order = position

@@ -491,7 +491,7 @@ def _add_new_columns():
                 for row in conn.execute(text(f'PRAGMA table_info("{tabelle}")')).mappings().all()
             }
         tabellen = {"user": '"user"', "notification": "notification", "elternkontakt": "elternkontakt",
-                    "system_konfiguration": "system_konfiguration"}
+                    "system_konfiguration": "system_konfiguration", "diagnostik_kennwert": "diagnostik_kennwert"}
     elif backend in {"postgresql", "postgres"}:
         def spalten(conn, tabelle):
             return {
@@ -502,7 +502,7 @@ def _add_new_columns():
                 ), {"tabelle": tabelle}).all()
             }
         tabellen = {"user": 'public."user"', "notification": "public.notification", "elternkontakt": "public.elternkontakt",
-                    "system_konfiguration": "public.system_konfiguration"}
+                    "system_konfiguration": "public.system_konfiguration", "diagnostik_kennwert": "public.diagnostik_kennwert"}
     else:
         return
 
@@ -519,6 +519,11 @@ def _add_new_columns():
         ("system_konfiguration", "diagnostik_pr_beobachten", "INTEGER DEFAULT 25", None),
         ("system_konfiguration", "diagnostik_pr_auffaellig", "INTEGER DEFAULT 16", None),
         ("system_konfiguration", "diagnostik_pr_deutlich", "INTEGER DEFAULT 10", None),
+        # Was bisher die Stufe bestimmte (Leitwerte), zaehlt weiter; dazu die
+        # HSP-Strategien, deren Prozentraenge die Schule einbeziehen will.
+        ("diagnostik_kennwert", "risiko", "BOOLEAN NOT NULL DEFAULT FALSE",
+         "UPDATE {tabelle} SET risiko = TRUE WHERE leitwert = TRUE OR name IN "
+         "('Alphabetische Strategie', 'Orthografische Strategie', 'Morphematische Strategie', 'Wortübergreifende Strategie')"),
     ]
     with engine.connect() as conn:
         vorhanden = {}

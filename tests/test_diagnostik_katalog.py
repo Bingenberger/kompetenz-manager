@@ -74,7 +74,7 @@ class DiagnostikKatalogTestCase(unittest.TestCase):
                 p = f'kennwert_{k.id}_'
                 daten[p + 'name'] = k.name
                 daten[p + 'sort_order'] = str(k.sort_order)
-                for art in ('rohwert', 'prozentrang', 't_wert', 'lesequotient', 'leitwert'):
+                for art in ('rohwert', 'prozentrang', 't_wert', 'lesequotient', 'leitwert', 'risiko'):
                     if getattr(k, art):
                         daten[p + art] = '1'
             return daten
@@ -155,6 +155,24 @@ class DiagnostikKatalogTestCase(unittest.TestCase):
             namen = [k.name for k in testform.kennwerte]
             self.assertNotIn('Alphabetische Strategie', namen)
             self.assertIn('Graphemtreffer (GT)', namen)
+
+    def test_risk_flag_can_be_set_and_cleared(self):
+        verfahren_id, testform_id, kennwerte = self._ids('ELFE II')
+        self._login()
+        pfad = f'/admin/diagnostik/verfahren/{verfahren_id}/testform/{testform_id}'
+        self.assertIn('name="kennwert_%d_risiko"' % kennwerte['Textverständnis'], self.client.get(pfad).get_data(as_text=True))
+
+        daten = self._formular_fuer(testform_id)
+        daten['_csrf_token'] = self._token(pfad)
+        daten[f'kennwert_{kennwerte["Textverständnis"]}_risiko'] = '1'
+        daten.pop(f'kennwert_{kennwerte["Gesamt"]}_risiko')
+        self.client.post(pfad, data=daten)
+        with self.app.app_context():
+            self.assertTrue(db.session.get(DiagnostikKennwert, kennwerte['Textverständnis']).risiko)
+            gesamt = db.session.get(DiagnostikKennwert, kennwerte['Gesamt'])
+            self.assertFalse(gesamt.risiko)
+            self.assertTrue(gesamt.leitwert, 'Leitwert haengt am Risiko-Schalter')
+        self.assertIn('>Risiko</span>', self.client.get('/admin/diagnostik').get_data(as_text=True))
 
     def test_value_without_any_kind_is_rejected(self):
         verfahren_id, testform_id, kennwerte = self._ids('HSP 3')

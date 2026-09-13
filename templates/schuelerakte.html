@@ -649,7 +649,7 @@
                         <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                             <h4 class="h5 mb-0">{{ eintrag.bereich }}</h4>
                             {% if eintrag.aktuell %}
-                            <span class="small text-muted">zuletzt PR {{ eintrag.aktuell.niedrigster_prozentrang }}</span>
+                            {% if eintrag.aktuell.niedrigster_prozentrang is not none %}<span class="small text-muted">zuletzt PR {{ eintrag.aktuell.niedrigster_prozentrang }}</span>{% endif %}
                             {% if eintrag.aktuell.stufe %}<span class="badge text-bg-{{ diagnostik_stufen[eintrag.aktuell.stufe][1] }}">{{ diagnostik_stufen[eintrag.aktuell.stufe][0] }}</span>{% endif %}
                             {% endif %}
                         </div>
@@ -678,7 +678,8 @@
                                         </td>
                                         <td>
                                             {% if auswertung.stufe %}<span class="badge text-bg-{{ diagnostik_stufen[auswertung.stufe][1] }}">{{ diagnostik_stufen[auswertung.stufe][0] }}</span>
-                                            {% elif auswertung.leitwerte %}<span class="small text-muted">unauffällig</span>{% endif %}
+                                            <div class="small text-muted mt-1">{% for w in auswertung.ausloeser %}{{ w.kennwert.name }} PR {{ w.prozentrang }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+                                            {% elif auswertung.hat_werte %}<span class="small text-muted">unauffällig</span>{% endif %}
                                         </td>
                                         <td class="text-end text-nowrap">
                                             {% if diagnostik_bearbeitbar %}
