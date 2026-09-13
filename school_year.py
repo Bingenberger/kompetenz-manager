@@ -6,7 +6,6 @@ from models import SystemKonfiguration
 
 
 SCHOOL_YEAR_RE = re.compile(r"^(\d{4})\s*/\s*(\d{4})$")
-CLASS_RE = re.compile(r"^([1-4])(.*)$")
 
 
 def normalize_school_year(value):
@@ -32,48 +31,6 @@ def next_school_year(value, today=None):
 def default_school_year_start(value):
     normalized = normalize_school_year(value)
     return date(int(normalized[:4]), 8, 1) if normalized else None
-
-
-def class_grade(class_name):
-    match = CLASS_RE.match((class_name or "").strip())
-    return int(match.group(1)) if match else None
-
-
-def target_classes_after_transition(students):
-    targets = set()
-    for student in students:
-        value = (student.klasse or "").strip()
-        grade = class_grade(value)
-        if grade:
-            targets.add(value)
-        promoted = promoted_class_name(value)
-        if promoted:
-            targets.add(promoted)
-    return sorted(targets, key=lambda value: (class_grade(value) or 99, value.lower()))
-
-
-def promoted_class_name(class_name):
-    value = (class_name or '').strip()
-    match = CLASS_RE.match(value)
-    if not match:
-        return None
-    grade = int(match.group(1))
-    if grade >= 4:
-        return None
-    return f'{grade + 1}{match.group(2)}'
-
-
-def student_transition_action(student, repeater_ids, individual_targets=None):
-    if student.id in repeater_ids:
-        target = (individual_targets or {}).get(student.id)
-        return 'individual', target
-    value = (student.klasse or '').strip()
-    match = CLASS_RE.match(value)
-    if not match:
-        return 'unchanged', student.klasse
-    if int(match.group(1)) == 4:
-        return 'archive', student.klasse
-    return 'promote', promoted_class_name(value)
 
 
 def active_school_year_start():

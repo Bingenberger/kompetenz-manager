@@ -30,13 +30,21 @@ from models import (
 )
 from school_year import (
     default_school_year_start,
-    class_grade,
     next_school_year,
     normalize_school_year,
-    promoted_class_name,
     serialize_ids,
-    target_classes_after_transition,
-    student_transition_action,
+)
+from transition_plan import (
+    AKTION_ARCHIVIEREN,
+    AKTION_ENTFERNEN,
+    AKTION_INDIVIDUELL,
+    AKTION_UNVERAENDERT,
+    AKTION_VERSETZEN,
+    class_universe,
+    classes_to_age,
+    invalid_targets,
+    plan_assignment,
+    plan_student,
 )
 from jahrgang import (
     JAHRGAENGE,
@@ -316,73 +324,66 @@ def admin_system_settings():
 @admin_required(redirect_endpoint='admin.admin_dashboard', message=None)
 def admin_school_year_transition():
     settings = _get_system_konfiguration()
+
+    # Klassen, die bisher nur als Name existieren, fuer die Planung anlegen.
+    if sync_klassen():
+        db.session.commit()
+
     active_students = (
         Schueler.query
         .filter(Schueler.is_active.is_(True))
         .order_by(Schueler.klasse.asc(), Schueler.nachname.asc(), Schueler.vorname.asc())
         .all()
     )
-    target_classes = target_classes_after_transition(active_students)
+    klassen = {klasse.name: klasse for klasse in Klasse.query.all()}
+    universum = class_universe()
+
     proposed_year = next_school_year(settings.schuljahr)
     new_year = (request.form.get('neues_schuljahr') or proposed_year).strip()
     start_raw = (request.form.get('schuljahr_beginn') or '').strip()
     proposed_start = default_school_year_start(new_year)
     start_date = _parse_optional_date(start_raw) if start_raw else proposed_start
+
+    valid_ids = {student.id for student in active_students}
     repeater_ids = {
         int(value) for value in request.form.getlist('wiederholer_ids') if value.isdigit()
-    }
-    valid_ids = {student.id for student in active_students}
-    repeater_ids &= valid_ids
+    } & valid_ids
+    # Zielklassen fuer alle Kinder einlesen, nicht nur fuer Wiederholer: auch wer
+    # eine jahrgangsuebergreifende Klasse verlaesst, braucht eine.
     individual_targets = {
-        student_id: (request.form.get(f'individual_target_{student_id}') or '').strip()
-        for student_id in repeater_ids
+        student.id: (request.form.get(f'individual_target_{student.id}') or '').strip()
+        for student in active_students
     }
 
-    rows = []
-    counts = {'promote': 0, 'individual': 0, 'archive': 0, 'unchanged': 0}
-    for student in active_students:
-        action, target_class = student_transition_action(student, repeater_ids, individual_targets)
-        counts[action] += 1
-        rows.append({
-            'student': student,
-            'action': action,
-            'target_class': target_class,
-            'target_options': [
-                class_name for class_name in target_classes
-                if class_grade(class_name) == class_grade(student.klasse)
-            ],
-        })
+    rows = [
+        plan_student(
+            student,
+            student.id in repeater_ids,
+            individual_targets.get(student.id),
+            universum,
+            klassen,
+        )
+        for student in active_students
+    ]
+    counts = {AKTION_VERSETZEN: 0, AKTION_INDIVIDUELL: 0, AKTION_ARCHIVIEREN: 0, AKTION_UNVERAENDERT: 0}
+    for row in rows:
+        counts[row['action']] += 1
 
-    assignment_rows = []
-    assignment_counts = {'promote': 0, 'remove': 0, 'unchanged': 0}
-    for assignment in UserKlassenzuordnung.query.order_by(UserKlassenzuordnung.klasse).all():
-        grade = class_grade(assignment.klasse)
-        if grade in {1, 2, 3}:
-            assignment_action, assignment_target = 'promote', promoted_class_name(assignment.klasse)
-        elif grade == 4:
-            assignment_action, assignment_target = 'remove', None
-        else:
-            assignment_action, assignment_target = 'unchanged', assignment.klasse
-        assignment_counts[assignment_action] += 1
-        assignment_rows.append({
-            'assignment': assignment,
-            'action': assignment_action,
-            'target_class': assignment_target,
-        })
+    assignment_rows = [
+        plan_assignment(assignment, klassen)
+        for assignment in UserKlassenzuordnung.query.order_by(UserKlassenzuordnung.klasse).all()
+    ]
+    assignment_counts = {AKTION_VERSETZEN: 0, AKTION_ENTFERNEN: 0, AKTION_UNVERAENDERT: 0}
+    for assignment_row in assignment_rows:
+        assignment_counts[assignment_row['action']] += 1
 
     if request.method == 'POST' and request.form.get('action') == 'execute':
         normalized_year = normalize_school_year(new_year)
-        invalid_targets = [
-            student for student in active_students
-            if student.id in repeater_ids
-            and (
-                not individual_targets.get(student.id)
-                or individual_targets[student.id] not in target_classes
-                or class_grade(individual_targets[student.id]) != class_grade(student.klasse)
+        if invalid_targets(rows):
+            flash(
+                'Bitte für jedes markierte Kind eine Zielklasse wählen, die den '
+                'passenden Jahrgang führt.'
             )
-        ]
-        if invalid_targets:
-            flash('Bitte für jedes nicht automatisch versetzte Kind eine Zielklasse derselben Jahrgangsstufe wählen.')
         elif not normalized_year:
             flash('Das neue Schuljahr muss das Format JJJJ/JJJJ haben, z. B. 2026/2027.')
         elif not start_date:
@@ -393,20 +394,30 @@ def admin_school_year_transition():
         elif normalized_year == (settings.schuljahr or ''):
             flash('Das neue Schuljahr muss sich vom aktuellen Schuljahr unterscheiden.')
         else:
+            # Gruppen mit freiem Namen altern gemeinsam. Die Plaene oben sind
+            # bereits mit den Jahrgaengen nach dem Wechsel gerechnet.
+            for klasse in classes_to_age(klassen):
+                set_klassen_jahrgaenge(klasse, [klasse.jahrgaenge[0] + 1])
+
             for row in rows:
                 student = row['student']
-                if row['action'] in {'promote', 'individual'}:
+                if row['action'] in {AKTION_VERSETZEN, AKTION_INDIVIDUELL}:
+                    ensure_klasse(row['target_class'])
                     student.klasse = row['target_class']
-                elif row['action'] == 'archive':
+                    student.jahrgang = row['new_jahrgang']
+                elif row['action'] == AKTION_ARCHIVIEREN:
                     student.is_active = False
                     student.archived_at = utc_now()
+                    # Den wirksamen Jahrgang festschreiben, auch wenn er bisher
+                    # nur aus der Klasse abgeleitet war.
+                    student.jahrgang = row['jahrgang']
 
             kept_assignments = {}
             assignments_to_delete = []
             for assignment_row in assignment_rows:
                 assignment = assignment_row['assignment']
                 target_class = assignment_row['target_class']
-                if assignment_row['action'] == 'remove':
+                if assignment_row['action'] == AKTION_ENTFERNEN:
                     assignments_to_delete.append(assignment)
                     continue
                 key = (assignment.user_id, target_class, assignment.rolle)
@@ -415,6 +426,8 @@ def admin_school_year_transition():
                 else:
                     kept_assignments[key] = assignment
 
+            # Zwischennamen verhindern Kollisionen mit der Eindeutigkeitsregel,
+            # wenn etwa "3a" zu "4a" wird, waehrend "4a" noch belegt ist.
             for assignment_row in assignment_rows:
                 assignment_row['assignment'].klasse = f'__schuljahreswechsel_{assignment_row["assignment"].id}'
             db.session.flush()
@@ -422,17 +435,18 @@ def admin_school_year_transition():
                 db.session.delete(assignment)
             for (_user_id, target_class, _role), assignment in kept_assignments.items():
                 assignment.klasse = target_class
+                ensure_klasse(target_class)
 
             change = Schuljahreswechsel(
                 altes_schuljahr=settings.schuljahr,
                 neues_schuljahr=normalized_year,
                 schuljahr_beginn=start_date,
                 wiederholer_ids=serialize_ids(repeater_ids),
-                versetzt_anzahl=counts['promote'],
-                archiviert_anzahl=counts['archive'],
-                unveraendert_anzahl=counts['individual'] + counts['unchanged'],
-                zuordnungen_versetzt=assignment_counts['promote'],
-                zuordnungen_entfernt=assignment_counts['remove'],
+                versetzt_anzahl=counts[AKTION_VERSETZEN],
+                archiviert_anzahl=counts[AKTION_ARCHIVIEREN],
+                unveraendert_anzahl=counts[AKTION_INDIVIDUELL] + counts[AKTION_UNVERAENDERT],
+                zuordnungen_versetzt=assignment_counts[AKTION_VERSETZEN],
+                zuordnungen_entfernt=assignment_counts[AKTION_ENTFERNEN],
                 created_by_user_id=current_user.id,
             )
             settings.schuljahr = normalized_year
@@ -440,8 +454,9 @@ def admin_school_year_transition():
             db.session.add(change)
             db.session.commit()
             flash(
-                f'Schuljahreswechsel abgeschlossen: {counts["promote"]} versetzt, '
-                f'{counts["individual"]} Wiederholer, {counts["archive"]} archiviert.'
+                f'Schuljahreswechsel abgeschlossen: {counts[AKTION_VERSETZEN]} versetzt, '
+                f'{counts[AKTION_INDIVIDUELL]} individuell zugeordnet, '
+                f'{counts[AKTION_ARCHIVIEREN]} archiviert.'
             )
             return redirect(url_for('admin.admin_school_year_transition'))
 
@@ -455,7 +470,6 @@ def admin_school_year_transition():
         start_date=start_date,
         repeater_ids=repeater_ids,
         individual_targets=individual_targets,
-        target_classes=target_classes,
         assignment_rows=assignment_rows,
         assignment_counts=assignment_counts,
         history=history,
