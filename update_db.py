@@ -480,8 +480,8 @@ def _postgres_add_school_year_columns():
             print("Spalte 'bogen.pflicht' wurde für PostgreSQL ergänzt.")
         conn.commit()
 
-def _add_notification_columns():
-    """Spalten fuer Benachrichtigungen per E-Mail - SQLite und PostgreSQL."""
+def _add_new_columns():
+    """Spalten fuer Benachrichtigungen und Diagnostik - SQLite und PostgreSQL."""
     engine = db.engine
     backend = engine.url.get_backend_name()
     if backend == "sqlite":
@@ -490,7 +490,8 @@ def _add_notification_columns():
                 row["name"]
                 for row in conn.execute(text(f'PRAGMA table_info("{tabelle}")')).mappings().all()
             }
-        tabellen = {"user": '"user"', "notification": "notification", "elternkontakt": "elternkontakt"}
+        tabellen = {"user": '"user"', "notification": "notification", "elternkontakt": "elternkontakt",
+                    "system_konfiguration": "system_konfiguration"}
     elif backend in {"postgresql", "postgres"}:
         def spalten(conn, tabelle):
             return {
@@ -500,7 +501,8 @@ def _add_notification_columns():
                     "WHERE table_schema = 'public' AND table_name = :tabelle"
                 ), {"tabelle": tabelle}).all()
             }
-        tabellen = {"user": 'public."user"', "notification": "public.notification", "elternkontakt": "public.elternkontakt"}
+        tabellen = {"user": 'public."user"', "notification": "public.notification", "elternkontakt": "public.elternkontakt",
+                    "system_konfiguration": "public.system_konfiguration"}
     else:
         return
 
@@ -512,6 +514,11 @@ def _add_notification_columns():
         # der erste Versandlauf den ganzen Altbestand.
         ("notification", "mailed_at", "TIMESTAMP", "UPDATE {tabelle} SET mailed_at = created_at WHERE mailed_at IS NULL"),
         ("elternkontakt", "erinnert_fuer_termin", "DATE", None),
+        # Risikostufen der Diagnostik; bestehende Konfigurationen bekommen die
+        # Voreinstellung 25 / 16 / 10.
+        ("system_konfiguration", "diagnostik_pr_beobachten", "INTEGER DEFAULT 25", None),
+        ("system_konfiguration", "diagnostik_pr_auffaellig", "INTEGER DEFAULT 16", None),
+        ("system_konfiguration", "diagnostik_pr_deutlich", "INTEGER DEFAULT 10", None),
     ]
     with engine.connect() as conn:
         vorhanden = {}
@@ -550,7 +557,7 @@ with app.app_context():
     _postgres_add_missing_erziehung_event_columns()
     _sqlite_add_school_year_columns()
     _postgres_add_school_year_columns()
-    _add_notification_columns()
+    _add_new_columns()
 
     # Jahrgaenge aus den Bestandsdaten ableiten. Idempotent: legt nur fehlende
     # Klassen an und fuellt nur leere Jahrgaenge, ueberschreibt nichts.
@@ -561,6 +568,13 @@ with app.app_context():
     gesetzte_jahrgaenge = backfill_student_jahrgaenge()
     if gesetzte_jahrgaenge:
         print(f"Jahrgang bei {gesetzte_jahrgaenge} Kind(ern) aus der Klasse übernommen.")
+    db.session.commit()
+
+    # Diagnostik-Katalog mit HSP, SLS 1-4 und ELFE II vorbelegen - nur, wenn
+    # noch keiner existiert; danach pflegt ihn die Verwaltung.
+    from diagnostik import lege_vorbelegung_an
+    if lege_vorbelegung_an():
+        print("Diagnostik-Katalog mit HSP, SLS 1-4 und ELFE II vorbelegt.")
     db.session.commit()
     
     print("--- FERTIG! Die Datenbank wurde erweitert. ---")

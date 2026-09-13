@@ -442,6 +442,11 @@ class SystemKonfiguration(db.Model):
     # ausgeschaltet: ohne eingetragene Frist meldet die Anwendung nichts als
     # ueberfaellig. Die Frist gibt das Landesrecht vor, nicht diese Software.
     aufbewahrung_jahre = db.Column(db.Integer, nullable=True)
+    # Risikostufen der Diagnostik als Prozentrang-Grenzen (einschliesslich).
+    # Leer heisst: Stufe ausgeschaltet.
+    diagnostik_pr_beobachten = db.Column(db.Integer, nullable=True, default=25)
+    diagnostik_pr_auffaellig = db.Column(db.Integer, nullable=True, default=16)
+    diagnostik_pr_deutlich = db.Column(db.Integer, nullable=True, default=10)
 
 
 class Schuljahreswechsel(db.Model):
@@ -569,3 +574,136 @@ class ClassTaskTemplateCompetency(db.Model):
 
     template = db.relationship('ClassTaskTemplate', back_populates='competency_links')
     item = db.relationship('Item')
+
+
+# ----------------------------------------------------------------------
+# Standardisierte Diagnostik (HSP, SLS, ELFE II, ...)
+#
+# Die Verfahren sind kein fester Programmteil, sondern ein Katalog, den die
+# Verwaltung pflegt: Verfahren -> Testform -> Kennwerte, dazu der Testplan
+# (welche Testform in welchem Jahrgang zur Mitte oder am Ende des Schuljahres).
+# Normtabellen rechnet die Anwendung nicht nach - eingetragen werden Rohwert
+# und Normwerte aus dem Auswertungsbogen.
+# ----------------------------------------------------------------------
+
+class DiagnostikVerfahren(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False, unique=True)
+    # Lernbereich, ueber den der Verlauf zusammengefasst wird - etwa "Lesen"
+    # fuer das SLS in Klasse 1 und 2 und ELFE II ab Klasse 3.
+    bereich = db.Column(db.String(50), nullable=False)
+    beschreibung = db.Column(db.Text, nullable=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+    testformen = db.relationship(
+        'DiagnostikTestform', backref='verfahren', cascade='all, delete-orphan',
+        order_by='DiagnostikTestform.sort_order',
+    )
+
+
+class DiagnostikTestform(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    verfahren_id = db.Column(db.Integer, db.ForeignKey('diagnostik_verfahren.id'), nullable=False, index=True)
+    name = db.Column(db.String(100), nullable=False)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+    kennwerte = db.relationship(
+        'DiagnostikKennwert', backref='testform', cascade='all, delete-orphan',
+        order_by='DiagnostikKennwert.sort_order',
+    )
+    zeitpunkte = db.relationship(
+        'DiagnostikZeitpunkt', backref='testform', cascade='all, delete-orphan',
+        order_by='DiagnostikZeitpunkt.jahrgang',
+    )
+
+    @property
+    def zeitpunkte_sortiert(self):
+        return sorted(self.zeitpunkte, key=lambda z: (z.jahrgang, 0 if z.halbjahr == 'mitte' else 1))
+
+
+class DiagnostikKennwert(db.Model):
+    """Eine Messgroesse einer Testform, etwa "Graphemtreffer"."""
+    id = db.Column(db.Integer, primary_key=True)
+    testform_id = db.Column(db.Integer, db.ForeignKey('diagnostik_testform.id'), nullable=False, index=True)
+    name = db.Column(db.String(100), nullable=False)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    # Welche Werte der Auswertungsbogen zu dieser Groesse liefert.
+    rohwert = db.Column(db.Boolean, nullable=False, default=True)
+    prozentrang = db.Column(db.Boolean, nullable=False, default=True)
+    t_wert = db.Column(db.Boolean, nullable=False, default=False)
+    lesequotient = db.Column(db.Boolean, nullable=False, default=False)
+    # Leitwerte bestimmen Risikostufe und Verlaufsdiagramm; die uebrigen
+    # (etwa Strategien) werden nur festgehalten.
+    leitwert = db.Column(db.Boolean, nullable=False, default=False)
+
+    @property
+    def wertarten(self):
+        return [art for art in ('rohwert', 'prozentrang', 't_wert', 'lesequotient') if getattr(self, art)]
+
+
+class DiagnostikZeitpunkt(db.Model):
+    """Testplan: diese Testform in diesem Jahrgang zur Mitte oder am Ende."""
+    id = db.Column(db.Integer, primary_key=True)
+    testform_id = db.Column(db.Integer, db.ForeignKey('diagnostik_testform.id'), nullable=False, index=True)
+    jahrgang = db.Column(db.Integer, nullable=False)
+    halbjahr = db.Column(db.String(10), nullable=False)  # 'mitte' | 'ende'
+
+    __table_args__ = (
+        db.UniqueConstraint('testform_id', 'jahrgang', 'halbjahr', name='uq_diagnostik_zeitpunkt'),
+    )
+
+    @property
+    def label(self):
+        return f"{'Mitte' if self.halbjahr == 'mitte' else 'Ende'} Klasse {self.jahrgang}"
+
+
+class DiagnostikErgebnis(db.Model):
+    """Eine durchgefuehrte Testung eines Kindes.
+
+    Jahrgang, Halbjahr und Schuljahr stehen am Ergebnis selbst, nicht nur im
+    Testplan: aendert sich der Plan spaeter, bleibt nachvollziehbar, wann
+    getestet wurde.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    schueler_id = db.Column(db.Integer, db.ForeignKey('schueler.id'), nullable=False, index=True)
+    testform_id = db.Column(db.Integer, db.ForeignKey('diagnostik_testform.id'), nullable=False, index=True)
+    schuljahr = db.Column(db.String(20), nullable=False)
+    halbjahr = db.Column(db.String(10), nullable=False)
+    jahrgang = db.Column(db.Integer, nullable=True)
+    datum = db.Column(db.Date, nullable=True)
+    bemerkung = db.Column(db.Text, nullable=True)
+    erfasst_von_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+
+    __table_args__ = (
+        db.UniqueConstraint('schueler_id', 'testform_id', 'schuljahr', 'halbjahr', name='uq_diagnostik_ergebnis'),
+    )
+
+    schueler = db.relationship(
+        'Schueler', backref=db.backref('diagnostik_ergebnisse', cascade='all, delete-orphan'),
+    )
+    testform = db.relationship('DiagnostikTestform')
+    erfasst_von = db.relationship('User')
+    werte = db.relationship('DiagnostikWert', backref='ergebnis', cascade='all, delete-orphan')
+
+    def wert_fuer(self, kennwert_id):
+        return next((wert for wert in self.werte if wert.kennwert_id == kennwert_id), None)
+
+
+class DiagnostikWert(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    ergebnis_id = db.Column(db.Integer, db.ForeignKey('diagnostik_ergebnis.id'), nullable=False, index=True)
+    kennwert_id = db.Column(db.Integer, db.ForeignKey('diagnostik_kennwert.id'), nullable=False, index=True)
+    rohwert = db.Column(db.Integer, nullable=True)
+    prozentrang = db.Column(db.Integer, nullable=True)
+    t_wert = db.Column(db.Integer, nullable=True)
+    lesequotient = db.Column(db.Integer, nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('ergebnis_id', 'kennwert_id', name='uq_diagnostik_wert'),
+    )
+
+    kennwert = db.relationship('DiagnostikKennwert')
