@@ -514,7 +514,10 @@ def admin_users():
             flash(f'Benutzer {username} angelegt.')
             return redirect(url_for('admin.admin_users'))
 
-    users = User.query.order_by(User.username).all()
+    users = sorted(
+        User.query.all(),
+        key=lambda u: ((u.nachname or u.username or '').lower(), (u.vorname or '').lower(), (u.username or '').lower()),
+    )
     zuordnungen = UserKlassenzuordnung.query.all()
     zuordnungen_by_user = {}
     for z in zuordnungen:
@@ -528,8 +531,12 @@ def admin_users():
 
     # Nach einem Fehler beim Anlegen die Eingaben stehen lassen (ohne Passwort).
     eingaben = request.form if request.method == 'POST' else {}
+    ohne_klasse = sum(1 for u in users if u.id not in zuordnungen_by_user and u.username != 'admin')
     return render_template(
         'admin_users.html', users=users, zuordnungen_by_user=zuordnungen_by_user, eingaben=eingaben,
+        anzahl_admins=sum(1 for u in users if u.is_admin),
+        anzahl_ohne_klasse=ohne_klasse,
+        anzahl_ohne_email=sum(1 for u in users if not u.email),
     )
 
 

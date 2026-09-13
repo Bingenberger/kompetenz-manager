@@ -1,108 +1,187 @@
 {% extends "base.html" %}
 {% from "includes/icons.html" import bi %}
 {% block content %}
+{% set hier = request.full_path if request.query_string else request.path %}
+<style>
+    .kollegium-filter .btn { border-radius: 999px; }
+    .kollegium-tabelle td { vertical-align: middle; }
+    .kollegium-tabelle .person-name { font-weight: 700; color: var(--ink-700); text-decoration: none; }
+    .kollegium-tabelle .person-name:hover { text-decoration: underline; }
+    .kollegium-tabelle .aktionen .btn { white-space: nowrap; }
+    .klassen-badges .badge { font-weight: 600; }
+</style>
+
 <div class="toolbar-shell">
     <div>
         <span class="section-label">Administration</span>
-        <h2 class="h4 mt-2 mb-0">Kollegium verwalten</h2>
+        <h2 class="h4 mt-2 mb-1">Kollegium verwalten</h2>
+        <p class="text-muted mb-0">
+            {{ users|length }} Konten, davon {{ anzahl_admins }} mit Adminrechten.
+        </p>
     </div>
     <div class="toolbar-actions">
+        <button class="btn btn-success icon-btn" type="button" data-bs-toggle="collapse" data-bs-target="#neues-konto"
+                aria-expanded="{{ 'true' if eingaben else 'false' }}" aria-controls="neues-konto">
+            {{ bi('person-plus', 'bi-icon-sm') }} <span>Neues Konto</span>
+        </button>
         <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span></a>
     </div>
 </div>
 
-<div class="row">
-    <div class="col-md-8">
-        <div class="table-panel">
-            <div class="table-toolbar">
-                <div class="table-toolbar-title">Vorhandene Benutzer</div>
-                <span class="badge bg-info">{{ users|length }} Einträge</span>
+<div class="collapse {% if eingaben %}show{% endif %} mb-4" id="neues-konto">
+    <div class="surface-panel p-4">
+        <h3 class="h5 mb-3">Neues Konto anlegen</h3>
+        <form method="POST">
+            {{ csrf_input() }}
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label" for="neu-username">Benutzername</label>
+                    <input type="text" name="username" id="neu-username" class="form-control" placeholder="z.B. k.mueller" value="{{ eingaben.get('username', '') }}" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="neu-vorname">Vorname <span class="text-muted fw-normal">(optional)</span></label>
+                    <input type="text" name="vorname" id="neu-vorname" class="form-control" value="{{ eingaben.get('vorname', '') }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="neu-nachname">Nachname <span class="text-muted fw-normal">(optional)</span></label>
+                    <input type="text" name="nachname" id="neu-nachname" class="form-control" value="{{ eingaben.get('nachname', '') }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="neu-email">E-Mail-Adresse <span class="text-muted fw-normal">(optional)</span></label>
+                    <input type="email" name="email" id="neu-email" class="form-control" value="{{ eingaben.get('email', '') }}" autocomplete="off">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="neu-passwort">Start-Passwort</label>
+                    <input type="text" name="password" id="neu-passwort" class="form-control" required>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" for="neu-rolle">Rolle</label>
+                    <select name="role" id="neu-rolle" class="form-select">
+                        <option value="teacher" {% if eingaben.get('role') != 'admin' %}selected{% endif %}>Lehrkraft</option>
+                        <option value="admin" {% if eingaben.get('role') == 'admin' %}selected{% endif %}>Admin</option>
+                    </select>
+                </div>
             </div>
-            <ul class="list-group list-group-flush">
-                {% for user in users %}
-                <li class="list-group-item d-flex justify-content-between align-items-center">
-                    <div>
-                        <strong>{{ user.username }}</strong>
-                        {% if user.is_admin %}<span class="badge bg-primary ms-2">Admin</span>{% endif %}
-                        {% if not user.is_admin %}<span class="badge bg-secondary ms-2">Lehrkraft</span>{% endif %}
-                        {% if user.full_name or user.email %}
-                        <div class="small text-muted">
-                            {{ user.full_name }}{% if user.full_name and user.email %} · {% endif %}{{ user.email or '' }}
-                        </div>
-                        {% endif %}
-                        {% set z = zuordnungen_by_user.get(user.id) %}
-                        {% if z and (z.klassenleitung or z.fachklassen) %}
-                        <div class="small text-muted mt-1">
-                            {% if z.klassenleitung %}
-                            <span class="badge bg-info me-1">Klassenleitung {{ z.klassenleitung }}</span>
-                            {% endif %}
-                            {% if z.fachklassen %}
-                            <span>Fach: {{ z.fachklassen|join(', ') }}</span>
-                            {% endif %}
-                        </div>
-                        {% endif %}
-                    </div>
-                    <div class="d-flex flex-wrap gap-2 justify-content-end">
-                        {% if user.username != 'admin' %}
-                        <a href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-btn">{{ bi('person-gear', 'bi-icon-sm') }} <span>Bearbeiten</span></a>
-                        <a href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=request.full_path if request.query_string else request.path) }}#passwort" class="btn btn-sm btn-outline-warning icon-btn">{{ bi('key', 'bi-icon-sm') }} <span>Passwort</span></a>
-                        <a href="{{ url_for('admin.admin_user_assignments', user_id=user.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('mortarboard', 'bi-icon-sm') }} <span>Klassen zuordnen</span></a>
-                        <form method="POST" action="{{ url_for('admin.admin_user_delete', user_id=user.id) }}" style="display:inline;" data-confirm-title="Benutzer löschen" data-confirm-message="Benutzer wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
-                            {{ csrf_input() }}
-                            <button type="submit" class="btn btn-sm btn-outline-danger icon-btn">{{ bi('trash', 'bi-icon-sm') }} <span>Löschen</span></button>
-                        </form>
-                        {% else %}
-                        <a href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=request.full_path if request.query_string else request.path) }}" class="btn btn-sm btn-outline-secondary icon-btn">{{ bi('person-gear', 'bi-icon-sm') }} <span>Bearbeiten</span></a>
-                        <span class="text-muted small">Systemkonto</span>
-                        {% endif %}
-                    </div>
-                </li>
-                {% endfor %}
-            </ul>
-        </div>
-    </div>
-
-    <div class="col-md-4">
-        <div class="surface-panel p-3 p-md-4 h-100">
-            <div class="card-body p-0">
-                <h5 class="card-title mb-3">Neuen User anlegen</h5>
-                <form method="POST">
-                    {{ csrf_input() }}
-                    <div class="mb-3">
-                        <label class="form-label" for="neu-username">Benutzername</label>
-                        <input type="text" name="username" id="neu-username" class="form-control" placeholder="z.B. k.mueller" value="{{ eingaben.get('username', '') }}" required>
-                    </div>
-                    <div class="row g-2 mb-3">
-                        <div class="col-12">
-                            <label class="form-label" for="neu-vorname">Vorname (optional)</label>
-                            <input type="text" name="vorname" id="neu-vorname" class="form-control" value="{{ eingaben.get('vorname', '') }}">
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label" for="neu-nachname">Nachname (optional)</label>
-                            <input type="text" name="nachname" id="neu-nachname" class="form-control" value="{{ eingaben.get('nachname', '') }}">
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label" for="neu-email">E-Mail-Adresse (optional)</label>
-                        <input type="email" name="email" id="neu-email" class="form-control" value="{{ eingaben.get('email', '') }}" autocomplete="off">
-                        <div class="form-text">Für Benachrichtigungen per E-Mail. Die Lehrkraft kann sie später selbst ändern.</div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label" for="neu-passwort">Start-Passwort</label>
-                        <input type="text" name="password" id="neu-passwort" class="form-control" required>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label" for="neu-rolle">Rolle</label>
-                        <select name="role" id="neu-rolle" class="form-select">
-                            <option value="teacher" {% if eingaben.get('role') != 'admin' %}selected{% endif %}>Lehrkraft</option>
-                            <option value="admin" {% if eingaben.get('role') == 'admin' %}selected{% endif %}>Admin</option>
-                        </select>
-                    </div>
-                    <p class="small text-muted mb-3">Klassenzuordnungen können nach dem Anlegen über „Klassen zuordnen“ gepflegt werden.</p>
-                    <button type="submit" class="btn btn-success w-100 icon-btn justify-content-center">{{ bi('person-plus', 'bi-icon') }} <span>Anlegen</span></button>
-                </form>
+            <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
+                <button type="submit" class="btn btn-success icon-btn">{{ bi('person-plus', 'bi-icon-sm') }} <span>Anlegen</span></button>
+                <span class="small text-muted">Die E-Mail-Adresse kann die Lehrkraft später selbst ändern. Klassen ordnen Sie nach dem Anlegen zu.</span>
             </div>
-        </div>
+        </form>
     </div>
 </div>
+
+<div class="table-panel">
+    <div class="table-toolbar">
+        <div class="d-flex flex-wrap align-items-center gap-2 kollegium-filter" role="group" aria-label="Filter">
+            <button type="button" class="btn btn-sm btn-primary" data-filter="alle">Alle <span class="badge text-bg-light ms-1">{{ users|length }}</span></button>
+            {% if anzahl_ohne_klasse %}
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-filter="ohne-klasse">Ohne Klasse <span class="badge text-bg-warning ms-1">{{ anzahl_ohne_klasse }}</span></button>
+            {% endif %}
+            {% if anzahl_ohne_email %}
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-filter="ohne-email">Ohne E-Mail <span class="badge text-bg-secondary ms-1">{{ anzahl_ohne_email }}</span></button>
+            {% endif %}
+            {% if anzahl_admins %}
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-filter="admin">Admins <span class="badge text-bg-secondary ms-1">{{ anzahl_admins }}</span></button>
+            {% endif %}
+        </div>
+        <div class="input-group input-group-sm" style="max-width: 18rem;">
+            <span class="input-group-text">{{ bi('search', 'bi-icon-sm') }}</span>
+            <input type="search" class="form-control" id="kollegium-suche" placeholder="Name, Klasse, E-Mail …" aria-label="Kollegium durchsuchen">
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0 kollegium-tabelle">
+            <thead class="table-light">
+                <tr>
+                    <th>Person</th>
+                    <th>Klassen</th>
+                    <th class="d-none d-lg-table-cell">E-Mail</th>
+                    <th class="text-end">Aktionen</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                {% set z = zuordnungen_by_user.get(user.id) %}
+                {% set systemkonto = user.username == 'admin' %}
+                <tr class="kollegium-zeile"
+                    data-suche="{{ [user.display_name, user.username, user.email or '', z.klassenleitung if z else '', (z.fachklassen|join(' ')) if z else '']|join(' ')|lower }}"
+                    data-ohne-klasse="{{ '1' if not z and not systemkonto else '' }}"
+                    data-ohne-email="{{ '' if user.email else '1' }}"
+                    data-admin="{{ '1' if user.is_admin else '' }}">
+                    <td>
+                        <a class="person-name" href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=hier) }}">{{ user.display_name }}</a>
+                        {% if user.is_admin %}<span class="badge bg-primary ms-1">Admin</span>{% endif %}
+                        <div class="small text-muted">
+                            {{ user.username }}{% if systemkonto %} · Systemkonto{% endif %}
+                            {% if user.email %}<span class="d-lg-none"> · {{ user.email }}</span>{% endif %}
+                        </div>
+                    </td>
+                    <td class="klassen-badges">
+                        {% if z and z.klassenleitung %}<span class="badge bg-info me-1" title="Klassenleitung">KL {{ z.klassenleitung }}</span>{% endif %}
+                        {% if z %}{% for klasse in z.fachklassen %}<span class="badge bg-light text-secondary border me-1" title="Fachunterricht">{{ klasse }}</span>{% endfor %}{% endif %}
+                        {% if not z %}<span class="text-muted small">{{ '–' if systemkonto else 'keine' }}</span>{% endif %}
+                    </td>
+                    <td class="d-none d-lg-table-cell small">
+                        {% if user.email %}{{ user.email }}{% else %}<span class="text-muted">–</span>{% endif %}
+                    </td>
+                    <td class="text-end aktionen">
+                        <div class="d-inline-flex flex-wrap justify-content-end gap-1">
+                        <a href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=hier) }}" class="btn btn-sm btn-outline-primary icon-btn" title="Bearbeiten" aria-label="{{ user.display_name }} bearbeiten">{{ bi('pencil-square', 'bi-icon-sm') }} <span class="d-none d-md-inline">Bearbeiten</span></a>
+                        {% if not systemkonto %}
+                        <a href="{{ url_for('admin.admin_user_assignments', user_id=user.id, next=hier) }}" class="btn btn-sm btn-outline-secondary icon-only-btn" title="Klassen zuordnen" aria-label="Klassen zuordnen für {{ user.display_name }}">{{ bi('mortarboard', 'bi-icon-sm') }}</a>
+                        <a href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=hier) }}#passwort" class="btn btn-sm btn-outline-secondary icon-only-btn" title="Passwort zurücksetzen" aria-label="Passwort zurücksetzen für {{ user.display_name }}">{{ bi('key', 'bi-icon-sm') }}</a>
+                        <form method="POST" action="{{ url_for('admin.admin_user_delete', user_id=user.id) }}" class="d-inline" data-confirm-title="Konto löschen" data-confirm-message="Konto „{{ user.display_name }}“ ({{ user.username }}) wirklich löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
+                            {{ csrf_input() }}
+                            <button type="submit" class="btn btn-sm btn-outline-danger icon-only-btn" title="Löschen" aria-label="{{ user.display_name }} löschen">{{ bi('trash', 'bi-icon-sm') }}</button>
+                        </form>
+                        {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+                <tr id="kollegium-leer" hidden><td colspan="4" class="text-center text-muted py-4">Keine Treffer.</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+(function () {
+    const zeilen = Array.from(document.querySelectorAll('.kollegium-zeile'));
+    const suche = document.getElementById('kollegium-suche');
+    const leer = document.getElementById('kollegium-leer');
+    const knoepfe = Array.from(document.querySelectorAll('.kollegium-filter [data-filter]'));
+    let filter = 'alle';
+
+    function anwenden() {
+        const text = suche.value.trim().toLowerCase();
+        let sichtbar = 0;
+        zeilen.forEach(function (zeile) {
+            const passtFilter = filter === 'alle' || zeile.dataset[filterSchluessel(filter)] === '1';
+            const passtText = !text || zeile.dataset.suche.includes(text);
+            zeile.hidden = !(passtFilter && passtText);
+            if (!zeile.hidden) sichtbar++;
+        });
+        leer.hidden = sichtbar > 0;
+    }
+    // "ohne-klasse" -> dataset.ohneKlasse
+    function filterSchluessel(name) {
+        return name.replace(/-([a-z])/g, function (_, b) { return b.toUpperCase(); });
+    }
+
+    knoepfe.forEach(function (knopf) {
+        knopf.addEventListener('click', function () {
+            filter = knopf.dataset.filter;
+            knoepfe.forEach(function (k) {
+                const aktiv = k === knopf;
+                k.classList.toggle('btn-primary', aktiv);
+                k.classList.toggle('btn-outline-secondary', !aktiv);
+                k.setAttribute('aria-pressed', aktiv ? 'true' : 'false');
+            });
+            anwenden();
+        });
+    });
+    suche.addEventListener('input', anwenden);
+})();
+</script>
 {% endblock %}
