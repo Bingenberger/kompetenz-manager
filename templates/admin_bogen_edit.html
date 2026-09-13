@@ -17,6 +17,24 @@
                             required autofocus>
                     </div>
 
+                    <fieldset class="mb-3">
+                        <legend class="form-label fs-6 mb-1">Jahrgänge</legend>
+                        <div class="d-flex flex-wrap gap-3">
+                            {% set gesetzt = bogen.jahrgaenge if bogen.id else [] %}
+                            {% for j in jahrgaenge %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="jahrgaenge"
+                                       value="{{ j }}" id="bogen-jahrgang-{{ j }}" {% if j in gesetzt %}checked{% endif %}>
+                                <label class="form-check-label" for="bogen-jahrgang-{{ j }}">Jahrgang {{ j }}</label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="form-text">
+                            Beim Erfassen erscheint der Bogen nur für Kinder dieser Jahrgänge.
+                            Ohne Auswahl gilt er für alle.
+                        </div>
+                    </fieldset>
+
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary icon-btn justify-content-center">{{ bi('floppy', 'bi-icon') }} <span>Speichern</span></button>
                         <a href="{{ next_url if next_url else url_for('admin.admin_boegen') }}" class="btn btn-outline-secondary icon-btn justify-content-center">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>

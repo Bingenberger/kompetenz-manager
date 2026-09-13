@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<style>
+    .klassen-card {
+        border-radius: 16px;
+        border: 1px solid rgba(87,117,144,0.14);
+        background: #fff;
+        box-shadow: 0 10px 22px rgba(31,41,51,0.05);
+        overflow: hidden;
+    }
+    .klassen-card td, .klassen-card th { vertical-align: middle; }
+    .stufen-chip {
+        display: inline-block;
+        border-radius: 999px;
+        padding: .1rem .55rem;
+        font-size: .8rem;
+        font-weight: 700;
+        background: rgba(39,125,161,0.12);
+        color: #1f5f7a;
+        margin-right: .2rem;
+    }
+    .stufen-leer { background: rgba(249,199,79,0.34); color: #6f5308; }
+    .jahrgang-form .form-check { margin-bottom: 0; }
+</style>
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+    <div>
+        <span class="section-label">Verwaltung</span>
+        <h1 class="mt-2 mb-0" style="font-size: clamp(1.4rem, 2.2vw, 1.9rem);">Klassen und Jahrgänge</h1>
+    </div>
+    <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary icon-btn">
+        {{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zur Verwaltung</span>
+    </a>
+</div>
+
+<div class="alert alert-secondary">
+    Bei Klassen wie <strong>3a</strong> ergibt sich der Jahrgang aus dem Namen – dort wandern die
+    Kinder beim Schuljahreswechsel von 3a nach 4a. Klassen mit freiem Namen
+    (etwa <strong>Füchse</strong> oder <strong>1/2</strong>) bekommen ihre Jahrgänge hier;
+    nur sie können jahrgangsübergreifend sein.
+</div>
+
+{% if unpassend_gesamt %}
+<div class="alert alert-warning">
+    <strong>{{ unpassend_gesamt }} Kind(er)</strong>
+    ohne passenden Jahrgang. Sie bleiben beim Schuljahreswechsel unverändert, bis ihr Jahrgang
+    in der Schülerverwaltung eingetragen ist.
+</div>
+{% endif %}
+
+{% if not zeilen %}
+<div class="alert alert-info">Noch keine Klassen vorhanden.</div>
+{% else %}
+<div class="klassen-card">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Klasse</th>
+                    <th>Jahrgänge</th>
+                    <th class="text-end">Kinder</th>
+                    <th>Hinweis</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for zeile in zeilen %}
+                <tr>
+                    <td><strong>{{ zeile.klasse.name }}</strong></td>
+                    <td>
+                        {% if zeile.name_bestimmt %}
+                            {% for j in zeile.stufen %}<span class="stufen-chip">{{ j }}</span>{% endfor %}
+                            <span class="text-muted small">aus dem Namen</span>
+                        {% else %}
+                            <form method="POST" action="{{ url_for('admin.admin_klasse_jahrgaenge', klasse_id=zeile.klasse.id) }}"
+                                  class="jahrgang-form d-flex flex-wrap align-items-center gap-2">
+                                {{ csrf_input() }}
+                                {% for j in jahrgaenge %}
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="checkbox" name="jahrgaenge" value="{{ j }}"
+                                           id="klasse-{{ zeile.klasse.id }}-{{ j }}" {% if j in zeile.stufen %}checked{% endif %}>
+                                    <label class="form-check-label" for="klasse-{{ zeile.klasse.id }}-{{ j }}">{{ j }}</label>
+                                </div>
+                                {% endfor %}
+                                <button type="submit" class="btn btn-sm btn-outline-primary">Speichern</button>
+                            </form>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">{{ zeile.kinder }}</td>
+                    <td>
+                        {% if not zeile.stufen %}
+                        <span class="stufen-chip stufen-leer">kein Jahrgang</span>
+                        {% elif zeile.stufen|length > 1 %}
+                        <span class="text-muted small">jahrgangsübergreifend</span>
+                        {% endif %}
+                        {% if zeile.unpassend %}
+                        <div class="small text-warning-emphasis mt-1">
+                            Jahrgang fehlt oder passt nicht:
+                            {% for kind in zeile.unpassend %}
+                            <a href="{{ url_for('admin.admin_student_edit', s_id=kind.id, next=url_for('admin.admin_klassen')) }}">{{ kind.vorname }} {{ kind.nachname }}</a>{% if not loop.last %}, {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

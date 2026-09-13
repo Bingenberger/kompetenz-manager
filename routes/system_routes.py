@@ -15,6 +15,7 @@ from models import Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, Erzieh
 from odt_export import build_odt_document, convert_odt_bytes_to_pdf
 from school_year import observation_period_start
 from search import search as run_search
+from jahrgang import ensure_klasse, resolve_student_jahrgang
 from student_record import collect_record, filename_stem, record_blocks
 from student_selection import (
     get_grouped_student_choices_for_user,
@@ -908,13 +909,29 @@ def data_import(typ):
                 flash('Fehlende Spalten in Excel-Datei: ' + ', '.join(missing_columns))
                 return redirect(url_for('system.data_import', typ=typ, next=next_url) if next_url else url_for('system.data_import', typ=typ))
             if typ == 'schueler':
+                ohne_jahrgang = 0
                 for row in zeilen:
+                    klasse = _import_text(row.get('Klasse'))
+                    ensure_klasse(klasse)
+                    # Die Spalte "Jahrgang" ist optional. Hat die Klasse genau
+                    # einen Jahrgang, gilt ohnehin dieser.
+                    jahrgang, _fehler = resolve_student_jahrgang(
+                        klasse, _import_text(row.get('Jahrgang')),
+                    )
+                    if jahrgang is None:
+                        ohne_jahrgang += 1
                     db.session.add(Schueler(
                         vorname=_import_text(row.get('Vorname')),
                         nachname=_import_text(row.get('Nachname')),
-                        klasse=_import_text(row.get('Klasse')),
+                        klasse=klasse,
+                        jahrgang=jahrgang,
                         geburtsdatum=_parse_import_date(row.get('Geburtsdatum')),
                     ))
+                if ohne_jahrgang:
+                    flash(
+                        f'{ohne_jahrgang} Kind(er) ohne Jahrgang importiert - '
+                        'bitte unter Verwaltung → Klassen und Jahrgänge nachtragen.'
+                    )
             elif typ == 'bogen':
                 for row in zeilen:
                     bogen_titel = _import_text(row.get('Bogen'))

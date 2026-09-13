@@ -11,6 +11,7 @@ from extensions import db
 from models import (
     Beobachtung,
     Bogen,
+    BogenJahrgang,
     ClassTaskTemplateCompetency,
     ErziehungsEreignis,
     ErziehungsEreignisKategorie,
@@ -19,6 +20,7 @@ from models import (
     ErziehungsKonsequenz,
     ErziehungsOrt,
     Item,
+    Klasse,
     Schueler,
     Schuljahreswechsel,
     SystemKonfiguration,
@@ -35,6 +37,16 @@ from school_year import (
     serialize_ids,
     target_classes_after_transition,
     student_transition_action,
+)
+from jahrgang import (
+    JAHRGAENGE,
+    backfill_student_jahrgaenge,
+    ensure_klasse,
+    grade_from_name,
+    normalize_jahrgaenge,
+    resolve_student_jahrgang,
+    set_klassen_jahrgaenge,
+    sync_klassen,
 )
 from retention import archived_students, overdue_ids, retention_years, summarize
 from student_selection import get_distinct_klassen
@@ -615,6 +627,79 @@ def admin_user_assignments(user_id):
     )
 
 
+def _klassen_mit_jahrgaengen():
+    """Name -> Jahrgaenge fuer alle bekannten Klassen, fuer Hinweise im Formular."""
+    return {klasse.name: klasse.jahrgaenge for klasse in Klasse.query.all()}
+
+
+@admin_bp.route('/admin/klassen')
+@admin_required(
+    redirect_endpoint='admin.admin_dashboard',
+    message='Zugriff verweigert. Nur der Administrator darf Klassen verwalten.',
+)
+def admin_klassen():
+    # Klassen, die bisher nur als Name an Kindern standen, sichtbar machen.
+    if sync_klassen():
+        db.session.commit()
+
+    zeilen = []
+    for klasse in sorted(Klasse.query.all(), key=lambda k: (
+        (k.jahrgaenge or [99])[0], k.name.lower(),
+    )):
+        kinder = Schueler.query.filter(
+            Schueler.klasse == klasse.name, Schueler.is_active.is_(True),
+        ).all()
+        stufen = klasse.jahrgaenge
+        # Kinder, deren Jahrgang nicht zur Klasse passt oder fehlt - sie
+        # brauchen eine Entscheidung, bevor der Schuljahreswechsel laeuft.
+        unpassend = [
+            kind for kind in kinder
+            if kind.jahrgang is None or (stufen and kind.jahrgang not in stufen)
+        ]
+        zeilen.append({
+            'klasse': klasse,
+            'stufen': stufen,
+            'name_bestimmt': grade_from_name(klasse.name) is not None,
+            'kinder': len(kinder),
+            'unpassend': unpassend,
+        })
+
+    return render_template(
+        'admin_klassen.html',
+        zeilen=zeilen,
+        jahrgaenge=JAHRGAENGE,
+        unpassend_gesamt=sum(len(zeile['unpassend']) for zeile in zeilen),
+    )
+
+
+@admin_bp.route('/admin/klassen/<int:klasse_id>', methods=['POST'])
+@admin_required(
+    redirect_endpoint='admin.admin_dashboard',
+    message='Zugriff verweigert. Nur der Administrator darf Klassen verwalten.',
+)
+def admin_klasse_jahrgaenge(klasse_id):
+    klasse = get_or_404_session(Klasse, klasse_id)
+    try:
+        stufen = set_klassen_jahrgaenge(klasse, request.form.getlist('jahrgaenge'))
+    except ValueError as fehler:
+        db.session.rollback()
+        flash(str(fehler))
+        return redirect(url_for('admin.admin_klassen'))
+
+    # Nur leere Jahrgaenge der Kinder nachtragen, nie vorhandene ueberschreiben.
+    nachgetragen = backfill_student_jahrgaenge()
+    db.session.commit()
+
+    if stufen:
+        meldung = f'Klasse „{klasse.name}": Jahrgang {", ".join(str(j) for j in stufen)}.'
+    else:
+        meldung = f'Klasse „{klasse.name}": kein Jahrgang eingetragen.'
+    if nachgetragen:
+        meldung += f' Bei {nachgetragen} Kind(ern) wurde der Jahrgang übernommen.'
+    flash(meldung)
+    return redirect(url_for('admin.admin_klassen'))
+
+
 @admin_bp.route('/admin/students')
 @admin_required(redirect_endpoint='system.index', message='Zugriff verweigert. Nur der Administrator darf Schülergrunddaten verwalten.')
 def admin_students():
@@ -640,11 +725,28 @@ def admin_student_edit(s_id):
     if request.method == 'POST':
         schueler.vorname = request.form.get('vorname')
         schueler.nachname = request.form.get('nachname')
-        schueler.klasse = request.form.get('klasse')
+        schueler.klasse = (request.form.get('klasse') or '').strip()
         geburtsdatum_raw = request.form.get('geburtsdatum')
         if (geburtsdatum_raw or '').strip() and _parse_optional_date(geburtsdatum_raw) is None:
             flash('Geburtsdatum hat kein gültiges Format.')
-            return render_template('admin_student_edit.html', s=schueler, next_url=next_url)
+            return render_template(
+                'admin_student_edit.html', s=schueler, next_url=next_url,
+                jahrgaenge=JAHRGAENGE, klassen=_klassen_mit_jahrgaengen(),
+            )
+
+        # Klasse anlegen, falls neu, und den Jahrgang daran pruefen.
+        ensure_klasse(schueler.klasse)
+        jahrgang, fehler = resolve_student_jahrgang(
+            schueler.klasse, request.form.get('jahrgang'),
+        )
+        if fehler:
+            db.session.rollback()
+            flash(fehler)
+            return render_template(
+                'admin_student_edit.html', s=schueler, next_url=next_url,
+                jahrgaenge=JAHRGAENGE, klassen=_klassen_mit_jahrgaengen(),
+            )
+        schueler.jahrgang = jahrgang
         schueler.geburtsdatum = _parse_optional_date(geburtsdatum_raw)
         requested_active = request.form.get("is_active") == "1"
         if requested_active != schueler.is_active:
@@ -654,7 +756,10 @@ def admin_student_edit(s_id):
         flash('Schülerdaten aktualisiert.')
         return redirect(_safe_next_url(next_url, url_for('admin.admin_students')))
 
-    return render_template('admin_student_edit.html', s=schueler, next_url=next_url)
+    return render_template(
+        'admin_student_edit.html', s=schueler, next_url=next_url,
+        jahrgaenge=JAHRGAENGE, klassen=_klassen_mit_jahrgaengen(),
+    )
 
 
 def _collect_student_upload_paths(schueler):
@@ -836,11 +941,20 @@ def admin_bogen_edit(b_id):
         if not b_id:
             db.session.add(bogen)
 
+        # Keine Auswahl heisst: gilt fuer alle Jahrgaenge.
+        bogen.jahrgang_zuordnungen = [
+            BogenJahrgang(jahrgang=jahrgang)
+            for jahrgang in normalize_jahrgaenge(request.form.getlist('jahrgaenge'))
+        ]
+
         db.session.commit()
         flash(f'Bogen "{bogen.titel}" gespeichert.')
         return redirect(_safe_next_url(next_url, url_for('admin.admin_boegen')))
 
-    return render_template('admin_bogen_edit.html', bogen=bogen, titel_prefix=titel_prefix, next_url=next_url)
+    return render_template(
+        'admin_bogen_edit.html', bogen=bogen, titel_prefix=titel_prefix, next_url=next_url,
+        jahrgaenge=JAHRGAENGE,
+    )
 
 
 def _item_dependencies(item_ids):

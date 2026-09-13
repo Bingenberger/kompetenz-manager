@@ -19,9 +19,32 @@
                         <label class="form-label">Nachname</label>
                         <input type="text" name="nachname" class="form-control" value="{{ s.nachname }}" required>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="student-klasse">Klasse</label>
+                        <input type="text" name="klasse" id="student-klasse" class="form-control"
+                               value="{{ s.klasse or '' }}" required list="klassen-liste">
+                        <datalist id="klassen-liste">
+                            {% for name in klassen.keys()|sort %}<option value="{{ name }}">{% endfor %}
+                        </datalist>
+                    </div>
                     <div class="mb-4">
-                        <label class="form-label">Klasse</label>
-                        <input type="text" name="klasse" class="form-control" value="{{ s.klasse }}" required>
+                        <label class="form-label" for="student-jahrgang">Jahrgang</label>
+                        {% set klassen_stufen = klassen.get(s.klasse, []) %}
+                        <select name="jahrgang" id="student-jahrgang" class="form-select">
+                            <option value="">– nicht festgelegt –</option>
+                            {% for j in jahrgaenge %}
+                            <option value="{{ j }}" {% if s.jahrgang == j %}selected{% endif %}>Jahrgang {{ j }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">
+                            {% if klassen_stufen|length == 1 %}
+                            Die Klasse {{ s.klasse }} hat Jahrgang {{ klassen_stufen[0] }} – er wird beim Speichern übernommen.
+                            {% elif klassen_stufen|length > 1 %}
+                            Jahrgangsübergreifende Klasse: bitte einen von {{ klassen_stufen|join(', ') }} wählen.
+                            {% else %}
+                            Hat die Klasse genau einen Jahrgang, wird er beim Speichern übernommen.
+                            {% endif %}
+                        </div>
                     </div>
                     <div class="form-check mb-4">
                         <input type="checkbox" name="is_active" value="1" id="student-active" class="form-check-input" {% if s.is_active %}checked{% endif %}>

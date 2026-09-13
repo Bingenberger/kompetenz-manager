@@ -25,6 +25,7 @@
         <thead class="table-light">
             <tr>
                 <th>Klasse</th>
+                <th>Jahrgang</th>
                 <th>Nachname</th>
                 <th>Vorname</th>
                 <th>Geburtsdatum</th>
@@ -35,6 +36,7 @@
             {% for s in schueler %}
             <tr>
                 <td><span class="badge bg-secondary">{{ s.klasse }}</span></td>
+                <td>{% if s.jahrgang %}{{ s.jahrgang }}{% else %}<span class="text-warning" title="Jahrgang fehlt">–</span>{% endif %}</td>
                 <td>{{ s.nachname }}</td>
                 <td>{{ s.vorname }}</td>
                 <td>{{ s.geburtsdatum.strftime('%d.%m.%Y') if s.geburtsdatum else '-' }}</td>
