@@ -389,6 +389,13 @@ def _sqlite_add_school_year_columns():
         if "aufbewahrung_jahre" not in config_columns:
             conn.execute(text("ALTER TABLE system_konfiguration ADD COLUMN aufbewahrung_jahre INTEGER"))
             print("Spalte 'system_konfiguration.aufbewahrung_jahre' wurde ergänzt.")
+        schueler_columns = {
+            row["name"]
+            for row in conn.execute(text("PRAGMA table_info(schueler)")).mappings().all()
+        }
+        if "jahrgang" not in schueler_columns:
+            conn.execute(text("ALTER TABLE schueler ADD COLUMN jahrgang INTEGER"))
+            print("Spalte 'schueler.jahrgang' wurde ergänzt.")
         conn.commit()
 
 
@@ -442,6 +449,16 @@ def _postgres_add_school_year_columns():
                 "ALTER TABLE public.system_konfiguration ADD COLUMN aufbewahrung_jahre INTEGER"
             ))
             print("Spalte 'system_konfiguration.aufbewahrung_jahre' wurde für PostgreSQL ergänzt.")
+        schueler_columns = {
+            row[0]
+            for row in conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'schueler'"
+            )).all()
+        }
+        if "jahrgang" not in schueler_columns:
+            conn.execute(text("ALTER TABLE public.schueler ADD COLUMN jahrgang INTEGER"))
+            print("Spalte 'schueler.jahrgang' wurde für PostgreSQL ergänzt.")
         conn.commit()
 
 # Wir aktivieren den "App Context", damit wir Zugriff auf die DB-Konfiguration haben
@@ -466,6 +483,17 @@ with app.app_context():
     _postgres_add_missing_erziehung_event_columns()
     _sqlite_add_school_year_columns()
     _postgres_add_school_year_columns()
+
+    # Jahrgaenge aus den Bestandsdaten ableiten. Idempotent: legt nur fehlende
+    # Klassen an und fuellt nur leere Jahrgaenge, ueberschreibt nichts.
+    from jahrgang import backfill_student_jahrgaenge, sync_klassen
+    neue_klassen = sync_klassen()
+    if neue_klassen:
+        print(f"Klassen angelegt: {', '.join(neue_klassen)}")
+    gesetzte_jahrgaenge = backfill_student_jahrgaenge()
+    if gesetzte_jahrgaenge:
+        print(f"Jahrgang bei {gesetzte_jahrgaenge} Kind(ern) aus der Klasse übernommen.")
+    db.session.commit()
     
     print("--- FERTIG! Die Datenbank wurde erweitert. ---")
     print("Ihre alten Daten sind sicher.")

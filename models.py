@@ -11,6 +11,9 @@ class Schueler(db.Model):
     nachname = db.Column(db.String(100))
     klasse = db.Column(db.String(20))
     geburtsdatum = db.Column(db.Date, nullable=True)
+    # Klassenstufe 1 bis 4. Ein Kind hat genau einen Jahrgang; in einer
+    # jahrgangsuebergreifenden Klasse ist es einer von deren Jahrgaengen.
+    jahrgang = db.Column(db.Integer, nullable=True, index=True)
     is_active = db.Column(db.Boolean, nullable=False, default=True, index=True)
     archived_at = db.Column(db.DateTime, nullable=True)
     foerdergrundlage = db.relationship(
@@ -25,6 +28,52 @@ class Bogen(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     titel = db.Column(db.String(100))
     items = db.relationship('Item', backref='bogen', lazy=True)
+    # Ohne Zuordnung gilt ein Bogen fuer alle Jahrgaenge - so bleiben
+    # bestehende Boegen nach der Einfuehrung unveraendert nutzbar.
+    jahrgang_zuordnungen = db.relationship(
+        'BogenJahrgang', backref='bogen', cascade='all, delete-orphan', lazy=True,
+    )
+
+    @property
+    def jahrgaenge(self):
+        return sorted(zuordnung.jahrgang for zuordnung in self.jahrgang_zuordnungen)
+
+    def gilt_fuer(self, jahrgang):
+        """True, wenn der Bogen fuer diesen Jahrgang angeboten werden soll."""
+        stufen = self.jahrgaenge
+        return not stufen or jahrgang in stufen
+
+
+class BogenJahrgang(db.Model):
+    bogen_id = db.Column(db.Integer, db.ForeignKey('bogen.id'), primary_key=True)
+    jahrgang = db.Column(db.Integer, primary_key=True)
+
+
+class Klasse(db.Model):
+    """Eine Klasse mit ihren Jahrgaengen.
+
+    Kinder, Lehrkraft-Zuordnungen und Aufgabenbibliotheken verweisen weiterhin
+    ueber den Klassennamen als Text - wie vor Einfuehrung dieser Tabelle. Sie
+    ergaenzt die Namen um die Jahrgaenge, statt die Verweise umzubauen.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(20), nullable=False, unique=True)
+    jahrgang_zuordnungen = db.relationship(
+        'KlasseJahrgang', backref='klasse', cascade='all, delete-orphan', lazy=True,
+    )
+
+    @property
+    def jahrgaenge(self):
+        return sorted(zuordnung.jahrgang for zuordnung in self.jahrgang_zuordnungen)
+
+    @property
+    def ist_jahrgangsuebergreifend(self):
+        return len(self.jahrgang_zuordnungen) > 1
+
+
+class KlasseJahrgang(db.Model):
+    klasse_id = db.Column(db.Integer, db.ForeignKey('klasse.id'), primary_key=True)
+    jahrgang = db.Column(db.Integer, primary_key=True)
 
 
 class Item(db.Model):
