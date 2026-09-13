@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "includes/icons.html" import bi %}
+{% from "includes/bogen_auswahl.html" import bogen_gruppen, bogen_optionen %}
 {% block content %}
 <style>
     .quick-entry-shell {
@@ -109,13 +110,11 @@
         {% if not selected_bogen %}
         <div class="surface-panel p-3 mb-3">
             <label class="form-label">2. Bogen auswählen</label>
-            <div class="selection-button-grid mb-3">
-                {% for b in boegen %}
+            {% call(b) bogen_gruppen(boegen, 'selection-button-grid') %}
                 <a class="btn btn-sm btn-outline-primary icon-btn" href="{{ url_for('erfassung.erfassen_einzel', tab=active_tab, schueler_id=selected_s_id, bogen_id=b.id, next=next_url if next_url else None) }}">
                     {{ bi('journal-text', 'bi-icon-sm') }} <span>{{ b.titel }}</span>
                 </a>
-                {% endfor %}
-            </div>
+            {% endcall %}
             <form method="GET" class="row g-2 align-items-end">
                 <input type="hidden" name="tab" value="{{ active_tab }}">
                 <input type="hidden" name="schueler_id" value="{{ selected_s_id }}">
@@ -124,9 +123,9 @@
                     <label class="form-label small text-muted">Alternativ per Dropdown</label>
                     <select name="bogen_id" class="form-select" onchange="if(this.value){this.form.submit();}">
                         <option value="">Bogen wählen...</option>
-                        {% for b in boegen %}
+                        {% call(b) bogen_optionen(boegen) %}
                         <option value="{{ b.id }}">{{ b.titel }}</option>
-                        {% endfor %}
+                        {% endcall %}
                     </select>
                 </div>
                 <div class="col-md-4">

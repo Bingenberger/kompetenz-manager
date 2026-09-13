@@ -933,7 +933,7 @@ def admin_retention_delete():
 @admin_bp.route('/admin/boegen')
 @admin_required(redirect_endpoint='system.index', message=None)
 def admin_boegen():
-    boegen = Bogen.query.all()
+    boegen = Bogen.query.order_by(Bogen.pflicht.desc(), Bogen.titel.asc()).all()
     return render_template('admin_boegen.html', boegen=boegen)
 
 
@@ -951,6 +951,7 @@ def admin_bogen_edit(b_id):
 
     if request.method == 'POST':
         bogen.titel = request.form.get('titel')
+        bogen.pflicht = request.form.get('pflicht') == '1'
 
         if not b_id:
             db.session.add(bogen)

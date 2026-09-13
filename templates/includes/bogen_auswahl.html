@@ -1,0 +1,50 @@
+{#
+  Bogen-Auswahl in zwei Stufen: Pflichtboegen vorn, optionale hinter
+  "Weitere Boegen". Gibt es im Angebot keinen Pflichtbogen, bleibt es eine
+  einfache Liste wie bisher. Jede Schaltflaeche rendert der Aufrufer:
+
+    {% call(b) bogen_gruppen(boegen, 'selection-button-grid', selected_id) %}
+        <a ...>{{ b.titel }}</a>
+    {% endcall %}
+#}
+{% macro bogen_gruppen(boegen, grid_class, selected_id=None) -%}
+{%- set pflicht = boegen|selectattr('pflicht')|list -%}
+{%- set weitere = boegen|rejectattr('pflicht')|list -%}
+{%- set gewaehlt = (selected_id|string) if selected_id else '' -%}
+{%- if pflicht %}
+<div class="bogen-gruppe-titel small text-muted fw-semibold mb-1">Pflichtbögen</div>
+<div class="{{ grid_class }} mb-2">
+    {% for b in pflicht %}{{ caller(b) }}{% endfor %}
+</div>
+{% if weitere %}
+<details class="bogen-weitere mb-3" {% if weitere|map(attribute='id')|map('string')|select('equalto', gewaehlt)|list %}open{% endif %}>
+    <summary class="small text-muted fw-semibold">Weitere Bögen ({{ weitere|length }})</summary>
+    <div class="{{ grid_class }} mt-2">
+        {% for b in weitere %}{{ caller(b) }}{% endfor %}
+    </div>
+</details>
+{% endif %}
+{%- else %}
+<div class="{{ grid_class }} mb-3">
+    {% for b in weitere %}{{ caller(b) }}{% endfor %}
+</div>
+{%- endif %}
+{%- endmacro %}
+
+{# Optionen fuer ein <select>: mit Pflichtboegen gruppiert, sonst flach. #}
+{% macro bogen_optionen(boegen, selected_id=None) -%}
+{%- set pflicht = boegen|selectattr('pflicht')|list -%}
+{%- set weitere = boegen|rejectattr('pflicht')|list -%}
+{%- if pflicht %}
+<optgroup label="Pflichtbögen">
+    {% for b in pflicht %}{{ caller(b) }}{% endfor %}
+</optgroup>
+{% if weitere %}
+<optgroup label="Weitere Bögen">
+    {% for b in weitere %}{{ caller(b) }}{% endfor %}
+</optgroup>
+{% endif %}
+{%- else %}
+{% for b in weitere %}{{ caller(b) }}{% endfor %}
+{%- endif %}
+{%- endmacro %}

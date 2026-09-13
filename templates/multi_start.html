@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "includes/icons.html" import bi %}
+{% from "includes/bogen_auswahl.html" import bogen_gruppen, bogen_optionen %}
 {% block content %}
 <style>
     .multi-sticky-action {
@@ -46,8 +47,8 @@
             Klicken Sie auf einen Bogen, um die Items zu sehen. Mit der ersten Checkbox können Sie alle Items eines Bogens markieren.
         </div>
 
-        <div class="accordion mb-3" id="accordionBoegen">
-            {% for bogen in boegen %}
+        <div class="mb-3" id="accordionBoegen">
+            {% call(bogen) bogen_gruppen(boegen, 'accordion') %}
             <div class="accordion-item mb-2 border rounded-3 overflow-hidden multi-bogen" data-jahrgaenge="{{ bogen.jahrgaenge|join(',') }}">
                 <h2 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c_{{ bogen.id }}">
@@ -75,7 +76,7 @@
                     </div>
                 </div>
             </div>
-            {% endfor %}
+            {% endcall %}
         </div>
 
         <div class="multi-sticky-action">
@@ -118,6 +119,25 @@ function bogenPasst(bogenStufen, klassenStufen) {
                 block.querySelectorAll('input[type="checkbox"]').forEach(function (feld) { feld.checked = false; });
             }
         });
+        gruppenAnpassen();
+    }
+    // Passt fuer die Klasse kein Pflichtbogen, entfaellt die Ueberschrift und
+    // die weiteren Boegen liegen offen; eine leere Gruppe verschwindet.
+    function gruppenAnpassen() {
+        const container = document.getElementById('accordionBoegen');
+        const weitere = container.querySelector('details.bogen-weitere');
+        const titel = container.querySelector('.bogen-gruppe-titel');
+        if (!titel) return;
+        const sichtbar = function (block) { return !block.hidden; };
+        const alle = Array.from(container.querySelectorAll('.multi-bogen'));
+        const pflichtSichtbar = alle.filter(function (block) { return !block.closest('details') && sichtbar(block); }).length;
+        const weitereSichtbar = alle.filter(function (block) { return block.closest('details') && sichtbar(block); }).length;
+        titel.hidden = pflichtSichtbar === 0;
+        titel.nextElementSibling.hidden = pflichtSichtbar === 0;
+        if (weitere) {
+            weitere.hidden = weitereSichtbar === 0;
+            if (pflichtSichtbar === 0) weitere.open = true;
+        }
     }
     klasseSelect.addEventListener('change', filterBoegenNachKlasse);
     filterBoegenNachKlasse();

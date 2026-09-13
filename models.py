@@ -27,6 +27,10 @@ class Schueler(db.Model):
 class Bogen(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     titel = db.Column(db.String(100))
+    # Pflichtboegen stehen beim Erfassen vorn, optionale hinter "Weitere Boegen".
+    # Bestehende Boegen sind optional - solange es keinen Pflichtbogen gibt,
+    # bleibt die Auswahl eine einfache Liste wie bisher.
+    pflicht = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     items = db.relationship('Item', backref='bogen', lazy=True)
     # Ohne Zuordnung gilt ein Bogen fuer alle Jahrgaenge - so bleiben
     # bestehende Boegen nach der Einfuehrung unveraendert nutzbar.

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "includes/icons.html" import bi %}
+{% from "includes/bogen_auswahl.html" import bogen_gruppen, bogen_optionen %}
 {% block content %}
 {% if step == 1 %}
 <style>
@@ -56,13 +57,11 @@
                     </div>
                 </div>
                 <label class="form-label">Bogen</label>
-                <div class="student-button-grid mb-3">
-                    {% for b in boegen %}
+                {% call(b) bogen_gruppen(boegen, 'student-button-grid', selected_b_id) %}
                     <a class="btn btn-sm icon-btn {% if selected_b_id and selected_b_id|string == b.id|string %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('erfassung.erfassen_schueler', tab=active_tab, schueler_id=selected_s_id if selected_s_id else None, bogen_id=b.id, next=next_url if next_url else None) }}">
                         {{ bi('journal-text', 'bi-icon-sm') }} <span>{{ b.titel }}</span>
                     </a>
-                    {% endfor %}
-                </div>
+                {% endcall %}
                 <input type="hidden" name="bogen_id" value="{{ selected_b_id if selected_b_id else '' }}">
                 <input type="hidden" name="tab" value="{{ active_tab }}">
                 {% if selected_s_id and selected_b_id and bogen_stats %}

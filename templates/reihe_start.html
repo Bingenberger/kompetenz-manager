@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "includes/icons.html" import bi %}
+{% from "includes/bogen_auswahl.html" import bogen_gruppen, bogen_optionen %}
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">
@@ -28,9 +29,9 @@
                     <label class="form-label">Bogen</label>
                     <select name="bogen_id" id="reihe_bogen_id" class="form-select" required>
                         <option value="">Bitte Bogen wählen...</option>
-                        {% for bogen in boegen %}
+                        {% call(bogen) bogen_optionen(boegen) %}
                         <option value="{{ bogen.id }}" data-jahrgaenge="{{ bogen.jahrgaenge|join(',') }}">{{ bogen.titel }}</option>
-                        {% endfor %}
+                        {% endcall %}
                     </select>
                 </div>
 
@@ -174,6 +175,10 @@ function filterBoegenNachKlasse() {
         option.hidden = !passt;
         option.disabled = !passt;
         if (!passt && option.selected) auswahlVerborgen = true;
+    }
+    // Eine Gruppe ohne passende Boegen ganz ausblenden.
+    for (const gruppe of bogenSelect.querySelectorAll('optgroup')) {
+        gruppe.hidden = !Array.from(gruppe.children).some(option => !option.hidden);
     }
     if (auswahlVerborgen) {
         bogenSelect.value = '';

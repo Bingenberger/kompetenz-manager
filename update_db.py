@@ -396,6 +396,13 @@ def _sqlite_add_school_year_columns():
         if "jahrgang" not in schueler_columns:
             conn.execute(text("ALTER TABLE schueler ADD COLUMN jahrgang INTEGER"))
             print("Spalte 'schueler.jahrgang' wurde ergänzt.")
+        bogen_columns = {
+            row["name"]
+            for row in conn.execute(text("PRAGMA table_info(bogen)")).mappings().all()
+        }
+        if "pflicht" not in bogen_columns:
+            conn.execute(text("ALTER TABLE bogen ADD COLUMN pflicht BOOLEAN NOT NULL DEFAULT 0"))
+            print("Spalte 'bogen.pflicht' wurde ergänzt.")
         conn.commit()
 
 
@@ -459,6 +466,18 @@ def _postgres_add_school_year_columns():
         if "jahrgang" not in schueler_columns:
             conn.execute(text("ALTER TABLE public.schueler ADD COLUMN jahrgang INTEGER"))
             print("Spalte 'schueler.jahrgang' wurde für PostgreSQL ergänzt.")
+        bogen_columns = {
+            row[0]
+            for row in conn.execute(text(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_schema = 'public' AND table_name = 'bogen'"
+            )).all()
+        }
+        if "pflicht" not in bogen_columns:
+            conn.execute(text(
+                "ALTER TABLE public.bogen ADD COLUMN pflicht BOOLEAN NOT NULL DEFAULT FALSE"
+            ))
+            print("Spalte 'bogen.pflicht' wurde für PostgreSQL ergänzt.")
         conn.commit()
 
 # Wir aktivieren den "App Context", damit wir Zugriff auf die DB-Konfiguration haben

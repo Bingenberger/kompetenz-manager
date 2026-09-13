@@ -17,6 +17,18 @@
                             required autofocus>
                     </div>
 
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" name="pflicht" value="1"
+                                   id="bogen-pflicht" {% if bogen.pflicht %}checked{% endif %}>
+                            <label class="form-check-label" for="bogen-pflicht">Pflichtbogen</label>
+                        </div>
+                        <div class="form-text">
+                            Pflichtbögen stehen beim Erfassen vorn. Optionale Bögen liegen dahinter unter
+                            „Weitere Bögen“.
+                        </div>
+                    </div>
+
                     <fieldset class="mb-3">
                         <legend class="form-label fs-6 mb-1">Jahrgänge</legend>
                         <div class="d-flex flex-wrap gap-3">
