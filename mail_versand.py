@@ -38,29 +38,55 @@ class MailNichtKonfiguriert(RuntimeError):
     pass
 
 
+# Schreibweisen, die in Env-Dateien vorkommen. systemd nimmt - anders als die
+# Shell - einen Kommentar hinter dem Wert mit in den Wert auf ("ssl  # 465");
+# deshalb wird alles ab '#' abgeschnitten, bevor verglichen wird.
+SICHERHEIT_ALIASSE = {
+    'starttls': 'starttls', 'tls': 'starttls', 'start_tls': 'starttls', 'start-tls': 'starttls',
+    'ssl': 'ssl', 'ssl/tls': 'ssl', 'ssl_tls': 'ssl', 'smtps': 'ssl', 'implicit': 'ssl',
+    'none': 'none', 'plain': 'none', 'keine': 'none', 'off': 'none', '': 'starttls',
+}
+
+
+def _wert(config, schluessel):
+    """Env-Wert ohne Anführungszeichen und ohne Kommentar hinter dem Wert."""
+    roh = str(config.get(schluessel) or '')
+    roh = roh.split('#', 1)[0].strip()
+    if len(roh) >= 2 and roh[0] == roh[-1] and roh[0] in ('"', "'"):
+        roh = roh[1:-1].strip()
+    return roh
+
+
 def mail_konfiguration(config=None):
     """Die SMTP-Einstellungen oder None, wenn kein Server eingetragen ist."""
     config = config if config is not None else current_app.config
-    server = (config.get('MAIL_SERVER') or '').strip()
+    server = _wert(config, 'MAIL_SERVER')
     if not server:
         return None
-    sicherheit = (config.get('MAIL_SECURITY') or 'starttls').strip().lower()
-    if sicherheit not in {'starttls', 'ssl', 'none'}:
+    sicherheit_roh = str(config.get('MAIL_SECURITY') or '').strip()
+    sicherheit = SICHERHEIT_ALIASSE.get(_wert(config, 'MAIL_SECURITY').lower())
+    sicherheit_unbekannt = sicherheit is None
+    if sicherheit_unbekannt:
         sicherheit = 'starttls'
     standard_port = {'starttls': 587, 'ssl': 465, 'none': 25}[sicherheit]
     try:
-        port = int(config.get('MAIL_PORT') or standard_port)
+        port = int(_wert(config, 'MAIL_PORT') or standard_port)
     except (TypeError, ValueError):
         port = standard_port
-    benutzer = (config.get('MAIL_USERNAME') or '').strip()
+    benutzer = _wert(config, 'MAIL_USERNAME')
     return {
         'server': server,
         'port': port,
         'sicherheit': sicherheit,
+        'sicherheit_roh': sicherheit_roh,
+        'sicherheit_unbekannt': sicherheit_unbekannt,
+        # Ein falsches Paar - SSL auf 587 oder STARTTLS auf 465 - haengt beim
+        # Handshake, statt einen klaren Fehler zu liefern.
+        'port_passt_nicht': (sicherheit == 'ssl' and port == 587) or (sicherheit == 'starttls' and port == 465),
         'benutzer': benutzer,
         'passwort': config.get('MAIL_PASSWORD') or '',
-        'absender': (config.get('MAIL_FROM') or benutzer).strip(),
-        'basis_url': (config.get('APP_BASE_URL') or '').strip().rstrip('/'),
+        'absender': _wert(config, 'MAIL_FROM') or benutzer,
+        'basis_url': _wert(config, 'APP_BASE_URL').rstrip('/'),
     }
 
 

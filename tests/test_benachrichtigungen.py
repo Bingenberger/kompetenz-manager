@@ -405,6 +405,32 @@ class BenachrichtigungenTestCase(unittest.TestCase):
         self._versende('sofort')
         self.assertEqual(1, len(self.outbox))
 
+    def test_mail_security_tolerates_env_file_quirks(self):
+        from mail_versand import mail_konfiguration
+        # systemd nimmt einen Kommentar hinter dem Wert mit in den Wert auf.
+        k = mail_konfiguration({'MAIL_SERVER': 'smtp.test', 'MAIL_SECURITY': 'ssl        # starttls | ssl | none', 'MAIL_PORT': '465'})
+        self.assertEqual(('ssl', 465, False, False), (k['sicherheit'], k['port'], k['sicherheit_unbekannt'], k['port_passt_nicht']))
+        k = mail_konfiguration({'MAIL_SERVER': '"smtp.test"', 'MAIL_SECURITY': '"SSL/TLS"', 'MAIL_PORT': '"465"', 'MAIL_FROM': '"Kompass <k@test>"'})
+        self.assertEqual(('smtp.test', 'ssl', 465, 'Kompass <k@test>'), (k['server'], k['sicherheit'], k['port'], k['absender']))
+        k = mail_konfiguration({'MAIL_SERVER': 'smtp.test', 'MAIL_SECURITY': 'tls'})
+        self.assertEqual(('starttls', 587), (k['sicherheit'], k['port']))
+        k = mail_konfiguration({'MAIL_SERVER': 'smtp.test', 'MAIL_SECURITY': 'ssl', 'MAIL_PORT': '587'})
+        self.assertTrue(k['port_passt_nicht'])
+        k = mail_konfiguration({'MAIL_SERVER': 'smtp.test', 'MAIL_SECURITY': 'verschluesselt'})
+        self.assertEqual(('starttls', True, 'verschluesselt'), (k['sicherheit'], k['sicherheit_unbekannt'], k['sicherheit_roh']))
+
+    def test_admin_mail_page_warns_about_unknown_security_value(self):
+        self.app.config['MAIL_SECURITY'] = 'ssl  # 465'
+        self.app.config['MAIL_PORT'] = '587'
+        self._login('admin')
+        html = self.client.get('/admin/benachrichtigungen').get_data(as_text=True)
+        self.assertIn('SSL/TLS', html)
+        self.assertIn('gelesen als „ssl  # 465“', html)
+        self.assertIn('Port 587 passt nicht dazu', html)
+        self.app.config['MAIL_SECURITY'] = 'verschluesselt'
+        html = self.client.get('/admin/benachrichtigungen').get_data(as_text=True)
+        self.assertIn('ist kein bekannter Wert', html)
+
     def test_run_without_mail_server_raises(self):
         self.app.config['MAIL_SERVER'] = ''
         with self.assertRaises(mail_versand.MailNichtKonfiguriert):

@@ -19,12 +19,24 @@
             {% if konfiguration %}
             <dl class="row mb-3 small">
                 <dt class="col-5">Server</dt><dd class="col-7">{{ konfiguration.server }}:{{ konfiguration.port }}</dd>
-                <dt class="col-5">Verschlüsselung</dt><dd class="col-7">{{ {'starttls': 'STARTTLS', 'ssl': 'SSL/TLS', 'none': 'keine'}[konfiguration.sicherheit] }}</dd>
+                <dt class="col-5">Verschlüsselung</dt>
+                <dd class="col-7">
+                    {{ {'starttls': 'STARTTLS', 'ssl': 'SSL/TLS', 'none': 'keine'}[konfiguration.sicherheit] }}
+                    {% if konfiguration.sicherheit_unbekannt %}
+                    <div class="text-danger">„{{ konfiguration.sicherheit_roh }}“ ist kein bekannter Wert für <code>MAIL_SECURITY</code> – es gilt STARTTLS. Erlaubt: <code>starttls</code>, <code>ssl</code>, <code>none</code>.</div>
+                    {% elif konfiguration.sicherheit_roh and konfiguration.sicherheit_roh|lower != konfiguration.sicherheit %}
+                    <div class="text-muted">gelesen als „{{ konfiguration.sicherheit_roh }}“</div>
+                    {% endif %}
+                    {% if konfiguration.port_passt_nicht %}
+                    <div class="text-danger">Port {{ konfiguration.port }} passt nicht dazu: SSL/TLS nutzt üblicherweise 465, STARTTLS 587.</div>
+                    {% endif %}
+                </dd>
                 <dt class="col-5">Anmeldung</dt><dd class="col-7">{{ konfiguration.benutzer or 'ohne' }}</dd>
                 <dt class="col-5">Absender</dt><dd class="col-7">{{ konfiguration.absender or '–' }}</dd>
                 <dt class="col-5">Adresse der App</dt>
                 <dd class="col-7">{% if konfiguration.basis_url %}{{ konfiguration.basis_url }}{% else %}<span class="text-warning-emphasis">fehlt – E-Mails enthalten dann keine Links</span>{% endif %}</dd>
             </dl>
+            <p class="small text-muted">Die Werte stammen aus der Umgebungsdatei des Dienstes und gelten erst nach <code>systemctl restart kompetenzkompass</code>. Kein Kommentar hinter dem Wert in derselben Zeile – systemd nimmt ihn sonst in den Wert auf.</p>
             <form method="POST" class="m-0">
                 {{ csrf_input() }}
                 <button type="submit" class="btn btn-outline-primary icon-btn" {% if not current_user.email %}disabled{% endif %}>

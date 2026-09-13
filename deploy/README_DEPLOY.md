@@ -230,16 +230,20 @@ Lehrkraft hinterlegt ihre Adresse und wählt im Konto „sofort“, „täglich�
 (`/etc/kompetenzkompass/kompetenzkompass.env`):
 
 ```bash
+# Verschluesselung: starttls (Port 587), ssl (Port 465) oder none (Port 25, nur intern).
+# Keine Kommentare hinter einem Wert in derselben Zeile - systemd liest sie als Teil des Werts.
 MAIL_SERVER=smtp.example.org
 MAIL_PORT=587
-MAIL_SECURITY=starttls        # starttls (587) | ssl (465) | none (25, nur intern)
+MAIL_SECURITY=starttls
 MAIL_USERNAME=kompetenzkompass@example.org
 MAIL_PASSWORD=geheim
 MAIL_FROM="KompetenzKompass <kompetenzkompass@example.org>"
 APP_BASE_URL=https://kompass.example.org   # für die Links in den E-Mails
 ```
 
-Werte mit Leerzeichen in Anführungszeichen setzen. Die E-Mails enthalten Namen
+Werte mit Leerzeichen in Anführungszeichen setzen. Nach jeder Änderung den Dienst neu
+starten – die App liest die Datei nur beim Start. Unter *Verwaltung → E-Mail-Versand*
+steht, welche Werte tatsächlich angekommen sind. Die E-Mails enthalten Namen
 von Kindern und Inhalte der Benachrichtigung – deshalb nur einen Mailserver
 verwenden, der für schulische personenbezogene Daten zugelassen ist.
 
