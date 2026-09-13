@@ -491,7 +491,8 @@ def _add_new_columns():
                 for row in conn.execute(text(f'PRAGMA table_info("{tabelle}")')).mappings().all()
             }
         tabellen = {"user": '"user"', "notification": "notification", "elternkontakt": "elternkontakt",
-                    "system_konfiguration": "system_konfiguration", "diagnostik_kennwert": "diagnostik_kennwert"}
+                    "system_konfiguration": "system_konfiguration", "diagnostik_kennwert": "diagnostik_kennwert",
+                    "diagnostik_ergebnis": "diagnostik_ergebnis"}
     elif backend in {"postgresql", "postgres"}:
         def spalten(conn, tabelle):
             return {
@@ -502,7 +503,8 @@ def _add_new_columns():
                 ), {"tabelle": tabelle}).all()
             }
         tabellen = {"user": 'public."user"', "notification": "public.notification", "elternkontakt": "public.elternkontakt",
-                    "system_konfiguration": "public.system_konfiguration", "diagnostik_kennwert": "public.diagnostik_kennwert"}
+                    "system_konfiguration": "public.system_konfiguration", "diagnostik_kennwert": "public.diagnostik_kennwert",
+                    "diagnostik_ergebnis": "public.diagnostik_ergebnis"}
     else:
         return
 
@@ -524,6 +526,8 @@ def _add_new_columns():
         ("diagnostik_kennwert", "risiko", "BOOLEAN NOT NULL DEFAULT FALSE",
          "UPDATE {tabelle} SET risiko = TRUE WHERE leitwert = TRUE OR name IN "
          "('Alphabetische Strategie', 'Orthografische Strategie', 'Morphematische Strategie', 'Wortübergreifende Strategie')"),
+        # Klasse zum Testzeitpunkt; Bestand wird unten aus der heutigen Klasse zurückgerechnet.
+        ("diagnostik_ergebnis", "klasse", "VARCHAR(20)", None),
     ]
     with engine.connect() as conn:
         vorhanden = {}
@@ -583,6 +587,10 @@ with app.app_context():
     from diagnostik import lege_vorbelegung_an, schaerfe_vorbelegung_nach
     if lege_vorbelegung_an():
         print("Diagnostik-Katalog mit HSP, SLS 1-4 und ELFE II vorbelegt.")
+    from diagnostik import ergaenze_klassen_der_ergebnisse
+    ergaenzt = ergaenze_klassen_der_ergebnisse()
+    if ergaenzt:
+        print(f"Klasse zum Testzeitpunkt bei {ergaenzt} Diagnostik-Ergebnis(sen) ergänzt.")
     nachgeschaerft = schaerfe_vorbelegung_nach()
     if nachgeschaerft:
         print(f"HSP-Vorbelegung an die Auswertungsmappen angepasst ({nachgeschaerft} Testform(en)).")

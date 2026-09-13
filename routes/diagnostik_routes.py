@@ -25,6 +25,7 @@ from diagnostik import (
     UNVERAENDERT,
     klassen_uebersicht,
     risikogrenzen,
+    speichere_foerderangaben,
     speichere_ergebnis,
     zeitlabel,
     zeitpunkte_fuer,
@@ -912,6 +913,31 @@ def importieren():
         nicht_zugeordnet=[kind for kind in kinder if kind.id not in zuordnete_ids],
         wertart_kuerzel={schluessel: kuerzel for schluessel, _, kuerzel, _, _ in WERTARTEN},
     )
+
+
+@diagnostik_bp.route('/diagnostik/foerderangaben/<int:schueler_id>', methods=['POST'])
+@login_required
+def foerderangaben_speichern(schueler_id):
+    schueler = get_or_404_session(Schueler, schueler_id)
+    if not darf_kind_sehen(current_user, schueler):
+        return _kein_zugriff(schueler=schueler)
+    schuljahr = normalize_school_year(request.form.get('schuljahr'))
+    ziel = (request.form.get('next') or '').strip()
+    if not (ziel.startswith('/') and not ziel.startswith('//')):
+        ziel = url_for('system.schuelerakte', schueler_id=schueler.id) + '#akte-diagnostik'
+    if not schuljahr:
+        flash('Bitte ein gültiges Schuljahr angeben.')
+        return redirect(ziel)
+    speichere_foerderangaben(schueler.id, schuljahr, {
+        'nachteilsausgleich': request.form.get('nachteilsausgleich') == '1',
+        'foerderkurs': request.form.get('foerderkurs') == '1',
+        'externe_foerderung': request.form.get('externe_foerderung') == '1',
+        'foerderschwerpunkt': request.form.get('foerderschwerpunkt'),
+        'anmerkungen': request.form.get('anmerkungen'),
+    }, current_user.id)
+    db.session.commit()
+    flash(f'Förderangaben {schuljahr} für {schueler.vorname} {schueler.nachname} gespeichert.')
+    return redirect(ziel)
 
 
 def register_diagnostik_routes(app):

@@ -643,6 +643,51 @@
                         </div>
                         {% endif %}
                     </div>
+                    <div class="border rounded-3 p-3 mb-4" id="foerderangaben">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                            <h4 class="h6 mb-0">Förderangaben {{ foerder_schuljahr or '' }}</h4>
+                            <span class="small text-muted">Fließen in die Stufenauswertung ein. Der Förderplan wird automatisch erkannt.</span>
+                        </div>
+                        {% if diagnostik_bearbeitbar and foerder_schuljahr %}
+                        {% set f = foerderangaben_aktuell %}
+                        <form method="POST" action="{{ url_for('diagnostik.foerderangaben_speichern', schueler_id=selected_student.id) }}">
+                            {{ csrf_input() }}
+                            <input type="hidden" name="schuljahr" value="{{ foerder_schuljahr }}">
+                            <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}#akte-diagnostik">
+                            <div class="d-flex flex-wrap gap-4 mb-2">
+                                <div class="form-check"><input class="form-check-input" type="checkbox" name="nachteilsausgleich" value="1" id="fa-nta" {% if f and f.nachteilsausgleich %}checked{% endif %}><label class="form-check-label" for="fa-nta">Nachteilsausgleich</label></div>
+                                <div class="form-check"><input class="form-check-input" type="checkbox" name="foerderkurs" value="1" id="fa-fk" {% if f and f.foerderkurs %}checked{% endif %}><label class="form-check-label" for="fa-fk">Förderkurs</label></div>
+                                <div class="form-check"><input class="form-check-input" type="checkbox" name="externe_foerderung" value="1" id="fa-ef" {% if f and f.externe_foerderung %}checked{% endif %}><label class="form-check-label" for="fa-ef">externe Förderung</label></div>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label small mb-1" for="fa-schwerpunkt">Schwerpunkt der individuellen Förderung</label>
+                                    <textarea class="form-control form-control-sm" rows="2" name="foerderschwerpunkt" id="fa-schwerpunkt">{{ f.foerderschwerpunkt if f and f.foerderschwerpunkt else '' }}</textarea>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label small mb-1" for="fa-anmerkungen">Anmerkungen zum Kind</label>
+                                    <textarea class="form-control form-control-sm" rows="2" name="anmerkungen" id="fa-anmerkungen">{{ f.anmerkungen if f and f.anmerkungen else '' }}</textarea>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-sm btn-outline-primary icon-btn mt-2">{{ bi('floppy', 'bi-icon-sm') }} <span>Förderangaben speichern</span></button>
+                        </form>
+                        {% endif %}
+                        {% set fruehere = foerderangaben|rejectattr('schuljahr', 'equalto', foerder_schuljahr)|list if diagnostik_bearbeitbar else foerderangaben %}
+                        {% for f in fruehere %}
+                        <div class="small mt-2">
+                            <strong>{{ f.schuljahr }}:</strong>
+                            {% set marken = [] %}
+                            {% if f.nachteilsausgleich %}{% set _ = marken.append('Nachteilsausgleich') %}{% endif %}
+                            {% if f.foerderkurs %}{% set _ = marken.append('Förderkurs') %}{% endif %}
+                            {% if f.externe_foerderung %}{% set _ = marken.append('externe Förderung') %}{% endif %}
+                            {{ marken|join(', ') }}{% if marken and f.foerderschwerpunkt %} · {% endif %}{{ f.foerderschwerpunkt or '' }}
+                            {% if f.anmerkungen %}<div class="text-muted">{{ f.anmerkungen }}</div>{% endif %}
+                        </div>
+                        {% else %}
+                        {% if not diagnostik_bearbeitbar %}<div class="small text-muted">Keine Förderangaben.</div>{% endif %}
+                        {% endfor %}
+                    </div>
+
                     {% for bereich in diagnostik %}
                     {% set eintrag = bereich.eintrag %}
                     <div class="mb-4">

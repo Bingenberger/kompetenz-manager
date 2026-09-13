@@ -557,6 +557,9 @@ def schuelerakte():
     recent_beobachtungen = []
     diagnostik = []
     diagnostik_bearbeitbar = False
+    foerder_schuljahr = None
+    foerderangaben = []
+    foerderangaben_aktuell = None
 
     if selected_student:
         # Diagnostik: je Lernbereich Verlauf, Diagramm und Ergebnisliste.
@@ -571,6 +574,10 @@ def schuelerakte():
                 'zeilen': [(a, werte_zeilen(a.ergebnis)) for a in reversed(eintrag['auswertungen'])],
             })
         diagnostik_bearbeitbar = selected_student.is_active and darf_kind_sehen(current_user, selected_student)
+        config_akte = SystemKonfiguration.query.first()
+        foerder_schuljahr = config_akte.schuljahr if config_akte and config_akte.schuljahr else None
+        foerderangaben = sorted(selected_student.foerderangaben, key=lambda f: f.schuljahr, reverse=True)
+        foerderangaben_aktuell = next((f for f in foerderangaben if f.schuljahr == foerder_schuljahr), None)
 
         foerderplaene = (
             Foerderplan.query
@@ -649,6 +656,9 @@ def schuelerakte():
         diagnostik=diagnostik,
         diagnostik_bearbeitbar=diagnostik_bearbeitbar,
         diagnostik_stufen=DIAGNOSTIK_STUFEN,
+        foerder_schuljahr=foerder_schuljahr,
+        foerderangaben=foerderangaben,
+        foerderangaben_aktuell=foerderangaben_aktuell,
     )
 
 

@@ -675,6 +675,9 @@ class DiagnostikErgebnis(db.Model):
     schuljahr = db.Column(db.String(20), nullable=False)
     halbjahr = db.Column(db.String(10), nullable=False)
     jahrgang = db.Column(db.Integer, nullable=True)
+    # Klasse zum Testzeitpunkt - nach dem Schuljahreswechsel ist aus der 2c die
+    # 3c geworden, die Stufenauswertung soll aber die Klasse von damals zeigen.
+    klasse = db.Column(db.String(20), nullable=True)
     datum = db.Column(db.Date, nullable=True)
     bemerkung = db.Column(db.Text, nullable=True)
     erfasst_von_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
@@ -710,3 +713,35 @@ class DiagnostikWert(db.Model):
     )
 
     kennwert = db.relationship('DiagnostikKennwert')
+
+
+class Foerderangaben(db.Model):
+    """Unterstützung eines Kindes in einem Schuljahr.
+
+    Je Schuljahr, weil sich Nachteilsausgleich, Förderkurs und Schwerpunkt von
+    Jahr zu Jahr ändern und eine Stufenauswertung den Stand ihres Schuljahres
+    zeigen soll. Der Förderplan steht nicht hier - den kennt die Anwendung.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    schueler_id = db.Column(db.Integer, db.ForeignKey('schueler.id'), nullable=False, index=True)
+    schuljahr = db.Column(db.String(20), nullable=False)
+    nachteilsausgleich = db.Column(db.Boolean, nullable=False, default=False)
+    foerderkurs = db.Column(db.Boolean, nullable=False, default=False)
+    externe_foerderung = db.Column(db.Boolean, nullable=False, default=False)
+    foerderschwerpunkt = db.Column(db.Text, nullable=True)
+    anmerkungen = db.Column(db.Text, nullable=True)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+    updated_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('schueler_id', 'schuljahr', name='uq_foerderangaben_schuljahr'),
+    )
+
+    schueler = db.relationship(
+        'Schueler', backref=db.backref('foerderangaben', cascade='all, delete-orphan'),
+    )
+
+    @property
+    def leer(self):
+        return not (self.nachteilsausgleich or self.foerderkurs or self.externe_foerderung
+                    or (self.foerderschwerpunkt or '').strip() or (self.anmerkungen or '').strip())

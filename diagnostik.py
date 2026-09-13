@@ -25,6 +25,7 @@ from models import (
     DiagnostikZeitpunkt,
     SystemKonfiguration,
 )
+from jahrgang import grade_from_name, name_for_grade
 from transition_plan import effective_jahrgang
 
 HALBJAHRE = {'mitte': 'Mitte', 'ende': 'Ende'}
@@ -241,6 +242,19 @@ def jahrgang_im_schuljahr(kind, schuljahr, aktuelles_schuljahr):
     return damals if 1 <= damals <= 4 else None
 
 
+def klasse_im_schuljahr(kind, jahrgang_damals):
+    """Die Klasse, in der ein Kind damals war.
+
+    Für Klassen mit Stufennamen zurückgerechnet ("3c" mit Jahrgang 1 wird
+    "1c"), sonst die heutige Klasse - bei freien Namen wie "Füchse" wandert
+    die Gruppe als Ganzes.
+    """
+    heute = (kind.klasse or '').strip() or None
+    if heute and jahrgang_damals and grade_from_name(heute) is not None:
+        return name_for_grade(heute, jahrgang_damals)
+    return heute
+
+
 def trend(frueher, spaeter):
     if frueher is None or spaeter is None:
         return None
@@ -428,6 +442,7 @@ def speichere_ergebnis(kind, testform, schuljahr, halbjahr, werte, user_id,
         config = SystemKonfiguration.query.first()
         aktuelles_schuljahr = config.schuljahr if config else None
     ergebnis.jahrgang = jahrgang_im_schuljahr(kind, schuljahr, aktuelles_schuljahr or schuljahr)
+    ergebnis.klasse = klasse_im_schuljahr(kind, ergebnis.jahrgang)
     ergebnis.erfasst_von_user_id = user_id
 
     for kennwert in testform.kennwerte:
@@ -582,3 +597,69 @@ def schaerfe_vorbelegung_nach():
                 testform.zeitpunkte.append(DiagnostikZeitpunkt(jahrgang=jahrgang, halbjahr=halbjahr))
                 geaendert = vorher + 1
     return geaendert
+
+
+def ergaenze_klassen_der_ergebnisse():
+    """Füllt die Klasse zum Testzeitpunkt bei Ergebnissen, die sie noch nicht haben.
+
+    Idempotent; überschreibt nichts. Committet nicht.
+    """
+    anzahl = 0
+    for ergebnis in DiagnostikErgebnis.query.filter(DiagnostikErgebnis.klasse.is_(None)).all():
+        klasse = klasse_im_schuljahr(ergebnis.schueler, ergebnis.jahrgang)
+        if klasse:
+            ergebnis.klasse = klasse
+            anzahl += 1
+    return anzahl
+
+
+# ----------------------------------------------------------------------
+# Förderangaben (Nachteilsausgleich, Förderkurs, externe Förderung)
+# ----------------------------------------------------------------------
+
+FOERDER_KUERZEL = [
+    ('nachteilsausgleich', 'NTA', 'Nachteilsausgleich'),
+    ('foerderkurs', 'FK', 'Förderkurs'),
+    ('externe_foerderung', 'EF', 'externe Förderung'),
+]
+
+
+def foerderangaben_fuer(schueler_ids, schuljahr):
+    """schueler_id -> Foerderangaben des Schuljahres (nur vorhandene)."""
+    from models import Foerderangaben
+    if not schueler_ids or not schuljahr:
+        return {}
+    return {
+        eintrag.schueler_id: eintrag
+        for eintrag in Foerderangaben.query.filter(
+            Foerderangaben.schueler_id.in_(list(schueler_ids)), Foerderangaben.schuljahr == schuljahr,
+        ).all()
+    }
+
+
+def speichere_foerderangaben(schueler_id, schuljahr, daten, user_id):
+    """Legt an, aktualisiert oder entfernt (wenn alles leer) die Angaben. Committet nicht.
+
+    daten: dict mit nachteilsausgleich, foerderkurs, externe_foerderung (bool),
+    foerderschwerpunkt, anmerkungen (Text).
+    """
+    from models import Foerderangaben
+    eintrag = Foerderangaben.query.filter_by(schueler_id=schueler_id, schuljahr=schuljahr).first()
+    werte = {
+        'nachteilsausgleich': bool(daten.get('nachteilsausgleich')),
+        'foerderkurs': bool(daten.get('foerderkurs')),
+        'externe_foerderung': bool(daten.get('externe_foerderung')),
+        'foerderschwerpunkt': (daten.get('foerderschwerpunkt') or '').strip() or None,
+        'anmerkungen': (daten.get('anmerkungen') or '').strip() or None,
+    }
+    if not any(werte.values()):
+        if eintrag:
+            db.session.delete(eintrag)
+        return None
+    if not eintrag:
+        eintrag = Foerderangaben(schueler_id=schueler_id, schuljahr=schuljahr)
+        db.session.add(eintrag)
+    for feld, wert in werte.items():
+        setattr(eintrag, feld, wert)
+    eintrag.updated_by_user_id = user_id
+    return eintrag
