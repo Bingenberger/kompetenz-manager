@@ -81,7 +81,9 @@
 
         <div class="multi-sticky-action">
             <button type="submit" class="btn btn-primary btn-lg w-100 shadow icon-btn justify-content-center">{{ bi('play-circle', 'bi-icon') }} <span>Auswahl starten</span></button>
-            <a href="{{ next_url if next_url else url_for('system.index') }}" class="btn btn-outline-secondary w-100 mt-2 icon-btn justify-content-center">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+            {% if next_url %}
+            <a href="{{ next_url }}" class="btn btn-outline-secondary w-100 mt-2 icon-btn justify-content-center">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+            {% endif %}
         </div>
     </form>
 </div>

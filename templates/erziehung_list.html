@@ -12,7 +12,6 @@
             <p class="text-muted mb-0">Vorfall, Beschreibung, Beteiligte, Konsequenzen und Folgekommunikation pro Kind festhalten.</p>
         </div>
         <div class="d-flex flex-wrap gap-2">
-            <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
             <a href="{{ url_for('erziehung.erziehung_new', schueler_id=selected_s_id if selected_s_id else None, tab=active_tab, next=request.full_path if request.query_string else request.path) }}" class="btn btn-primary icon-btn">{{ bi('plus-circle', 'bi-icon') }} <span>Neues Ereignis</span></a>
         </div>
     </div>

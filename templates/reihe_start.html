@@ -61,7 +61,9 @@
 
                 <div class="d-flex flex-wrap gap-2">
                     <button type="submit" class="btn btn-primary btn-lg icon-btn">{{ bi('play-circle', 'bi-icon') }} <span>Starten</span></button>
-                    <a href="{{ next_url if next_url else url_for('system.index') }}" class="btn btn-outline-secondary btn-lg icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+                    {% if next_url %}
+                    <a href="{{ next_url }}" class="btn btn-outline-secondary btn-lg icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
+                    {% endif %}
                 </div>
             </form>
         </div>
