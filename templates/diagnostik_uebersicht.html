@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+{% set trendzeichen = {'besser': ('↗', 'text-success', 'besser als zuvor'), 'schlechter': ('↘', 'text-danger', 'schlechter als zuvor'), 'gleich': ('→', 'text-muted', 'etwa gleich')} %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Diagnostik</span>
+        <h2 class="h4 mt-2 mb-1">Übersicht{% if klasse %} Klasse {{ klasse }}{% endif %}</h2>
+        <p class="text-muted mb-0">Letztes Ergebnis je Lernbereich, gemessen am niedrigsten Prozentrang der Leitwerte. Offene Tests beziehen sich auf den Testplan {{ schuljahr or '' }}.</p>
+    </div>
+    <div class="toolbar-actions">
+        {% if klasse %}
+        <a href="{{ url_for('diagnostik.erfassen', klasse=klasse) }}" class="btn btn-primary icon-btn">{{ bi('clipboard-data', 'bi-icon-sm') }} <span>Ergebnisse eintragen</span></a>
+        {% endif %}
+        <a href="{{ url_for('system.index') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span></a>
+    </div>
+</div>
+
+{% if not klassen %}
+<div class="alert alert-info">Ihnen ist keine Klasse zugeordnet.</div>
+{% else %}
+<form method="GET" class="d-flex flex-wrap align-items-center gap-3 mb-3">
+    <select name="klasse" class="form-select" style="max-width: 12rem;" onchange="this.form.submit()" aria-label="Klasse">
+        {% for k in klassen %}<option value="{{ k }}" {% if k == klasse %}selected{% endif %}>Klasse {{ k }}</option>{% endfor %}
+    </select>
+    <div class="form-check form-switch m-0">
+        <input class="form-check-input" type="checkbox" role="switch" id="nur-risiko" name="risiko" value="1" {% if nur_risiko %}checked{% endif %} onchange="this.form.submit()">
+        <label class="form-check-label" for="nur-risiko">Nur Kinder mit Risikostufe</label>
+    </div>
+    <div class="d-flex flex-wrap gap-2 ms-auto">
+        {% for stufe in ['deutlich', 'auffaellig', 'beobachten'] %}
+        <span class="badge text-bg-{{ stufen[stufe][1] }}">{{ zaehler[stufe] }} {{ stufen[stufe][0] }}</span>
+        {% endfor %}
+    </div>
+</form>
+
+<div class="table-panel">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Kind</th>
+                    {% for bereich in bereiche %}<th>{{ bereich }}</th>{% endfor %}
+                    <th>Offen laut Testplan</th>
+                    <th class="text-end"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for zeile in zeilen %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('system.schuelerakte', schueler_id=zeile.kind.id) }}#akte-diagnostik" class="fw-semibold text-decoration-none">{{ zeile.kind.nachname }}, {{ zeile.kind.vorname }}</a>
+                        <div class="small text-muted">{% if zeile.jahrgang %}Jg. {{ zeile.jahrgang }}{% else %}Jahrgang fehlt{% endif %}</div>
+                    </td>
+                    {% for bereich in bereiche %}
+                    {% set eintrag = zeile.bereiche.get(bereich) %}
+                    <td>
+                        {% if eintrag and eintrag.aktuell %}
+                        {% set a = eintrag.aktuell %}
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fw-semibold">PR {{ a.niedrigster_prozentrang }}</span>
+                            {% if a.stufe %}<span class="badge text-bg-{{ stufen[a.stufe][1] }}">{{ stufen[a.stufe][0] }}</span>{% endif %}
+                            {% if eintrag.trend %}{% set t = trendzeichen[eintrag.trend] %}<span class="{{ t[1] }}" title="{{ t[2] }}" aria-label="{{ t[2] }}">{{ t[0] }}</span>{% endif %}
+                        </div>
+                        <div class="small text-muted">{{ a.ergebnis.testform.name }} · {{ halbjahre[a.ergebnis.halbjahr] }} {{ a.ergebnis.schuljahr }}</div>
+                        {% else %}
+                        <span class="text-muted small">–</span>
+                        {% endif %}
+                    </td>
+                    {% endfor %}
+                    <td class="small">
+                        {% for z in zeile.offen %}
+                        <a href="{{ url_for('diagnostik.erfassen', schueler_id=zeile.kind.id, testform_id=z.testform.id, schuljahr=schuljahr, halbjahr=z.halbjahr) }}" class="badge bg-light text-secondary border text-decoration-none me-1 mb-1">{{ z.testform.name }} · {{ halbjahre[z.halbjahr] }}</a>
+                        {% else %}
+                        <span class="text-muted">–</span>
+                        {% endfor %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('diagnostik.erfassen', schueler_id=zeile.kind.id) }}" class="btn btn-sm btn-outline-secondary icon-only-btn" title="Ergebnis eintragen" aria-label="Ergebnis für {{ zeile.kind.vorname }} eintragen">{{ bi('plus-circle', 'bi-icon-sm') }}</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="{{ bereiche|length + 3 }}" class="text-center text-muted py-4">{% if nur_risiko %}Kein Kind mit Risikostufe.{% else %}Keine aktiven Kinder in dieser Klasse.{% endif %}</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<p class="small text-muted mt-2">↗ / ↘: Prozentrang mindestens 10 Punkte besser bzw. schlechter als beim vorigen Ergebnis im selben Lernbereich.</p>
+{% endif %}
+{% endblock %}

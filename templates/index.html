@@ -410,6 +410,9 @@
                 </div>
                 <div class="stack-body d-grid gap-3" id="diagnostik-karte">
                     <p class="text-muted mb-0">Ergebnisse standardisierter Tests eintragen und Risikokinder über die Schuljahre im Blick behalten.</p>
+                    <a href="{{ url_for('diagnostik.uebersicht') }}" class="btn btn-secondary btn-lg w-100 icon-btn justify-content-center">
+                        {{ bi('bar-chart-line', 'bi-icon') }} <span>Übersicht & Risikokinder</span>
+                    </a>
                     <a href="{{ url_for('diagnostik.erfassen') }}" class="btn btn-outline-secondary btn-lg w-100 icon-btn justify-content-center">
                         {{ bi('clipboard-data', 'bi-icon') }} <span>Ergebnisse eintragen</span>
                     </a>

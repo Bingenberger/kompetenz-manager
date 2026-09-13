@@ -10,6 +10,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import func
 from werkzeug.security import generate_password_hash
 
+from diagnostik import STUFEN as DIAGNOSTIK_STUFEN, diagramm as diagnostik_diagramm_geometrie, risikogrenzen, stufen_baender, verlauf as diagnostik_verlauf, werte_zeilen
 from extensions import db
 from models import Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, ErziehungsEreignisAnhang, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan, WorkPlanTaskAttachment
 from odt_export import build_odt_document, convert_odt_bytes_to_pdf
@@ -554,8 +555,23 @@ def schuelerakte():
     elternkontakte = []
     bogen_summaries = []
     recent_beobachtungen = []
+    diagnostik = []
+    diagnostik_bearbeitbar = False
 
     if selected_student:
+        # Diagnostik: je Lernbereich Verlauf, Diagramm und Ergebnisliste.
+        from routes.diagnostik_routes import darf_kind_sehen
+        grenzen = risikogrenzen()
+        for eintrag in diagnostik_verlauf(selected_student, grenzen):
+            geometrie = diagnostik_diagramm_geometrie(eintrag)
+            diagnostik.append({
+                'eintrag': eintrag,
+                'geometrie': geometrie,
+                'baender': stufen_baender(geometrie, grenzen),
+                'zeilen': [(a, werte_zeilen(a.ergebnis)) for a in reversed(eintrag['auswertungen'])],
+            })
+        diagnostik_bearbeitbar = selected_student.is_active and darf_kind_sehen(current_user, selected_student)
+
         foerderplaene = (
             Foerderplan.query
             .filter(Foerderplan.schueler_id == selected_student.id)
@@ -630,6 +646,9 @@ def schuelerakte():
         elternkontakte=elternkontakte,
         bogen_summaries=bogen_summaries,
         recent_beobachtungen=recent_beobachtungen,
+        diagnostik=diagnostik,
+        diagnostik_bearbeitbar=diagnostik_bearbeitbar,
+        diagnostik_stufen=DIAGNOSTIK_STUFEN,
     )
 
 

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "includes/icons.html" import bi %}
+{% from "includes/diagnostik_diagramm.html" import diagnostik_diagramm %}
 {% block content %}
 <style>
     .akte-grid {
@@ -375,6 +376,12 @@
                     </button>
                 </li>
                 <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="akte-diagnostik-tab" data-bs-toggle="tab" data-bs-target="#akte-diagnostik-pane" type="button" role="tab" aria-controls="akte-diagnostik-pane" aria-selected="false">
+                        {{ bi('bar-chart-line', 'bi-icon-sm') }} <span>Diagnostik</span>
+                        <span class="badge text-bg-light">{{ diagnostik|map(attribute='zeilen')|map('length')|sum }}</span>
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
                     <button class="nav-link" id="akte-erziehung-tab" data-bs-toggle="tab" data-bs-target="#akte-erziehung-pane" type="button" role="tab" aria-controls="akte-erziehung-pane" aria-selected="false">
                         {{ bi('shield-exclamation', 'bi-icon-sm') }} <span>Ereignisse</span>
                         <span class="badge text-bg-light">{{ erziehungsereignisse|length }}</span>
@@ -625,6 +632,75 @@
                     {% endif %}
                 </div>
 
+                <div class="tab-pane fade" id="akte-diagnostik-pane" role="tabpanel" aria-labelledby="akte-diagnostik-tab" tabindex="0">
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                        <div class="small text-muted">Standardisierte Tests über die Schuljahre. Verglichen wird am Prozentrang der Leitwerte.</div>
+                        {% if diagnostik_bearbeitbar %}
+                        <div class="akte-tab-actions">
+                            <a href="{{ url_for('diagnostik.erfassen', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-secondary icon-btn">
+                                {{ bi('plus-circle', 'bi-icon-sm') }} <span>Ergebnis eintragen</span>
+                            </a>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% for bereich in diagnostik %}
+                    {% set eintrag = bereich.eintrag %}
+                    <div class="mb-4">
+                        <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                            <h4 class="h5 mb-0">{{ eintrag.bereich }}</h4>
+                            {% if eintrag.aktuell %}
+                            <span class="small text-muted">zuletzt PR {{ eintrag.aktuell.niedrigster_prozentrang }}</span>
+                            {% if eintrag.aktuell.stufe %}<span class="badge text-bg-{{ diagnostik_stufen[eintrag.aktuell.stufe][1] }}">{{ diagnostik_stufen[eintrag.aktuell.stufe][0] }}</span>{% endif %}
+                            {% endif %}
+                        </div>
+                        {% if bereich.geometrie.reihen %}
+                        {{ diagnostik_diagramm(bereich.geometrie, bereich.baender, diagnostik_stufen, eintrag.bereich) }}
+                        {% endif %}
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-0 akte-mini-table">
+                                <thead class="table-light">
+                                    <tr><th>Zeitpunkt</th><th>Test</th><th>Werte</th><th>Stufe</th><th class="text-end"></th></tr>
+                                </thead>
+                                <tbody>
+                                    {% for auswertung, werte in bereich.zeilen %}
+                                    {% set e = auswertung.ergebnis %}
+                                    <tr>
+                                        <td class="text-nowrap">
+                                            {{ 'Mitte' if e.halbjahr == 'mitte' else 'Ende' }} {{ e.schuljahr }}
+                                            <div class="small text-muted">{{ e.datum.strftime('%d.%m.%Y') if e.datum else '' }}{% if e.jahrgang %} · Jg. {{ e.jahrgang }}{% endif %}</div>
+                                        </td>
+                                        <td>{{ e.testform.name }}</td>
+                                        <td class="small">
+                                            {% for kennwert, text in werte %}
+                                            <div>{% if kennwert.leitwert %}<strong>{{ kennwert.name }}</strong>{% else %}{{ kennwert.name }}{% endif %}: {{ text }}</div>
+                                            {% endfor %}
+                                            {% if e.bemerkung %}<div class="text-muted fst-italic">{{ e.bemerkung }}</div>{% endif %}
+                                        </td>
+                                        <td>
+                                            {% if auswertung.stufe %}<span class="badge text-bg-{{ diagnostik_stufen[auswertung.stufe][1] }}">{{ diagnostik_stufen[auswertung.stufe][0] }}</span>
+                                            {% elif auswertung.leitwerte %}<span class="small text-muted">unauffällig</span>{% endif %}
+                                        </td>
+                                        <td class="text-end text-nowrap">
+                                            {% if diagnostik_bearbeitbar %}
+                                            <a href="{{ url_for('diagnostik.erfassen', schueler_id=selected_student.id, testform_id=e.testform_id, schuljahr=e.schuljahr, halbjahr=e.halbjahr) }}" class="btn btn-sm btn-outline-secondary icon-only-btn" title="Bearbeiten" aria-label="Ergebnis bearbeiten">{{ bi('pencil-square', 'bi-icon-sm') }}</a>
+                                            <form method="POST" action="{{ url_for('diagnostik.ergebnis_loeschen', ergebnis_id=e.id) }}" class="d-inline" data-confirm-title="Ergebnis löschen" data-confirm-message="Ergebnis {{ e.testform.name }} ({{ e.schuljahr }}) löschen?" data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
+                                                {{ csrf_input() }}
+                                                <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger icon-only-btn" title="Löschen" aria-label="Ergebnis löschen">{{ bi('trash', 'bi-icon-sm') }}</button>
+                                            </form>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="akte-empty">Noch keine Diagnostik-Ergebnisse eingetragen.</div>
+                    {% endfor %}
+                </div>
+
                 <div class="tab-pane fade" id="akte-erziehung-pane" role="tabpanel" aria-labelledby="akte-erziehung-tab" tabindex="0">
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
                         <div class="small text-muted">Erfasste Ereignisse, Zuständigkeiten und direkte Zugriffe auf die Fallansicht.</div>
@@ -708,6 +784,10 @@ document.addEventListener('DOMContentLoaded', function () {
     var storageKey = 'schuelerakte.activeContentTab';
     var tabButtons = tabsContainer.querySelectorAll('[data-bs-toggle="tab"]');
     var storedTarget = window.localStorage.getItem(storageKey);
+    // Ein Link wie ...#akte-diagnostik öffnet gezielt diesen Reiter.
+    if (window.location.hash && tabsContainer.querySelector('[data-bs-target="' + window.location.hash + '-pane"]')) {
+        storedTarget = window.location.hash + '-pane';
+    }
 
     if (storedTarget) {
         var storedButton = tabsContainer.querySelector('[data-bs-target="' + storedTarget + '"]');

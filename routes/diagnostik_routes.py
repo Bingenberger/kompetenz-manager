@@ -14,6 +14,7 @@ from diagnostik import (
     WERTARTEN,
     aktuelles_halbjahr,
     auswerten,
+    klassen_uebersicht,
     risikogrenzen,
     zeitlabel,
     zeitpunkte_fuer,
@@ -563,6 +564,53 @@ def ergebnis_loeschen(ergebnis_id):
     if ziel.startswith('/') and not ziel.startswith('//'):
         return redirect(ziel)
     return redirect(url_for('system.schuelerakte', schueler_id=schueler_id))
+
+
+# ----------------------------------------------------------------------
+# Auswertung: Klassenübersicht
+# ----------------------------------------------------------------------
+
+@diagnostik_bp.route('/diagnostik')
+@login_required
+def uebersicht():
+    config = SystemKonfiguration.query.first()
+    schuljahr = config.schuljahr if config else None
+    klassen = zugaengliche_klassen(current_user)
+    klasse = (request.args.get('klasse') or '').strip()
+    if not klasse and klassen:
+        kontext = get_user_klassenkontext(current_user)
+        klasse = kontext.get('klassenleitung') if kontext.get('klassenleitung') in klassen else klassen[0]
+    if klasse and klasse not in klassen:
+        abort(403)
+    nur_risiko = request.args.get('risiko') == '1'
+
+    bereiche, zeilen, zaehler = [], [], {stufe: 0 for stufe in STUFEN}
+    if klasse:
+        kinder = (
+            Schueler.query
+            .filter(Schueler.klasse == klasse, Schueler.is_active.is_(True))
+            .order_by(Schueler.nachname, Schueler.vorname)
+            .all()
+        )
+        bereiche, zeilen = klassen_uebersicht(kinder, schuljahr, risikogrenzen(config))
+        for zeile in zeilen:
+            if zeile['stufe']:
+                zaehler[zeile['stufe']] += 1
+        if nur_risiko:
+            zeilen = [zeile for zeile in zeilen if zeile['stufe']]
+
+    return render_template(
+        'diagnostik_uebersicht.html',
+        klassen=klassen,
+        klasse=klasse,
+        schuljahr=schuljahr,
+        bereiche=bereiche,
+        zeilen=zeilen,
+        zaehler=zaehler,
+        nur_risiko=nur_risiko,
+        stufen=STUFEN,
+        halbjahre=HALBJAHRE,
+    )
 
 
 def register_diagnostik_routes(app):

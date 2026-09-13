@@ -24,6 +24,7 @@ from models import (
     DiagnostikZeitpunkt,
     SystemKonfiguration,
 )
+from transition_plan import effective_jahrgang
 
 HALBJAHRE = {'mitte': 'Mitte', 'ende': 'Ende'}
 
@@ -229,7 +230,8 @@ def diagramm(eintrag, breite=560, hoehe=220):
     Gibt Koordinaten zurück; das SVG baut die Vorlage. y läuft von PR 100 oben
     bis 0 unten.
     """
-    rand_links, rand_rechts, rand_oben, rand_unten = 36, 16, 12, 34
+    # Seitlich Platz für die halbe Breite einer Achsenbeschriftung ("Mitte 2025/2026").
+    rand_links, rand_rechts, rand_oben, rand_unten = 64, 52, 12, 34
     zeiten = eintrag['zeiten']
     innen_b = breite - rand_links - rand_rechts
     innen_h = hoehe - rand_oben - rand_unten
@@ -255,6 +257,67 @@ def diagramm(eintrag, breite=560, hoehe=220):
         'achse': [{'x': round(x_von[s], 1), 'label': label} for s, label in zeiten],
         'reihen': reihen,
     }
+
+
+def werte_zeilen(ergebnis):
+    """Eingetragene Werte zum Anzeigen: [(Kennwert, 'RW 210 · PR 45')]."""
+    zeilen = []
+    for kennwert in ergebnis.testform.kennwerte:
+        wert = ergebnis.wert_fuer(kennwert.id)
+        if not wert:
+            continue
+        teile = [
+            f'{WERTART_KUERZEL[art]} {getattr(wert, art)}'
+            for art in ('rohwert', 'prozentrang', 't_wert', 'lesequotient')
+            if getattr(wert, art) is not None
+        ]
+        if teile:
+            zeilen.append((kennwert, ' · '.join(teile)))
+    return zeilen
+
+
+def stufen_baender(geometrie, grenzen):
+    """Farbige Bänder der Risikostufen fürs Diagramm, von unten nach oben."""
+    baender = []
+    untergrenze = 0
+    for stufe in (STUFE_DEUTLICH, STUFE_AUFFAELLIG, STUFE_BEOBACHTEN):
+        grenze = grenzen.get(stufe)
+        if grenze is None or grenze <= untergrenze:
+            continue
+        oben = round(geometrie['y'](grenze), 1)
+        unten = round(geometrie['y'](untergrenze), 1)
+        baender.append({'stufe': stufe, 'y': oben, 'hoehe': round(unten - oben, 1), 'grenze': grenze})
+        untergrenze = grenze
+    return baender
+
+
+def klassen_uebersicht(kinder, schuljahr, grenzen):
+    """Je Kind: Stand je Lernbereich, schwerste Stufe und offene Tests laut Plan."""
+    bereiche = set()
+    zeilen = []
+    for kind in kinder:
+        verlaeufe = {eintrag['bereich']: eintrag for eintrag in verlauf(kind, grenzen)}
+        bereiche.update(verlaeufe)
+        aktuelle_stufen = {
+            eintrag['aktuell'].stufe for eintrag in verlaeufe.values() if eintrag['aktuell']
+        }
+        jahrgang = effective_jahrgang(kind)
+        erledigt = {
+            (ergebnis.testform_id, ergebnis.halbjahr)
+            for ergebnis in kind.diagnostik_ergebnisse if ergebnis.schuljahr == schuljahr
+        }
+        offen = [
+            zeitpunkt for zeitpunkt in zeitpunkte_fuer(jahrgang)
+            if (zeitpunkt.testform_id, zeitpunkt.halbjahr) not in erledigt
+        ]
+        zeilen.append({
+            'kind': kind,
+            'jahrgang': jahrgang,
+            'bereiche': verlaeufe,
+            'stufe': schwerste_stufe(aktuelle_stufen),
+            'offen': offen,
+        })
+    return sorted(bereiche, key=str.lower), zeilen
 
 
 # ----------------------------------------------------------------------
