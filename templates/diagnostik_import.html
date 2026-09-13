@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Diagnostik</span>
+        <h2 class="h4 mt-2 mb-1">Ergebnisse importieren</h2>
+        <p class="text-muted mb-0">Aus den Auswertungsmappen für HSP, ELFE II und SLS (XLSX oder ODS). Vor dem Speichern zeigt eine Vorschau, was übernommen wird.</p>
+    </div>
+    <div class="toolbar-actions">
+        {% if schritt == 'vorschau' %}
+        <a href="{{ url_for('diagnostik.importieren', klasse=klasse) }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-counterclockwise', 'bi-icon-sm') }} <span>Andere Datei</span></a>
+        {% endif %}
+        <a href="{{ url_for('diagnostik.uebersicht', klasse=klasse or None) }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zur Übersicht</span></a>
+    </div>
+</div>
+
+{% if schritt == 'hochladen' %}
+{% if not klassen %}
+<div class="alert alert-info">Ihnen ist keine Klasse zugeordnet.</div>
+{% else %}
+<form method="POST" enctype="multipart/form-data" class="surface-panel p-4">
+    {{ csrf_input() }}
+    <input type="hidden" name="aktion" value="hochladen">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label" for="imp-datei">Auswertungsmappe</label>
+            <input type="file" class="form-control" id="imp-datei" name="datei" accept=".xlsx,.ods" required>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" for="imp-klasse">Klasse</label>
+            <select class="form-select" id="imp-klasse" name="klasse" required>
+                <option value="">Bitte wählen …</option>
+                {% for k in klassen %}<option value="{{ k }}" {% if k == klasse %}selected{% endif %}>{{ k }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" for="imp-schuljahr">Schuljahr</label>
+            <select class="form-select" id="imp-schuljahr" name="schuljahr">
+                {% for j in schuljahre %}<option value="{{ j }}" {% if j == schuljahr %}selected{% endif %}>{{ j }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label" for="imp-datum">Testdatum <span class="text-muted fw-normal">(optional)</span></label>
+            <input type="date" class="form-control" id="imp-datum" name="datum">
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('upload', 'bi-icon-sm') }} <span>Vorschau</span></button>
+        </div>
+    </div>
+    <p class="small text-muted mt-3 mb-0">
+        Die Mappe muss nach dem Ausfüllen einmal in Excel oder LibreOffice gespeichert worden sein – sonst fehlen die berechneten Prozentränge und T-Werte.
+        Die Datei selbst wird nicht gespeichert, nur die übernommenen Werte.
+    </p>
+</form>
+{% endif %}
+
+{% else %}
+{% set farbe_status = {'neu': 'success', 'aktualisiert': 'warning', 'fehlt': 'secondary'} %}
+<form method="POST">
+    {{ csrf_input() }}
+    <input type="hidden" name="klasse" value="{{ klasse }}">
+    <input type="hidden" name="payload" value="{{ payload }}">
+    <input type="hidden" name="dateiname" value="{{ dateiname }}">
+
+    <div class="surface-panel p-4 mb-3">
+        <div class="small text-muted mb-3">
+            Datei <strong>{{ dateiname }}</strong> · erkannt als
+            <strong>{{ {'hsp': 'HSP-Auswertungsmappe', 'elfe': 'ELFE-II-Auswertungstabelle', 'sls': 'SLS-Auswertungstabelle'}[datei.format] }}</strong>
+            {% if datei.jahrgang %}· Klassenstufe {{ datei.jahrgang }}{% endif %}{% if datei.halbjahr %} · {{ halbjahre[datei.halbjahr] }}{% endif %}
+            · Klasse {{ klasse }}
+        </div>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label" for="imp-testform">Testform</label>
+                <select class="form-select" id="imp-testform" name="testform_id">
+                    {% for t in kandidaten %}<option value="{{ t.id }}" {% if t.id == testform.id %}selected{% endif %}>{{ t.name }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" for="imp-schuljahr">Schuljahr</label>
+                <select class="form-select" id="imp-schuljahr" name="schuljahr">
+                    {% for j in schuljahre %}<option value="{{ j }}" {% if j == schuljahr %}selected{% endif %}>{{ j }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" for="imp-halbjahr">Zeitpunkt</label>
+                <select class="form-select" id="imp-halbjahr" name="halbjahr">
+                    {% for key, label in halbjahre.items() %}<option value="{{ key }}" {% if key == halbjahr %}selected{% endif %}>{{ label }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" for="imp-datum">Testdatum</label>
+                <input type="date" class="form-control" id="imp-datum" name="datum" value="{{ datum }}">
+            </div>
+            <div class="col-md-3">
+                <button type="submit" name="aktion" value="aktualisieren" formnovalidate class="btn btn-outline-primary w-100 icon-btn justify-content-center">{{ bi('arrow-repeat', 'bi-icon-sm') }} <span>Vorschau aktualisieren</span></button>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mt-3 small">
+            {% for name, kennwert in zuordnung_kennwerte.items() %}
+            {% if kennwert %}<span class="badge bg-success-subtle text-success-emphasis border">{{ name }} ✓</span>
+            {% else %}<span class="badge bg-light text-secondary border" title="Diesen Kennwert hat „{{ testform.name }}“ im Katalog nicht">{{ name }} – nicht im Katalog, wird übergangen</span>{% endif %}
+            {% endfor %}
+        </div>
+        {% for hinweis in datei.hinweise %}<div class="small text-muted mt-2">{{ hinweis }}</div>{% endfor %}
+        {% if datei.ohne_namen %}
+        <div class="alert alert-warning py-2 mt-3 mb-0">{{ datei.ohne_namen }} Zeile(n) haben Werte, aber keinen Namen. Sie können nicht zugeordnet werden und werden übergangen.</div>
+        {% endif %}
+    </div>
+
+    {% if not datei.zeilen %}
+    <div class="alert alert-info">In der Datei stehen keine Kinder mit Namen.</div>
+    {% else %}
+    <div class="table-panel">
+        <div class="table-toolbar">
+            <div class="table-toolbar-title">{{ datei.zeilen|length }} Zeile(n) aus der Datei</div>
+            {% if nicht_zugeordnet %}<span class="small text-muted">Ohne Ergebnis aus der Datei: {{ nicht_zugeordnet|map(attribute='vorname')|join(', ') }}</span>{% endif %}
+        </div>
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr><th>In der Datei</th><th style="min-width: 14rem;">Kind in Klasse {{ klasse }}</th><th>Werte</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                    {% for zeile in datei.zeilen %}
+                    {% set kind_id = zuordnung.get(loop.index0) %}
+                    <tr class="{% if not kind_id %}table-light{% endif %}">
+                        <td>
+                            <div class="fw-semibold">{{ zeile.nachname }}{% if zeile.nachname and zeile.vorname %}, {% endif %}{{ zeile.vorname }}</div>
+                            <div class="small text-muted">Zeile {{ zeile.zeile }}</div>
+                        </td>
+                        <td>
+                            <select name="kind_{{ loop.index0 }}" class="form-select form-select-sm {% if kind_id in doppelte %}is-invalid{% endif %}" aria-label="Kind für {{ zeile.name }}">
+                                <option value="">– nicht übernehmen –</option>
+                                {% for kind in kinder %}<option value="{{ kind.id }}" {% if kind.id == kind_id %}selected{% endif %}>{{ kind.nachname }}, {{ kind.vorname }}</option>{% endfor %}
+                            </select>
+                            {% if kind_id in doppelte %}<div class="invalid-feedback">Mehrfach zugeordnet</div>{% endif %}
+                        </td>
+                        <td class="small">
+                            {% for name, arten in zeile.werte.items() %}
+                            {% if zuordnung_kennwerte.get(name) %}
+                            <div>{{ name }}: {% for art, wert in arten.items() %}{{ wertart_kuerzel[art] }} {{ wert }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+                            {% endif %}
+                            {% else %}<span class="text-muted">keine Werte</span>{% endfor %}
+                        </td>
+                        <td>
+                            {% if not kind_id %}<span class="badge text-bg-secondary">wird übergangen</span>
+                            {% elif kind_id in vorhandene %}<span class="badge text-bg-warning" title="Für dieses Kind gibt es schon ein Ergebnis zu diesem Test und Zeitpunkt">aktualisiert vorhandenes</span>
+                            {% else %}<span class="badge text-bg-success">neu</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center gap-3 mt-3">
+        <button type="submit" name="aktion" value="speichern" class="btn btn-primary icon-btn">{{ bi('floppy', 'bi-icon-sm') }} <span>Ergebnisse übernehmen</span></button>
+        <span class="small text-muted">Geänderte Testform, Zeitpunkt oder Zuordnungen werden beim Übernehmen berücksichtigt. Vorhandene Werte anderer Kennwerte bleiben erhalten.</span>
+    </div>
+    {% endif %}
+</form>
+{% endif %}
+{% endblock %}

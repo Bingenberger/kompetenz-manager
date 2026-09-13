@@ -1,5 +1,6 @@
 """Standardisierte Diagnostik: Katalog (Verwaltung), Eingabe und Auswertung."""
 
+import json
 from datetime import date, datetime
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
@@ -14,11 +15,14 @@ from diagnostik import (
     WERTARTEN,
     aktuelles_halbjahr,
     auswerten,
+    UNVERAENDERT,
     klassen_uebersicht,
     risikogrenzen,
+    speichere_ergebnis,
     zeitlabel,
     zeitpunkte_fuer,
 )
+from diagnostik_import import ImportDatei, ImportFehler, ImportZeile, lese_import, ordne_kinder_zu
 from extensions import db
 from jahrgang import JAHRGAENGE, klassen_jahrgaenge
 from school_year import normalize_school_year
@@ -475,28 +479,10 @@ def erfassen():
                         db.session.delete(ergebnis)
                         entfernt += 1
                     continue
-                if not ergebnis:
-                    ergebnis = DiagnostikErgebnis(
-                        schueler_id=kind.id, testform_id=testform.id,
-                        schuljahr=schuljahr, halbjahr=halbjahr,
-                    )
-                    db.session.add(ergebnis)
-                ergebnis.datum = datum
-                ergebnis.jahrgang = effective_jahrgang(kind)
-                ergebnis.bemerkung = bemerkung or None
-                ergebnis.erfasst_von_user_id = current_user.id
-                for kennwert in kennwerte:
-                    wert = ergebnis.wert_fuer(kennwert.id) if ergebnis.id else None
-                    neue = {art: werte.get((kennwert.id, art)) for art in kennwert.wertarten}
-                    if not any(v is not None for v in neue.values()):
-                        if wert:
-                            ergebnis.werte.remove(wert)
-                        continue
-                    if not wert:
-                        wert = DiagnostikWert(kennwert_id=kennwert.id)
-                        ergebnis.werte.append(wert)
-                    for art in ('rohwert', 'prozentrang', 't_wert', 'lesequotient'):
-                        setattr(wert, art, neue.get(art))
+                speichere_ergebnis(
+                    kind, testform, schuljahr, halbjahr, werte, current_user.id,
+                    datum=datum, bemerkung=bemerkung,
+                )
                 gespeichert += 1
             db.session.commit()
             teile = [f'{gespeichert} Ergebnis(se) gespeichert']
@@ -610,6 +596,232 @@ def uebersicht():
         nur_risiko=nur_risiko,
         stufen=STUFEN,
         halbjahre=HALBJAHRE,
+    )
+
+
+# ----------------------------------------------------------------------
+# Import aus Auswertungsmappen
+# ----------------------------------------------------------------------
+
+MAX_IMPORT_BYTES = 8 * 1024 * 1024
+
+
+def _import_kinder(klasse):
+    return (
+        Schueler.query
+        .filter(Schueler.klasse == klasse, Schueler.is_active.is_(True))
+        .order_by(Schueler.nachname, Schueler.vorname)
+        .all()
+    )
+
+
+def _passende_testformen(suchbegriff):
+    begriff = (suchbegriff or '').casefold()
+    return [t for t in _aktive_testformen() if begriff and begriff in t.verfahren.name.casefold()]
+
+
+def _vorgeschlagene_testform(kandidaten, jahrgang, halbjahr):
+    for testform in kandidaten:
+        if any(z.jahrgang == jahrgang and z.halbjahr == halbjahr for z in testform.zeitpunkte):
+            return testform
+    for testform in kandidaten:
+        if any(z.jahrgang == jahrgang for z in testform.zeitpunkte):
+            return testform
+    return kandidaten[0] if kandidaten else None
+
+
+def _import_payload(datei):
+    return json.dumps({
+        'format': datei.format,
+        'verfahren': datei.verfahren,
+        'kennwerte': datei.kennwerte,
+        'hinweise': datei.hinweise,
+        'ohne_namen': datei.ohne_namen,
+        'zeilen': [
+            {'vorname': z.vorname, 'nachname': z.nachname, 'zeile': z.zeile, 'werte': z.werte}
+            for z in datei.zeilen
+        ],
+    }, ensure_ascii=False)
+
+
+def _datei_aus_payload(roh):
+    try:
+        daten = json.loads(roh or '')
+        datei = ImportDatei(
+            format=daten['format'], verfahren=daten['verfahren'], kennwerte=list(daten['kennwerte']),
+            hinweise=list(daten.get('hinweise') or []), ohne_namen=int(daten.get('ohne_namen') or 0),
+        )
+        for zeile in daten['zeilen']:
+            werte = {
+                str(kennwert): {str(art): int(zahl) for art, zahl in arten.items() if art in WERTART_BEREICH}
+                for kennwert, arten in (zeile.get('werte') or {}).items()
+            }
+            datei.zeilen.append(ImportZeile(
+                vorname=str(zeile.get('vorname') or ''), nachname=str(zeile.get('nachname') or ''),
+                zeile=int(zeile.get('zeile') or 0), werte=werte,
+            ))
+        return datei
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return None
+
+
+@diagnostik_bp.route('/diagnostik/import', methods=['GET', 'POST'])
+@login_required
+def importieren():
+    config = SystemKonfiguration.query.first()
+    schuljahr_aktuell = config.schuljahr if config and config.schuljahr else None
+    klassen = zugaengliche_klassen(current_user)
+    klasse = (request.form.get('klasse') or request.args.get('klasse') or '').strip()
+    if klasse and klasse not in klassen:
+        abort(403)
+    aktion = request.form.get('aktion') if request.method == 'POST' else None
+
+    def formular(**fehler_kontext):
+        return render_template(
+            'diagnostik_import.html', schritt='hochladen', klassen=klassen, klasse=klasse,
+            schuljahre=_schuljahr_auswahl(schuljahr_aktuell), schuljahr=schuljahr_aktuell, **fehler_kontext,
+        )
+
+    if not aktion:
+        return formular()
+
+    if not klasse:
+        flash('Bitte eine Klasse wählen.')
+        return formular()
+
+    # Datei lesen (erster Schritt) oder aus der Vorschau übernehmen
+    if aktion == 'hochladen':
+        upload = request.files.get('datei')
+        if not upload or not upload.filename:
+            flash('Bitte eine Datei auswählen.')
+            return formular()
+        inhalt = upload.read(MAX_IMPORT_BYTES + 1)
+        if len(inhalt) > MAX_IMPORT_BYTES:
+            flash('Die Datei ist zu groß (höchstens 8 MB).')
+            return formular()
+        try:
+            datei = lese_import(upload.filename, inhalt)
+        except ImportFehler as fehler:
+            flash(str(fehler))
+            return formular()
+        dateiname = upload.filename
+    else:
+        datei = _datei_aus_payload(request.form.get('payload'))
+        if datei is None:
+            flash('Die Vorschau ist abgelaufen oder beschädigt. Bitte die Datei erneut hochladen.')
+            return formular()
+        dateiname = request.form.get('dateiname') or ''
+
+    kinder = _import_kinder(klasse)
+    kinder_nach_id = {kind.id: kind for kind in kinder}
+    kandidaten = _passende_testformen(datei.verfahren)
+    if not kandidaten:
+        flash(f'Im Diagnostik-Katalog gibt es kein aktives Verfahren „{datei.verfahren}“.')
+        return formular()
+
+    if aktion == 'hochladen':
+        halbjahr = datei.halbjahr or aktuelles_halbjahr()
+        jahrgang = datei.jahrgang or next(iter(klassen_jahrgaenge(klasse)), None)
+        testform = _vorgeschlagene_testform(kandidaten, jahrgang, halbjahr)
+        schuljahr = normalize_school_year(request.form.get('schuljahr')) or schuljahr_aktuell
+        datum_roh = request.form.get('datum') or ''
+        automatisch = ordne_kinder_zu(datei.zeilen, kinder)
+        zuordnung = {i: (kind.id if kind else None) for i, kind in automatisch.items()}
+    else:
+        halbjahr = request.form.get('halbjahr') if request.form.get('halbjahr') in HALBJAHRE else aktuelles_halbjahr()
+        testform_id = (request.form.get('testform_id') or '').strip()
+        testform = next((t for t in kandidaten if str(t.id) == testform_id), kandidaten[0])
+        schuljahr = normalize_school_year(request.form.get('schuljahr')) or schuljahr_aktuell
+        datum_roh = request.form.get('datum') or ''
+        zuordnung = {}
+        for index in range(len(datei.zeilen)):
+            wahl = (request.form.get(f'kind_{index}') or '').strip()
+            zuordnung[index] = int(wahl) if wahl.isdigit() and int(wahl) in kinder_nach_id else None
+
+    datum = _parse_datum(datum_roh) if datum_roh else None
+    kennwert_nach_name = {k.name.casefold(): k for k in testform.kennwerte}
+    zuordnung_kennwerte = {name: kennwert_nach_name.get(name.casefold()) for name in datei.kennwerte}
+
+    vorhandene = {
+        e.schueler_id for e in DiagnostikErgebnis.query.filter(
+            DiagnostikErgebnis.testform_id == testform.id,
+            DiagnostikErgebnis.schuljahr == schuljahr,
+            DiagnostikErgebnis.halbjahr == halbjahr,
+            DiagnostikErgebnis.schueler_id.in_(list(kinder_nach_id) or [0]),
+        ).all()
+    }
+
+    if aktion == 'speichern':
+        doppelt = [kind_id for kind_id in zuordnung.values() if kind_id and list(zuordnung.values()).count(kind_id) > 1]
+        if not schuljahr:
+            flash('Bitte ein Schuljahr wählen.')
+        elif datum_roh and not datum:
+            flash('Das Testdatum ist ungültig.')
+        elif doppelt:
+            namen = sorted({f'{kinder_nach_id[k].vorname} {kinder_nach_id[k].nachname}' for k in doppelt})
+            flash(f'Mehrere Zeilen sind demselben Kind zugeordnet: {", ".join(namen)}. Bitte korrigieren.')
+        else:
+            gespeichert = neu_angelegt = verworfen = 0
+            nur = {k.id for k in zuordnung_kennwerte.values() if k}
+            for index, zeile in enumerate(datei.zeilen):
+                kind = kinder_nach_id.get(zuordnung.get(index))
+                if not kind:
+                    continue
+                werte = {}
+                for name, arten in zeile.werte.items():
+                    kennwert = zuordnung_kennwerte.get(name)
+                    if not kennwert:
+                        continue
+                    for art, zahl_wert in arten.items():
+                        minimum, maximum = WERTART_BEREICH[art]
+                        if art not in kennwert.wertarten:
+                            continue
+                        if minimum <= zahl_wert <= maximum:
+                            werte[(kennwert.id, art)] = zahl_wert
+                        else:
+                            verworfen += 1
+                if not werte:
+                    continue
+                _, neu = speichere_ergebnis(
+                    kind, testform, schuljahr, halbjahr, werte, current_user.id,
+                    datum=datum if (datum or kind.id not in vorhandene) else UNVERAENDERT,
+                    nur_kennwerte=nur,
+                )
+                gespeichert += 1
+                neu_angelegt += 1 if neu else 0
+            db.session.commit()
+            meldung = (
+                f'Import {testform.name}, {zeitlabel(schuljahr, halbjahr)}: {gespeichert} Ergebnis(se) übernommen, '
+                f'davon {neu_angelegt} neu und {gespeichert - neu_angelegt} aktualisiert.'
+            )
+            if verworfen:
+                meldung += f' {verworfen} Wert(e) außerhalb des zulässigen Bereichs wurden nicht übernommen.'
+            flash(meldung)
+            return redirect(url_for('diagnostik.uebersicht', klasse=klasse))
+
+    zuordnete_ids = [kind_id for kind_id in zuordnung.values() if kind_id]
+    return render_template(
+        'diagnostik_import.html',
+        schritt='vorschau',
+        klassen=klassen,
+        klasse=klasse,
+        datei=datei,
+        dateiname=dateiname,
+        payload=_import_payload(datei),
+        kandidaten=kandidaten,
+        testform=testform,
+        schuljahre=_schuljahr_auswahl(schuljahr_aktuell),
+        schuljahr=schuljahr,
+        halbjahre=HALBJAHRE,
+        halbjahr=halbjahr,
+        datum=datum_roh,
+        kinder=kinder,
+        zuordnung=zuordnung,
+        zuordnung_kennwerte=zuordnung_kennwerte,
+        vorhandene=vorhandene,
+        doppelte={k for k in zuordnete_ids if zuordnete_ids.count(k) > 1},
+        nicht_zugeordnet=[kind for kind in kinder if kind.id not in zuordnete_ids],
+        wertart_kuerzel={schluessel: kuerzel for schluessel, _, kuerzel, _, _ in WERTARTEN},
     )
 
 

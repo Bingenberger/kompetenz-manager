@@ -572,9 +572,12 @@ with app.app_context():
 
     # Diagnostik-Katalog mit HSP, SLS 1-4 und ELFE II vorbelegen - nur, wenn
     # noch keiner existiert; danach pflegt ihn die Verwaltung.
-    from diagnostik import lege_vorbelegung_an
+    from diagnostik import lege_vorbelegung_an, schaerfe_vorbelegung_nach
     if lege_vorbelegung_an():
         print("Diagnostik-Katalog mit HSP, SLS 1-4 und ELFE II vorbelegt.")
+    nachgeschaerft = schaerfe_vorbelegung_nach()
+    if nachgeschaerft:
+        print(f"HSP-Vorbelegung an die Auswertungsmappen angepasst ({nachgeschaerft} Testform(en)).")
     db.session.commit()
     
     print("--- FERTIG! Die Datenbank wurde erweitert. ---")

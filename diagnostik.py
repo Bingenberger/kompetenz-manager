@@ -21,6 +21,7 @@ from models import (
     DiagnostikKennwert,
     DiagnostikTestform,
     DiagnostikVerfahren,
+    DiagnostikWert,
     DiagnostikZeitpunkt,
     SystemKonfiguration,
 )
@@ -321,6 +322,56 @@ def klassen_uebersicht(kinder, schuljahr, grenzen):
 
 
 # ----------------------------------------------------------------------
+# Speichern
+# ----------------------------------------------------------------------
+
+UNVERAENDERT = object()
+WERTART_SCHLUESSEL = ('rohwert', 'prozentrang', 't_wert', 'lesequotient')
+
+
+def speichere_ergebnis(kind, testform, schuljahr, halbjahr, werte, user_id,
+                       datum=UNVERAENDERT, bemerkung=UNVERAENDERT, nur_kennwerte=None):
+    """Legt ein Ergebnis an oder aktualisiert es. Gibt (Ergebnis, neu?) zurück.
+
+    werte: {(kennwert_id, wertart): Zahl}. Kennwerte der Testform ohne Eintrag
+    in `werte` werden geleert - außer `nur_kennwerte` begrenzt die Änderung
+    auf bestimmte Kennwerte (der Import fasst nur an, was die Datei enthält).
+    Committet nicht.
+    """
+    ergebnis = DiagnostikErgebnis.query.filter_by(
+        schueler_id=kind.id, testform_id=testform.id, schuljahr=schuljahr, halbjahr=halbjahr,
+    ).first()
+    neu = ergebnis is None
+    if neu:
+        ergebnis = DiagnostikErgebnis(
+            schueler_id=kind.id, testform_id=testform.id, schuljahr=schuljahr, halbjahr=halbjahr,
+        )
+        db.session.add(ergebnis)
+    if datum is not UNVERAENDERT:
+        ergebnis.datum = datum
+    if bemerkung is not UNVERAENDERT:
+        ergebnis.bemerkung = bemerkung or None
+    ergebnis.jahrgang = effective_jahrgang(kind)
+    ergebnis.erfasst_von_user_id = user_id
+
+    for kennwert in testform.kennwerte:
+        if nur_kennwerte is not None and kennwert.id not in nur_kennwerte:
+            continue
+        neue = {art: werte.get((kennwert.id, art)) for art in kennwert.wertarten}
+        wert = None if neu else ergebnis.wert_fuer(kennwert.id)
+        if not any(v is not None for v in neue.values()):
+            if wert:
+                ergebnis.werte.remove(wert)
+            continue
+        if not wert:
+            wert = DiagnostikWert(kennwert_id=kennwert.id)
+            ergebnis.werte.append(wert)
+        for art in WERTART_SCHLUESSEL:
+            setattr(wert, art, neue.get(art))
+    return ergebnis, neu
+
+
+# ----------------------------------------------------------------------
 # Testplan
 # ----------------------------------------------------------------------
 
@@ -354,24 +405,28 @@ def _kennwert(name, rw=True, pr=True, t=False, lq=False, leit=False):
     return {'name': name, 'rohwert': rw, 'prozentrang': pr, 't_wert': t, 'lesequotient': lq, 'leitwert': leit}
 
 
+# Wie in den HSP-Auswertungsmappen der Schule: jeder Kennwert mit Rohwert
+# (bei Strategien die Zahl der Lupenstellen), Prozentrang und T-Wert.
+HSP_STRATEGIEN = ['Alphabetische Strategie', 'Orthografische Strategie', 'Morphematische Strategie', 'Wortübergreifende Strategie']
 HSP_KENNWERTE = [
     _kennwert('Graphemtreffer', t=True, leit=True),
     _kennwert('Wörter richtig', t=True, leit=True),
-    _kennwert('Alphabetische Strategie', rw=False),
-    _kennwert('Orthografische Strategie', rw=False),
-    _kennwert('Morphematische Strategie', rw=False),
-    _kennwert('Wortübergreifende Strategie', rw=False),
-]
+] + [_kennwert(name, t=True) for name in HSP_STRATEGIEN]
+
+# Testplan nach den Auswertungsmappen: HSP zur Mitte und am Ende jeder Klasse.
+HSP_TESTPLAN = {
+    'HSP 1+': [(1, 'mitte'), (1, 'ende')],
+    'HSP 2': [(2, 'mitte'), (2, 'ende')],
+    'HSP 3': [(3, 'mitte'), (3, 'ende')],
+    'HSP 4-5': [(4, 'mitte'), (4, 'ende')],
+}
 
 VORBELEGUNG = [
     {
         'name': 'HSP', 'bereich': 'Rechtschreiben',
         'beschreibung': 'Hamburger Schreib-Probe. Strategiewerte nur eintragen, soweit die Testform sie ausweist.',
         'testformen': [
-            ('HSP 1+', HSP_KENNWERTE, [(1, 'mitte'), (1, 'ende')]),
-            ('HSP 2', HSP_KENNWERTE, [(2, 'ende')]),
-            ('HSP 3', HSP_KENNWERTE, [(3, 'ende')]),
-            ('HSP 4-5', HSP_KENNWERTE, [(4, 'ende')]),
+            (name, HSP_KENNWERTE, HSP_TESTPLAN[name]) for name in HSP_TESTPLAN
         ],
     },
     {
@@ -419,3 +474,34 @@ def lege_vorbelegung_an():
             verfahren.testformen.append(testform)
         db.session.add(verfahren)
     return len(VORBELEGUNG)
+
+
+def schaerfe_vorbelegung_nach():
+    """Gleicht die HSP-Vorbelegung an die Auswertungsmappen der Schule an.
+
+    Strategien bekommen Rohwert und T-Wert, der Testplan die Mitte jeder Klasse.
+    Angefasst werden nur Testformen der Vorbelegung, zu denen es noch keine
+    Ergebnisse gibt - was die Verwaltung schon genutzt hat, bleibt, wie es ist.
+    Idempotent; gibt die Zahl geänderter Testformen zurück. Committet nicht.
+    """
+    geaendert = 0
+    verfahren = DiagnostikVerfahren.query.filter_by(name='HSP').first()
+    if not verfahren:
+        return 0
+    for testform in verfahren.testformen:
+        if testform.name not in HSP_TESTPLAN:
+            continue
+        if DiagnostikErgebnis.query.filter_by(testform_id=testform.id).first():
+            continue
+        vorher = geaendert
+        for kennwert in testform.kennwerte:
+            if kennwert.name in HSP_STRATEGIEN and not (kennwert.rohwert and kennwert.t_wert):
+                kennwert.rohwert = True
+                kennwert.t_wert = True
+                geaendert = vorher + 1
+        vorhanden = {(z.jahrgang, z.halbjahr) for z in testform.zeitpunkte}
+        for jahrgang, halbjahr in HSP_TESTPLAN[testform.name]:
+            if (jahrgang, halbjahr) not in vorhanden:
+                testform.zeitpunkte.append(DiagnostikZeitpunkt(jahrgang=jahrgang, halbjahr=halbjahr))
+                geaendert = vorher + 1
+    return geaendert

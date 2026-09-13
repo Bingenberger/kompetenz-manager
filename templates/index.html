@@ -413,9 +413,14 @@
                     <a href="{{ url_for('diagnostik.uebersicht') }}" class="btn btn-secondary btn-lg w-100 icon-btn justify-content-center">
                         {{ bi('bar-chart-line', 'bi-icon') }} <span>Übersicht & Risikokinder</span>
                     </a>
-                    <a href="{{ url_for('diagnostik.erfassen') }}" class="btn btn-outline-secondary btn-lg w-100 icon-btn justify-content-center">
-                        {{ bi('clipboard-data', 'bi-icon') }} <span>Ergebnisse eintragen</span>
-                    </a>
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('diagnostik.erfassen') }}" class="btn btn-outline-secondary btn-lg flex-grow-1 icon-btn justify-content-center">
+                            {{ bi('clipboard-data', 'bi-icon') }} <span>Eintragen</span>
+                        </a>
+                        <a href="{{ url_for('diagnostik.importieren') }}" class="btn btn-outline-secondary btn-lg flex-grow-1 icon-btn justify-content-center">
+                            {{ bi('upload', 'bi-icon') }} <span>Import</span>
+                        </a>
+                    </div>
                 </div>
             </div>
 

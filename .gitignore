@@ -53,3 +53,6 @@ backups/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Lokale Import-Vorlagen und Schuldaten (nie ins Repository)
+/import/
