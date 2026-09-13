@@ -32,10 +32,10 @@ def register_csrf(app):
 
     @app.before_request
     def validate_csrf_for_post():
-        if request.method != 'POST':
+        if request.method not in ('POST', 'PUT', 'PATCH', 'DELETE'):
             return
 
-        sent_token = request.form.get('_csrf_token', '')
+        sent_token = request.form.get('_csrf_token', '') or request.headers.get('X-CSRF-Token', '')
         session_token = session.get('_csrf_token', '')
 
         if not sent_token or not session_token or not hmac.compare_digest(sent_token, session_token):

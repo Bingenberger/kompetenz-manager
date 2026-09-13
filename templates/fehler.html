@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="surface-panel p-4 p-md-5" style="max-width: 640px; margin: 0 auto;">
+    <span class="section-label">Hinweis</span>
+    <h2 class="h4 mt-2 mb-3">{{ titel }}</h2>
+    <p class="mb-4">{{ text }}</p>
+    <a href="javascript:history.back()" class="btn btn-primary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span></a>
+</div>
+{% endblock %}

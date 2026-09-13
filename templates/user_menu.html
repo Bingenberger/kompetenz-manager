@@ -105,12 +105,13 @@
 
                 <div class="mb-3">
                     <label class="form-label">Neues Passwort</label>
-                    <input type="password" name="neues_pw" class="form-control" required>
+                    <input type="password" name="neues_pw" class="form-control" minlength="8" autocomplete="new-password" required>
+                    <div class="form-text">Mindestens 8 Zeichen.</div>
                 </div>
 
                 <div class="mb-4">
                     <label class="form-label">Neues Passwort wiederholen</label>
-                    <input type="password" name="neues_pw_wdh" class="form-control" required>
+                    <input type="password" name="neues_pw_wdh" class="form-control" minlength="8" autocomplete="new-password" required>
                 </div>
 
                 <button type="submit" class="btn btn-primary icon-btn">{{ bi('key', 'bi-icon') }} <span>Passwort speichern</span></button>

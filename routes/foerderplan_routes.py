@@ -482,9 +482,7 @@ def foerdergrundlage_edit(s_id):
         db.session.commit()
         flash('Grundlagenblatt gespeichert.')
 
-        if next_url and next_url.startswith('/'):
-            return redirect(next_url)
-        return redirect(url_for('foerderplan.foerderplan_list', schueler_id=schueler.id))
+        return redirect(_safe_next_url(next_url, url_for('foerderplan.foerderplan_list', schueler_id=schueler.id)))
 
     return render_template(
         'foerdergrundlage_form.html',

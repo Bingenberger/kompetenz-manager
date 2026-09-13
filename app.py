@@ -1,7 +1,7 @@
 import os
 import sqlite3
 from pathlib import Path
-from flask import Flask
+from flask import Flask, render_template
 from flask_login import current_user
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
@@ -78,6 +78,9 @@ def create_app(config_overrides=None):
     app.config['REMEMBER_COOKIE_NAME'] = os.environ.get('REMEMBER_COOKIE_NAME', 'kompetenz_manager_remember')
     app.config['SQLALCHEMY_DATABASE_URI'] = _normalized_database_url(os.environ.get('DATABASE_URL')) or _default_sqlite_uri()
     app.config['UPLOAD_FOLDER'] = 'static/uploads'
+    # Obergrenze je Anfrage. Die einzelnen Uploads pruefen ihre eigenen, kleineren
+    # Grenzen; dies faengt ab, was gar nicht erst gelesen werden soll.
+    app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH') or 32 * 1024 * 1024)
     app.config['PROTECTED_UPLOAD_FOLDER'] = os.environ.get('PROTECTED_UPLOAD_FOLDER') or str(Path(app.instance_path) / 'protected_uploads')
     is_debug = os.environ.get('FLASK_DEBUG') == '1'
     app.config['SESSION_COOKIE_HTTPONLY'] = True
@@ -155,6 +158,23 @@ def create_app(config_overrides=None):
             'header_notifications': notifications,
             'header_unread_notification_count': unread_count,
         }
+
+    @app.after_request
+    def sicherheits_header(response):
+        # Was der Reverse-Proxy nicht ohnehin setzt. HSTS gehoert zum Proxy,
+        # der TLS beendet. SAMEORIGIN statt DENY: das Ereignisformular oeffnet
+        # Elternkontakte in einem eigenen iframe.
+        response.headers.setdefault('X-Content-Type-Options', 'nosniff')
+        response.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+        response.headers.setdefault('Referrer-Policy', 'strict-origin-when-cross-origin')
+        response.headers.setdefault('Permissions-Policy', 'camera=(), microphone=(), geolocation=()')
+        return response
+
+    @app.errorhandler(413)
+    def zu_gross(_fehler):
+        return render_template('fehler.html', titel='Datei zu groß',
+                               text='Die hochgeladene Datei ist zu groß. Erlaubt sind höchstens '
+                                    f'{app.config["MAX_CONTENT_LENGTH"] // (1024 * 1024)} MB je Anfrage.'), 413
 
     register_auth_routes(app)
     register_admin_routes(app)

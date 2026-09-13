@@ -501,6 +501,8 @@ def admin_users():
             flash('Bitte einen Benutzernamen eingeben.')
         elif User.query.filter_by(username=username).first():
             flash('Benutzername existiert bereits!')
+        elif len(password or '') < 8:
+            flash('Das Start-Passwort muss mindestens 8 Zeichen haben.')
         elif email_fehler:
             flash(email_fehler)
         else:

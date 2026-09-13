@@ -3,7 +3,8 @@ flask-sqlalchemy
 openpyxl
 werkzeug
 flask-login
-pillow
+pillow>=12.3.0
 psycopg[binary]
 psycopg2-binary
 gunicorn
+defusedxml

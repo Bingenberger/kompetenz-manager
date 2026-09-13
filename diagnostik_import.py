@@ -23,7 +23,7 @@ import unicodedata
 import zipfile
 from dataclasses import dataclass, field
 from io import BytesIO
-from xml.etree import ElementTree
+from defusedxml import ElementTree
 
 from openpyxl import load_workbook
 
@@ -121,7 +121,7 @@ def _lese_ods(inhalt):
     try:
         with zipfile.ZipFile(BytesIO(inhalt)) as archiv:
             wurzel = ElementTree.fromstring(archiv.read('content.xml'))
-    except (zipfile.BadZipFile, KeyError) as fehler:
+    except (zipfile.BadZipFile, KeyError, ElementTree.ParseError) as fehler:
         raise ImportFehler('Die ODS-Datei ist beschädigt.') from fehler
 
     blaetter = {}

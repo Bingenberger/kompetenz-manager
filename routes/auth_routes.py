@@ -211,6 +211,10 @@ def user_menu():
                 flash('Die neuen Passwörter stimmen nicht überein!')
                 return redirect(url_for('auth.user_menu'))
 
+            if len(neues_pw or '') < 8:
+                flash('Das neue Passwort muss mindestens 8 Zeichen haben.')
+                return redirect(url_for('auth.user_menu'))
+
             current_user.password_hash = generate_password_hash(neues_pw)
             db.session.commit()
             flash('Passwort erfolgreich geändert!')

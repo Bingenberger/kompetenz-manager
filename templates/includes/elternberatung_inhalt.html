@@ -95,6 +95,9 @@
         </div>
         <span class="small text-muted">Prozentrang: Anteil der Kinder der Normstichprobe, die schlechter abschneiden</span>
     </div>
+    {% if not vertrauliches %}
+    <div class="text-muted">Diagnostik-Ergebnisse sehen Klassenleitung und Fachlehrkräfte des Kindes.</div>
+    {% endif %}
     {% for bereich in diagnostik %}
     {% set eintrag = bereich.eintrag %}
     <div class="mb-3">
@@ -124,7 +127,7 @@
         </div>
     </div>
     {% else %}
-    <div class="text-muted">Für dieses Kind sind noch keine Diagnostik-Ergebnisse eingetragen.</div>
+    {% if vertrauliches %}<div class="text-muted">Für dieses Kind sind noch keine Diagnostik-Ergebnisse eingetragen.</div>{% endif %}
     {% endfor %}
 </div>
 
@@ -154,8 +157,10 @@
             </tbody>
         </table>
     </div>
-    {% else %}
+    {% elif vertrauliches %}
     <div class="text-muted">Im laufenden Schuljahr sind keine Ereignisse eingetragen.</div>
+    {% else %}
+    <div class="text-muted">Ereignisse sehen Klassenleitung und Fachlehrkräfte des Kindes.</div>
     {% endif %}
 </div>
 

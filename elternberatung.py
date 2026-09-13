@@ -116,13 +116,19 @@ def ereignisse_im_schuljahr(schueler, limit=12):
     return query.order_by(ErziehungsEreignis.datum.desc(), ErziehungsEreignis.id.desc()).limit(limit).all()
 
 
-def beratungs_kontext(schueler, bogen_rows):
-    """Alles, was die Vorlage für die Inhalte des Gesprächs braucht."""
+def beratungs_kontext(schueler, bogen_rows, vertrauliches=True):
+    """Alles, was die Vorlage für die Inhalte des Gesprächs braucht.
+
+    vertrauliches: Diagnostik und Ereignisse sind an die Klasse gebunden -
+    sie sieht nur, wer das Kind auch dort sehen darf (Klassenleitung,
+    Fachlehrkraft, Verwaltung). Elternkontakte selbst stehen allen offen.
+    """
     return {
         'uebersicht': kompetenz_uebersicht(bogen_rows),
         'level_labels': LEVEL_LABELS,
         'level_farben': LEVEL_FARBEN,
-        'diagnostik': diagnostik_kontext(schueler),
+        'diagnostik': diagnostik_kontext(schueler) if vertrauliches else [],
         'diagnostik_stufen': STUFEN,
-        'ereignisse': ereignisse_im_schuljahr(schueler),
+        'ereignisse': ereignisse_im_schuljahr(schueler) if vertrauliches else [],
+        'vertrauliches': vertrauliches,
     }

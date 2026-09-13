@@ -37,7 +37,8 @@ from diagnostik_import import ImportDatei, ImportFehler, ImportZeile, lese_impor
 from extensions import db
 from jahrgang import JAHRGAENGE, klassen_jahrgaenge
 from school_year import normalize_school_year
-from student_selection import get_distinct_klassen, get_user_klassenkontext, merke_kind
+from klassenzugriff import darf_kind_sehen, zugaengliche_klassen
+from student_selection import get_user_klassenkontext, merke_kind
 from transition_plan import effective_jahrgang
 from models import (
     DiagnostikErgebnis,
@@ -340,30 +341,6 @@ def admin_testform_loeschen(testform_id):
 # ----------------------------------------------------------------------
 # Eingabe für Lehrkräfte
 # ----------------------------------------------------------------------
-
-def zugaengliche_klassen(user):
-    """Klassen, deren Ergebnisse eine Lehrkraft eintragen und sehen darf.
-
-    Namen ohne Leerzeichen am Rand: Formulare kürzen ihre Eingabe, und ein
-    gespeichertes "1c " darf deshalb nicht zu einer Ablehnung von "1c" führen.
-    """
-    if user.is_admin:
-        namen = get_distinct_klassen()
-    else:
-        kontext = get_user_klassenkontext(user)
-        namen = set(kontext.get('fachklassen') or set())
-        if kontext.get('klassenleitung'):
-            namen.add(kontext['klassenleitung'])
-    return sorted({(name or '').strip() for name in namen} - {''}, key=str.lower)
-
-
-def darf_kind_sehen(user, schueler):
-    if not schueler:
-        return False
-    if user.is_admin:
-        return True
-    return bool((schueler.klasse or '').strip()) and schueler.klasse.strip() in zugaengliche_klassen(user)
-
 
 def _kinder_der_klasse(klasse):
     """Aktive Kinder einer Klasse; der gespeicherte Name wird ohne Randleerzeichen verglichen."""

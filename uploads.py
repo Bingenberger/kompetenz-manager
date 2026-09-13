@@ -126,9 +126,23 @@ def komprimiere_und_speichere(file_storage, ziel_pfad):
         return False
 
 
+BILD_MAX_UPLOAD_BYTES = 8 * 1024 * 1024
+
+
 def speichere_upload_bild(file_storage):
-    """Speichert ein hochgeladenes Bild unter einem kollisionssicheren JPG-Dateinamen."""
+    """Speichert ein hochgeladenes Bild unter einem kollisionssicheren JPG-Dateinamen.
+
+    Nur Bildtypen und hoechstens 8 MB - alles andere wird verworfen, bevor
+    Pillow es anfasst.
+    """
     if not file_storage or file_storage.filename == '':
+        return None
+    if (file_storage.mimetype or '').lower().strip() not in ALLOWED_WORKPLAN_MIMETYPES:
+        return None
+    file_storage.stream.seek(0, os.SEEK_END)
+    groesse = file_storage.stream.tell()
+    file_storage.stream.seek(0)
+    if groesse > BILD_MAX_UPLOAD_BYTES:
         return None
 
     ensure_upload_roots()

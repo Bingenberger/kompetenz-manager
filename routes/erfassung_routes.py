@@ -8,6 +8,7 @@ from sqlalchemy import func
 
 import benachrichtigungen as bn
 from elternberatung import beratungs_kontext
+from klassenzugriff import darf_kind_sehen
 from change_log import describe, describe_creation, snapshot
 from extensions import db
 from models import (
@@ -768,7 +769,9 @@ def elternberatung():
     if selected_student:
         bogen_context = _build_bogen_entries_for_student(selected_student.id)
         plan_context = _get_consultation_plan_context(selected_student.id)
-        beratung_kontext = beratungs_kontext(selected_student, bogen_context['bogen_rows'])
+        beratung_kontext = beratungs_kontext(
+            selected_student, bogen_context['bogen_rows'], darf_kind_sehen(current_user, selected_student),
+        )
 
     return render_template(
         'elternberatung_form.html',
@@ -815,7 +818,7 @@ def elternberatung_view(beratung_id):
         active_plan=plan_context['active_plan'],
         last_evaluated_plan=plan_context['last_evaluated_plan'],
         next_url=next_url,
-        **beratungs_kontext(beratung.schueler, bogen_context['bogen_rows']),
+        **beratungs_kontext(beratung.schueler, bogen_context['bogen_rows'], darf_kind_sehen(current_user, beratung.schueler)),
     )
 
 
