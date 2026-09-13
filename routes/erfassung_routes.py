@@ -19,6 +19,7 @@ from models import (
     Schueler,
 )
 from odt_export import convert_odt_bytes_to_pdf, render_odt_from_ott_template
+from jahrgang import boegen_fuer_jahrgang, klassen_jahrgaenge
 from school_year import active_school_year_start
 from student_selection import (
     get_distinct_klassen,
@@ -100,6 +101,27 @@ def _safe_next_url(candidate, fallback_url):
     if value.startswith('/') and not value.startswith('//'):
         return value
     return fallback_url
+
+
+def _boegen_zum_erfassen(schueler, selected_bogen_id=None):
+    """Die Boegen, die fuer dieses Kind zum Erfassen angeboten werden.
+
+    Ein ausdruecklich angefragter Bogen bleibt in der Liste, auch wenn er nicht
+    zum Jahrgang passt - sonst liefe ein Link, etwa aus der Klassenuebersicht,
+    ins Leere. Der Jahrgang filtert das Angebot, er sperrt nichts.
+    """
+    alle = Bogen.query.order_by(Bogen.titel.asc()).all()
+    angebot = boegen_fuer_jahrgang(schueler.jahrgang if schueler else None, alle)
+    if selected_bogen_id and str(selected_bogen_id).isdigit():
+        gewuenscht = next((b for b in alle if b.id == int(selected_bogen_id)), None)
+        if gewuenscht and gewuenscht not in angebot:
+            angebot = sorted(angebot + [gewuenscht], key=lambda b: (b.titel or '').lower())
+    return angebot
+
+
+def _klassen_jahrgaenge_fuer(namen):
+    """Klassenname -> Jahrgaenge, fuer das Filtern im Formular."""
+    return {name: klassen_jahrgaenge(name) for name in namen}
 
 
 def _build_bogen_entries_for_student(student_id):
@@ -230,6 +252,7 @@ def reihe_start():
     boegen = Bogen.query.order_by(Bogen.titel.asc()).all()
     return render_template(
         'reihe_start.html',
+        klassen_jahrgaenge=_klassen_jahrgaenge_fuer(get_distinct_klassen()),
         boegen=boegen,
         klassen=get_distinct_klassen(),
         default_klasse=default_klasse,
@@ -377,7 +400,7 @@ def erfassen_schueler():
             active_tab=selection['active_tab'],
             selected_s_id=selection['selected_s_id'],
             selected_student=selection['selected_student'],
-            boegen=Bogen.query.order_by(Bogen.titel.asc()).all(),
+            boegen=_boegen_zum_erfassen(selection['selected_student'], selected_b_id),
             selected_b_id=selected_b_id,
             selected_bogen=selected_bogen,
             bogen_stats=bogen_stats,
@@ -451,7 +474,7 @@ def erfassen_einzel():
         auto_select_first=False,
     )
 
-    boegen = Bogen.query.order_by(Bogen.titel.asc()).all()
+    boegen = _boegen_zum_erfassen(selection['selected_student'], selected_bogen_id)
     selected_bogen = None
     if selected_bogen_id:
         try:
@@ -545,10 +568,12 @@ def multi_start():
 
     klassenkontext = get_user_klassenkontext(current_user)
     default_klasse = klassenkontext["klassenleitung"] or ''
+    klassen = get_distinct_klassen()
     return render_template(
         'multi_start.html',
-        boegen=Bogen.query.all(),
-        klassen=get_distinct_klassen(),
+        boegen=Bogen.query.order_by(Bogen.titel.asc()).all(),
+        klassen=klassen,
+        klassen_jahrgaenge=_klassen_jahrgaenge_fuer(klassen),
         default_klasse=default_klasse,
         next_url=next_url,
     )

@@ -25,10 +25,10 @@
         <div class="row g-3 mb-3">
             <div class="col-md-4">
                 <label class="form-label">Klasse</label>
-                <select name="klasse" class="form-select" required>
+                <select name="klasse" id="multi_klasse" class="form-select" required>
                     <option value="" disabled {% if not default_klasse %}selected{% endif %}>Bitte wählen...</option>
                     {% for klasse in klassen %}
-                    <option value="{{ klasse }}" {% if default_klasse == klasse %}selected{% endif %}>{{ klasse }}</option>
+                    <option value="{{ klasse }}" data-jahrgaenge="{{ klassen_jahrgaenge.get(klasse, [])|join(',') }}" {% if default_klasse == klasse %}selected{% endif %}>{{ klasse }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -48,7 +48,7 @@
 
         <div class="accordion mb-3" id="accordionBoegen">
             {% for bogen in boegen %}
-            <div class="accordion-item mb-2 border rounded-3 overflow-hidden">
+            <div class="accordion-item mb-2 border rounded-3 overflow-hidden multi-bogen" data-jahrgaenge="{{ bogen.jahrgaenge|join(',') }}">
                 <h2 class="accordion-header">
                     <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#c_{{ bogen.id }}">
                         <span class="fw-bold">{{ bogen.titel }}</span>
@@ -94,5 +94,33 @@ function toggleBogen(source, bogenId) {
             checkboxes[i].checked = source.checked;
     }
 }
+
+// Nur Boegen anbieten, die zu einem Jahrgang der gewaehlten Klasse passen.
+// Ein Bogen ohne Jahrgaenge gilt fuer alle, eine Klasse ohne Jahrgaenge sieht alle.
+function jahrgaengeAus(element) {
+    const wert = (element && element.dataset.jahrgaenge) || '';
+    return wert ? wert.split(',').map(Number) : [];
+}
+function bogenPasst(bogenStufen, klassenStufen) {
+    if (!bogenStufen.length || !klassenStufen.length) return true;
+    return bogenStufen.some(stufe => klassenStufen.includes(stufe));
+}
+
+(function () {
+    const klasseSelect = document.getElementById('multi_klasse');
+    function filterBoegenNachKlasse() {
+        const klassenStufen = jahrgaengeAus(klasseSelect.selectedOptions[0]);
+        document.querySelectorAll('.multi-bogen').forEach(function (block) {
+            const passt = bogenPasst(jahrgaengeAus(block), klassenStufen);
+            block.hidden = !passt;
+            // Auswahl in ausgeblendeten Boegen aufheben, sonst wuerde sie unsichtbar mitgeschickt.
+            if (!passt) {
+                block.querySelectorAll('input[type="checkbox"]').forEach(function (feld) { feld.checked = false; });
+            }
+        });
+    }
+    klasseSelect.addEventListener('change', filterBoegenNachKlasse);
+    filterBoegenNachKlasse();
+})();
 </script>
 {% endblock %}
