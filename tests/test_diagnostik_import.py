@@ -284,6 +284,12 @@ class ImportAblaufTestCase(unittest.TestCase):
         formular = self._formular(html)
         formular.update({'_csrf_token': self._token(), 'aktion': 'speichern', 'datum': ''})
         response = self.client.post('/diagnostik/import', data=formular, follow_redirects=True)
+        self.assertIn('Bitte das Datum der Durchführung angeben', response.get_data(as_text=True))
+        with self.app.app_context():
+            self.assertEqual(1, DiagnostikErgebnis.query.count(), 'ohne Datum gespeichert')
+
+        formular.update({'_csrf_token': self._token(), 'datum': '2026-06-15', 'datum_1': '2026-06-18'})
+        response = self.client.post('/diagnostik/import', data=formular, follow_redirects=True)
         text = response.get_data(as_text=True)
         self.assertIn('2 Ergebnis(se) übernommen, davon 1 neu und 1 aktualisiert', text)
 
@@ -292,8 +298,9 @@ class ImportAblaufTestCase(unittest.TestCase):
             werte = {w.kennwert.name: (w.rohwert, w.prozentrang, w.t_wert) for w in anna.werte}
             self.assertEqual((180, 35, 46), werte['Graphemtreffer'])
             self.assertEqual((None, 55, None), werte['Wortübergreifende Strategie'], 'Wert ohne Spalte in der Datei geloescht')
-            self.assertEqual(date(2026, 6, 1), anna.datum, 'Datum ohne Angabe ueberschrieben')
+            self.assertEqual(date(2026, 6, 15), anna.datum)
             ben = DiagnostikErgebnis.query.filter_by(schueler_id=self.kinder['Ben']).one()
+            self.assertEqual(date(2026, 6, 18), ben.datum, 'Abweichendes Datum der Zeile nicht uebernommen')
             self.assertEqual(3, ben.jahrgang)
             self.assertEqual(5, len(ben.werte))
             self.assertEqual(0, DiagnostikErgebnis.query.filter_by(schueler_id=self.kinder['Cem']).count())
@@ -301,7 +308,8 @@ class ImportAblaufTestCase(unittest.TestCase):
     def test_manual_reassignment_and_duplicates(self):
         html = self._hochladen(hsp_mappe(), 'Auswertung HSP - Ende 3.xlsx').get_data(as_text=True)
         formular = self._formular(html)
-        formular.update({'_csrf_token': self._token(), 'aktion': 'speichern', 'kind_2': str(self.kinder['Anna'])})
+        formular.update({'_csrf_token': self._token(), 'aktion': 'speichern', 'datum': '2026-06-15',
+                         'kind_2': str(self.kinder['Anna'])})
         response = self.client.post('/diagnostik/import', data=formular, follow_redirects=True)
         self.assertIn('Mehrere Zeilen sind demselben Kind zugeordnet', response.get_data(as_text=True))
         with self.app.app_context():
@@ -324,6 +332,25 @@ class ImportAblaufTestCase(unittest.TestCase):
             anna = next(e for e in ergebnisse if e.schueler_id == self.kinder['Anna'])
             self.assertEqual(('2024/2025', 'ende', date(2025, 7, 1)), (anna.schuljahr, anna.halbjahr, anna.datum))
             self.assertEqual((17, None, 96), (anna.werte[0].rohwert, anna.werte[0].prozentrang, anna.werte[0].lesequotient))
+
+    def test_past_school_year_stores_grade_at_that_time_and_checks_date(self):
+        html = self._hochladen(hsp_mappe(), 'Auswertung HSP - Ende 1.xlsx', schuljahr='2023/2024').get_data(as_text=True)
+        formular = self._formular(html)
+        with self.app.app_context():
+            hsp1 = DiagnostikTestform.query.filter_by(name='HSP 1+').one().id
+        self.assertEqual(str(hsp1), formular['testform_id'])
+        self.assertIn('2023/2024 (Nachtrag)', html)
+
+        formular.update({'_csrf_token': self._token(), 'aktion': 'speichern', 'datum': '2026-06-15'})
+        response = self.client.post('/diagnostik/import', data=formular, follow_redirects=True)
+        self.assertIn('liegt nicht im Schuljahr 2023/2024', response.get_data(as_text=True))
+
+        formular.update({'_csrf_token': self._token(), 'datum': '2024-07-02'})
+        self.client.post('/diagnostik/import', data=formular)
+        with self.app.app_context():
+            anna = DiagnostikErgebnis.query.filter_by(schueler_id=self.kinder['Anna']).one()
+            # Heute Jahrgang 3 (2025/2026), zwei Jahre vorher Jahrgang 1.
+            self.assertEqual(('2023/2024', 1, date(2024, 7, 2)), (anna.schuljahr, anna.jahrgang, anna.datum))
 
     def test_rejects_other_class_and_unknown_files(self):
         response = self.client.post('/diagnostik/import', data={

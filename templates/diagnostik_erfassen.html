@@ -32,14 +32,23 @@
     <input type="hidden" name="halbjahr" value="{{ halbjahr }}">
     {% if einzelkind %}<input type="hidden" name="schueler_id" value="{{ einzelkind.id }}">{% else %}<input type="hidden" name="klasse" value="{{ klasse }}">{% endif %}
 
+    {% if nachtrag %}
+    <div class="alert alert-info">
+        <strong>Nachtrag für das Schuljahr {{ schuljahr }}.</strong>
+        Der Jahrgang wird aus dem heutigen zurückgerechnet und gespeichert, wie er damals war.
+        Bei Kindern, die eine Klasse wiederholt haben, liegt er dadurch um ein Jahr daneben.
+    </div>
+    {% endif %}
+
     <div class="surface-panel p-3 mb-3 d-flex flex-wrap align-items-end gap-3">
         <div>
-            <label class="form-label mb-1" for="d-datum">Testdatum</label>
-            <input type="date" name="datum" id="d-datum" class="form-control" value="{{ datum.isoformat() if datum else '' }}" required>
+            <label class="form-label mb-1" for="d-datum">Datum der Durchführung</label>
+            <input type="date" name="datum" id="d-datum" class="form-control {% if 'datum' in fehler %}is-invalid{% endif %}"
+                   value="{{ datum_roh }}" min="{{ datum_von.isoformat() if datum_von else '' }}" max="{{ datum_bis.isoformat() if datum_bis else '' }}" required>
         </div>
         <div class="small text-muted">
-            Zulässig: RW ab 0 · PR 0–100 · T 10–90 · LQ 40–160.
-            Fehlt der Prozentrang, wird er aus T-Wert oder LQ abgeleitet.
+            Gilt für alle Kinder; wer an einem anderen Tag getestet wurde, bekommt in der Zeile ein eigenes Datum.<br>
+            Zulässig: RW ab 0 · PR 0–100 · T 10–90 · LQ 40–160. Fehlt der Prozentrang, wird er aus T-Wert oder LQ abgeleitet.
         </div>
     </div>
 
@@ -54,6 +63,7 @@
                         <th colspan="{{ k.wertarten|length }}" class="text-center gruppe-start {% if k.leitwert %}fw-bold{% else %}fw-normal{% endif %}">{{ k.name }}</th>
                         {% endfor %}
                         <th rowspan="2" class="gruppe-start">Bemerkung</th>
+                        <th rowspan="2" class="text-center" title="Nur ausfüllen, wenn abweichend vom gemeinsamen Datum">Anderes Datum</th>
                     </tr>
                     <tr>
                         {% for k in kennwerte %}
@@ -65,11 +75,11 @@
                 </thead>
                 <tbody>
                     {% for kind in kinder %}
-                    {% set jg = effective_jahrgang(kind) %}
+                    {% set jg = jahrgang_damals(kind) %}
                     <tr class="{% if geplante_jahrgaenge and jg not in geplante_jahrgaenge %}nicht-geplant{% endif %}">
                         <td class="kind-spalte">
                             <div class="fw-semibold">{{ kind.nachname }}, {{ kind.vorname }}</div>
-                            <div class="small text-muted">{% if jg %}Jg. {{ jg }}{% endif %}{% if geplante_jahrgaenge and jg not in geplante_jahrgaenge %} · laut Plan nicht vorgesehen{% endif %}</div>
+                            <div class="small text-muted">{% if jg %}Jg. {{ jg }}{% if nachtrag %} damals{% endif %}{% endif %}{% if geplante_jahrgaenge and jg not in geplante_jahrgaenge %} · laut Plan nicht vorgesehen{% endif %}</div>
                         </td>
                         <td class="text-center">
                             {% set a = auswertungen.get(kind.id) %}
@@ -92,6 +102,13 @@
                         {% endfor %}
                         <td class="gruppe-start">
                             <input type="text" name="bemerkung_{{ kind.id }}" value="{{ eingaben.get('bemerkung_' ~ kind.id, '') }}" class="form-control form-control-sm" style="min-width: 9rem;" aria-label="Bemerkung zu {{ kind.vorname }}">
+                        </td>
+                        <td class="text-center">
+                            {% set feld_datum = 'datum_' ~ kind.id %}
+                            <input type="date" name="{{ feld_datum }}" value="{{ eingaben.get(feld_datum, '') }}"
+                                   min="{{ datum_von.isoformat() if datum_von else '' }}" max="{{ datum_bis.isoformat() if datum_bis else '' }}"
+                                   class="form-control form-control-sm {% if feld_datum in fehler %}is-invalid{% endif %}" style="width: 9.5rem;"
+                                   aria-label="Abweichendes Testdatum für {{ kind.vorname }} {{ kind.nachname }}">
                         </td>
                     </tr>
                     {% else %}

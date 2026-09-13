@@ -667,7 +667,7 @@
                                     <tr>
                                         <td class="text-nowrap">
                                             {{ 'Mitte' if e.halbjahr == 'mitte' else 'Ende' }} {{ e.schuljahr }}
-                                            <div class="small text-muted">{{ e.datum.strftime('%d.%m.%Y') if e.datum else '' }}{% if e.jahrgang %} · Jg. {{ e.jahrgang }}{% endif %}</div>
+                                            <div class="small {% if e.datum %}text-muted{% else %}text-warning-emphasis{% endif %}">{{ e.datum.strftime('%d.%m.%Y') if e.datum else 'Datum fehlt' }}{% if e.jahrgang %} · Jg. {{ e.jahrgang }}{% endif %}</div>
                                         </td>
                                         <td>{{ e.testform.name }}</td>
                                         <td class="small">

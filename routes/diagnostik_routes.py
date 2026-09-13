@@ -1,6 +1,7 @@
 """Standardisierte Diagnostik: Katalog (Verwaltung), Eingabe und Auswertung."""
 
 import json
+from collections import Counter
 from datetime import date, datetime
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
@@ -16,6 +17,11 @@ from diagnostik import (
     WERTARTEN,
     aktuelles_halbjahr,
     auswerten,
+    datum_im_schuljahr,
+    jahre_zurueck,
+    jahrgang_im_schuljahr,
+    schuljahr_auswahl,
+    schuljahr_zeitraum,
     UNVERAENDERT,
     klassen_uebersicht,
     risikogrenzen,
@@ -383,13 +389,24 @@ def _aktive_testformen():
     )
 
 
-def _schuljahr_auswahl(aktuell):
-    """Aktuelles und vorheriges Schuljahr - für Nachträge."""
-    jahre = []
-    if aktuell:
-        beginn = int(aktuell[:4])
-        jahre = [aktuell, f'{beginn - 1}/{beginn}']
-    return jahre
+def _schuljahr_auswahl(aktuell, gewaehlt=None):
+    return schuljahr_auswahl(aktuell, gewaehlt)
+
+
+def _datumsfehler(datum_roh, schuljahr):
+    """(Datum, Fehlertext) - leeres Feld ist kein Fehler, ergibt aber kein Datum."""
+    if not (datum_roh or '').strip():
+        return None, None
+    datum = _parse_datum(datum_roh)
+    if not datum:
+        return None, 'Das Testdatum ist ungültig.'
+    if not datum_im_schuljahr(datum, schuljahr):
+        von, bis = schuljahr_zeitraum(schuljahr)
+        return None, (
+            f'Das Testdatum {datum.strftime("%d.%m.%Y")} liegt nicht im Schuljahr {schuljahr} '
+            f'({von.strftime("%d.%m.%Y")} bis {bis.strftime("%d.%m.%Y")}).'
+        )
+    return datum, None
 
 
 def _parse_datum(raw):
@@ -433,9 +450,11 @@ def erfassen():
             jahrgaenge_der_klasse = [j for j in [effective_jahrgang(einzelkind)] if j]
         else:
             jahrgaenge_der_klasse = klassen_jahrgaenge(klasse) if klasse else []
+        # Beim Nachtragen gilt der Testplan des Jahrgangs, den die Kinder damals hatten.
+        zurueck = jahre_zurueck(schuljahr, schuljahr_aktuell) if schuljahr and schuljahr_aktuell else 0
         vorschlaege = []
         for jahrgang in jahrgaenge_der_klasse:
-            vorschlaege.extend(zeitpunkte_fuer(jahrgang))
+            vorschlaege.extend(zeitpunkte_fuer(jahrgang - zurueck))
         return render_template(
             'diagnostik_auswahl.html',
             klassen=klassen,
@@ -443,8 +462,9 @@ def erfassen():
             einzelkind=einzelkind,
             testformen=_aktive_testformen(),
             vorschlaege=vorschlaege,
-            schuljahre=_schuljahr_auswahl(schuljahr_aktuell),
+            schuljahre=_schuljahr_auswahl(schuljahr_aktuell, schuljahr),
             schuljahr=schuljahr,
+            schuljahr_aktuell=schuljahr_aktuell,
             halbjahre=HALBJAHRE,
             halbjahr=halbjahr,
         )
@@ -464,11 +484,18 @@ def erfassen():
         ).all()
     }
     kennwerte = testform.kennwerte
-    datum = _parse_datum(request.form.get('datum')) if request.method == 'POST' else None
+    datum = None
+    datum_roh = ''
     eingaben = {}
     fehler = set()
+    meldungen = []
 
     if request.method == 'POST':
+        datum_roh = (request.form.get('datum') or '').strip()
+        datum, datum_meldung = _datumsfehler(datum_roh, schuljahr)
+        if datum_meldung:
+            meldungen.append(datum_meldung)
+            fehler.add('datum')
         zeilen = []
         for kind in kinder:
             werte = {}
@@ -485,15 +512,28 @@ def erfassen():
                         werte[(kennwert.id, art)] = zahl
             bemerkung = (request.form.get(f'bemerkung_{kind.id}') or '').strip()
             eingaben[f'bemerkung_{kind.id}'] = bemerkung
-            zeilen.append((kind, werte, bemerkung))
+            # Eigenes Datum für Kinder, die an einem anderen Tag getestet wurden.
+            zeilen_datum_roh = (request.form.get(f'datum_{kind.id}') or '').strip()
+            eingaben[f'datum_{kind.id}'] = zeilen_datum_roh
+            zeilen_datum, zeilen_meldung = _datumsfehler(zeilen_datum_roh, schuljahr)
+            if zeilen_meldung:
+                fehler.add(f'datum_{kind.id}')
+                if zeilen_meldung not in meldungen:
+                    meldungen.append(f'{kind.vorname} {kind.nachname}: {zeilen_meldung}')
+            zeilen.append((kind, werte, bemerkung, zeilen_datum))
 
-        if fehler:
-            flash(f'{len(fehler)} Eingabe(n) liegen außerhalb des zulässigen Bereichs und sind markiert. Es wurde nichts gespeichert.')
-        elif not datum:
-            flash('Bitte das Testdatum angeben.')
+        werte_fehler = [f for f in fehler if f.startswith('w_')]
+        ohne_datum = [kind for kind, werte, _, zeilen_datum in zeilen if werte and not (zeilen_datum or datum)]
+        if werte_fehler:
+            meldungen.insert(0, f'{len(werte_fehler)} Eingabe(n) liegen außerhalb des zulässigen Bereichs und sind markiert.')
+        if ohne_datum and 'datum' not in fehler:
+            meldungen.append('Bitte das Datum der Durchführung angeben.')
+            fehler.add('datum')
+        if meldungen:
+            flash(' '.join(meldungen) + ' Es wurde nichts gespeichert.')
         else:
             gespeichert = entfernt = 0
-            for kind, werte, bemerkung in zeilen:
+            for kind, werte, bemerkung, zeilen_datum in zeilen:
                 ergebnis = vorhanden.get(kind.id)
                 if not werte:
                     if ergebnis:
@@ -502,7 +542,8 @@ def erfassen():
                     continue
                 speichere_ergebnis(
                     kind, testform, schuljahr, halbjahr, werte, current_user.id,
-                    datum=datum, bemerkung=bemerkung,
+                    datum=zeilen_datum or datum, bemerkung=bemerkung,
+                    aktuelles_schuljahr=schuljahr_aktuell,
                 )
                 gespeichert += 1
             db.session.commit()
@@ -518,11 +559,21 @@ def erfassen():
             return redirect(url_for('diagnostik.erfassen', **ziel))
 
     if request.method == 'GET':
+        # Gemeinsames Datum: das häufigste der vorhandenen Ergebnisse. Ohne
+        # Ergebnisse im laufenden Schuljahr heute - beim Nachtragen bleibt das
+        # Feld leer, damit niemand versehentlich das heutige Datum übernimmt.
+        daten = Counter(e.datum for e in vorhanden.values() if e.datum)
+        if daten:
+            datum = daten.most_common(1)[0][0]
+        elif datum_im_schuljahr(date.today(), schuljahr):
+            datum = date.today()
+        datum_roh = datum.isoformat() if datum else ''
         for kind in kinder:
             ergebnis = vorhanden.get(kind.id)
             if not ergebnis:
                 continue
-            datum = datum or ergebnis.datum
+            if ergebnis.datum and ergebnis.datum != datum:
+                eingaben[f'datum_{kind.id}'] = ergebnis.datum.isoformat()
             eingaben[f'bemerkung_{kind.id}'] = ergebnis.bemerkung or ''
             for wert in ergebnis.werte:
                 for art in ('rohwert', 'prozentrang', 't_wert', 'lesequotient'):
@@ -534,6 +585,7 @@ def erfassen():
         kind_id: auswerten(ergebnis, grenzen) for kind_id, ergebnis in vorhanden.items()
     } if request.method == 'GET' else {}
     geplante_jahrgaenge = {z.jahrgang for z in testform.zeitpunkte if z.halbjahr == halbjahr}
+    von, bis = schuljahr_zeitraum(schuljahr)
     return render_template(
         'diagnostik_erfassen.html',
         testform=testform,
@@ -544,7 +596,10 @@ def erfassen():
         schuljahr=schuljahr,
         halbjahr=halbjahr,
         halbjahre=HALBJAHRE,
-        datum=datum or date.today(),
+        datum_roh=datum_roh,
+        datum_von=von,
+        datum_bis=bis,
+        nachtrag=bool(schuljahr_aktuell and schuljahr != schuljahr_aktuell),
         eingaben=eingaben,
         fehler=fehler,
         vorhanden=vorhanden,
@@ -552,7 +607,7 @@ def erfassen():
         stufen=STUFEN,
         wertarten={schluessel: (label, kuerzel, minimum, maximum) for schluessel, label, kuerzel, minimum, maximum in WERTARTEN},
         geplante_jahrgaenge=geplante_jahrgaenge,
-        effective_jahrgang=effective_jahrgang,
+        jahrgang_damals=lambda kind: jahrgang_im_schuljahr(kind, schuljahr, schuljahr_aktuell or schuljahr),
     )
 
 
@@ -690,7 +745,8 @@ def importieren():
     def formular(**fehler_kontext):
         return render_template(
             'diagnostik_import.html', schritt='hochladen', klassen=klassen, klasse=klasse,
-            schuljahre=_schuljahr_auswahl(schuljahr_aktuell), schuljahr=schuljahr_aktuell, **fehler_kontext,
+            schuljahre=_schuljahr_auswahl(schuljahr_aktuell), schuljahr=schuljahr_aktuell,
+            schuljahr_aktuell=schuljahr_aktuell, **fehler_kontext,
         )
 
     if not aktion:
@@ -732,9 +788,12 @@ def importieren():
 
     if aktion == 'hochladen':
         halbjahr = datei.halbjahr or aktuelles_halbjahr()
-        jahrgang = datei.jahrgang or next(iter(klassen_jahrgaenge(klasse)), None)
-        testform = _vorgeschlagene_testform(kandidaten, jahrgang, halbjahr)
         schuljahr = normalize_school_year(request.form.get('schuljahr')) or schuljahr_aktuell
+        jahrgang = datei.jahrgang
+        if not jahrgang:
+            heute = next(iter(klassen_jahrgaenge(klasse)), None)
+            jahrgang = heute - jahre_zurueck(schuljahr, schuljahr_aktuell) if heute and schuljahr and schuljahr_aktuell else heute
+        testform = _vorgeschlagene_testform(kandidaten, jahrgang, halbjahr)
         datum_roh = request.form.get('datum') or ''
         automatisch = ordne_kinder_zu(datei.zeilen, kinder)
         zuordnung = {i: (kind.id if kind else None) for i, kind in automatisch.items()}
@@ -749,7 +808,16 @@ def importieren():
             wahl = (request.form.get(f'kind_{index}') or '').strip()
             zuordnung[index] = int(wahl) if wahl.isdigit() and int(wahl) in kinder_nach_id else None
 
-    datum = _parse_datum(datum_roh) if datum_roh else None
+    datum, datum_meldung = _datumsfehler(datum_roh, schuljahr)
+    zeilen_daten = {}
+    zeilen_datum_fehler = set()
+    for index in range(len(datei.zeilen)):
+        roh = (request.form.get(f'datum_{index}') or '').strip() if aktion != 'hochladen' else ''
+        zeilen_daten[index] = roh
+        if roh:
+            wert, meldung = _datumsfehler(roh, schuljahr)
+            if meldung:
+                zeilen_datum_fehler.add(index)
     kennwert_nach_name = {k.name.casefold(): k for k in testform.kennwerte}
     zuordnung_kennwerte = {name: kennwert_nach_name.get(name.casefold()) for name in datei.kennwerte}
 
@@ -766,8 +834,12 @@ def importieren():
         doppelt = [kind_id for kind_id in zuordnung.values() if kind_id and list(zuordnung.values()).count(kind_id) > 1]
         if not schuljahr:
             flash('Bitte ein Schuljahr wählen.')
-        elif datum_roh and not datum:
-            flash('Das Testdatum ist ungültig.')
+        elif datum_meldung:
+            flash(datum_meldung)
+        elif not datum and any(zuordnung.get(i) and not zeilen_daten.get(i) for i in range(len(datei.zeilen))):
+            flash('Bitte das Datum der Durchführung angeben.')
+        elif zeilen_datum_fehler:
+            flash(f'{len(zeilen_datum_fehler)} abweichende(s) Datum/Daten liegen nicht im Schuljahr {schuljahr} und sind markiert.')
         elif doppelt:
             namen = sorted({f'{kinder_nach_id[k].vorname} {kinder_nach_id[k].nachname}' for k in doppelt})
             flash(f'Mehrere Zeilen sind demselben Kind zugeordnet: {", ".join(namen)}. Bitte korrigieren.')
@@ -795,8 +867,9 @@ def importieren():
                     continue
                 _, neu = speichere_ergebnis(
                     kind, testform, schuljahr, halbjahr, werte, current_user.id,
-                    datum=datum if (datum or kind.id not in vorhandene) else UNVERAENDERT,
+                    datum=_parse_datum(zeilen_daten[index]) if zeilen_daten.get(index) else datum,
                     nur_kennwerte=nur,
+                    aktuelles_schuljahr=schuljahr_aktuell,
                 )
                 gespeichert += 1
                 neu_angelegt += 1 if neu else 0
@@ -821,11 +894,15 @@ def importieren():
         payload=_import_payload(datei),
         kandidaten=kandidaten,
         testform=testform,
-        schuljahre=_schuljahr_auswahl(schuljahr_aktuell),
+        schuljahre=_schuljahr_auswahl(schuljahr_aktuell, schuljahr),
         schuljahr=schuljahr,
+        schuljahr_aktuell=schuljahr_aktuell,
         halbjahre=HALBJAHRE,
         halbjahr=halbjahr,
         datum=datum_roh,
+        datum_ungueltig=bool(datum_meldung),
+        zeilen_daten=zeilen_daten,
+        zeilen_datum_fehler=zeilen_datum_fehler,
         kinder=kinder,
         zuordnung=zuordnung,
         zuordnung_kennwerte=zuordnung_kennwerte,

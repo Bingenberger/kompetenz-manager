@@ -128,6 +128,64 @@ class DiagnostikErfassenTestCase(unittest.TestCase):
         self.assertIn('text-bg-danger" title="niedrigster PR 8">deutlich auffällig', html)  # Ben
         self.assertIn('text-bg-warning" title="niedrigster PR 12">auffällig', html)        # Anna: T 38
 
+    def test_past_school_years_can_be_selected_with_plan_of_that_time(self):
+        with self.app.app_context():
+            for kind_id in self.kinder.values():
+                db.session.get(Schueler, kind_id).jahrgang = 3
+            db.session.commit()
+        self._login()
+        html = self.client.get('/diagnostik/erfassen?klasse=3a&schuljahr=2023%2F2024&halbjahr=ende').get_data(as_text=True)
+        for jahr in ('2025/2026', '2024/2025', '2023/2024', '2020/2021'):
+            self.assertIn(f'<option value="{jahr}"', html)
+        self.assertIn('2023/2024 (Nachtrag)', html)
+        # Zwei Jahre zurueck war die 3a eine erste Klasse.
+        self.assertIn('HSP 1+ · Ende Klasse 1', html)
+        self.assertIn('SLS 1-4 · Ende Klasse 1', html)
+        self.assertNotIn('HSP 3 · Ende Klasse 3', html)
+
+    def test_past_entry_stores_grade_of_that_time_and_requires_matching_date(self):
+        with self.app.app_context():
+            db.session.get(Schueler, self.kinder['Anna']).jahrgang = 3
+            db.session.commit()
+            hsp1 = DiagnostikTestform.query.filter_by(name='HSP 1+').one()
+            hsp1_id, gt = hsp1.id, next(k.id for k in hsp1.kennwerte if k.name == 'Graphemtreffer')
+        self._login()
+        pfad = f'/diagnostik/erfassen?klasse=3a&testform_id={hsp1_id}&schuljahr=2023%2F2024&halbjahr=ende'
+        html = self.client.get(pfad).get_data(as_text=True)
+        self.assertIn('Nachtrag für das Schuljahr 2023/2024', html)
+        self.assertIn('Jg. 1 damals', html)
+        self.assertRegex(html, r'name="datum" id="d-datum" class="form-control\s*"\s+value=""', 'heutiges Datum beim Nachtrag vorbelegt')
+        self.assertIn('min="2023-08-01" max="2024-07-31"', html)
+
+        feld = f'w_{self.kinder["Anna"]}_{gt}_prozentrang'
+        token = CSRF_RE.search(html).group(1)
+        antwort = self.client.post(pfad, data={'_csrf_token': token, 'datum': '', feld: '40'}, follow_redirects=True)
+        self.assertIn('Bitte das Datum der Durchführung angeben', antwort.get_data(as_text=True))
+        antwort = self.client.post(pfad, data={'_csrf_token': token, 'datum': '2025-06-20', feld: '40'}, follow_redirects=True)
+        self.assertIn('liegt nicht im Schuljahr 2023/2024', antwort.get_data(as_text=True))
+        with self.app.app_context():
+            self.assertEqual(0, DiagnostikErgebnis.query.count())
+
+        self.client.post(pfad, data={'_csrf_token': token, 'datum': '2024-06-20', feld: '40'})
+        with self.app.app_context():
+            ergebnis = DiagnostikErgebnis.query.one()
+            self.assertEqual(('2023/2024', 1, date(2024, 6, 20)), (ergebnis.schuljahr, ergebnis.jahrgang, ergebnis.datum))
+
+    def test_row_date_overrides_common_date(self):
+        self._login()
+        self._speichern({
+            self._feld('Anna', 'Graphemtreffer', 'prozentrang'): '45',
+            self._feld('Ben', 'Graphemtreffer', 'prozentrang'): '50',
+            f'datum_{self.kinder["Ben"]}': '2026-06-25',
+        })
+        with self.app.app_context():
+            daten = {e.schueler_id: e.datum for e in DiagnostikErgebnis.query.all()}
+        self.assertEqual(date(2026, 6, 20), daten[self.kinder['Anna']])
+        self.assertEqual(date(2026, 6, 25), daten[self.kinder['Ben']])
+        html = self.client.get(self._raster_pfad()).get_data(as_text=True)
+        self.assertIn(f'name="datum_{self.kinder["Ben"]}" value="2026-06-25"', html)
+        self.assertIn(f'name="datum_{self.kinder["Anna"]}" value=""', html)
+
     def test_out_of_range_saves_nothing(self):
         self._login()
         response = self._speichern({

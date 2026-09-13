@@ -40,8 +40,8 @@
         </div>
         <div class="col-md-2">
             <label class="form-label" for="d-schuljahr">Schuljahr</label>
-            <select name="schuljahr" id="d-schuljahr" class="form-select">
-                {% for j in schuljahre %}<option value="{{ j }}" {% if j == schuljahr %}selected{% endif %}>{{ j }}</option>{% endfor %}
+            <select name="schuljahr" id="d-schuljahr" class="form-select" onchange="this.form.testform_id.required = false; this.form.submit()">
+                {% for j in schuljahre %}<option value="{{ j }}" {% if j == schuljahr %}selected{% endif %}>{{ j }}{% if j != schuljahr_aktuell %} (Nachtrag){% endif %}</option>{% endfor %}
             </select>
         </div>
         <div class="col-md-2">
@@ -57,7 +57,7 @@
 
     {% if vorschlaege %}
     <div class="mt-4">
-        <div class="small text-muted mb-2">Laut Testplan für {{ einzelkind.vorname if einzelkind else 'Klasse ' ~ klasse }}:</div>
+        <div class="small text-muted mb-2">Laut Testplan für {{ einzelkind.vorname if einzelkind else 'Klasse ' ~ klasse }}{% if schuljahr != schuljahr_aktuell %} im Schuljahr {{ schuljahr }}{% endif %}:</div>
         <div class="d-flex flex-wrap gap-2">
             {% for z in vorschlaege %}
             {% set ziel = {'testform_id': z.testform.id, 'schuljahr': schuljahr, 'halbjahr': z.halbjahr} %}

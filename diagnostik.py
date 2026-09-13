@@ -169,6 +169,58 @@ def aktuelles_halbjahr(heute=None):
     return 'mitte' if heute.month in (11, 12, 1, 2, 3) else 'ende'
 
 
+# Nachträge reichen so weit zurück, dass ein Kind am Ende der Grundschulzeit
+# auch mit einer Wiederholung seine Tests ab Klasse 1 bekommt.
+SCHULJAHRE_ZURUECK = 5
+
+
+def schuljahr_auswahl(aktuell, gewaehlt=None):
+    """Aktuelles Schuljahr und die fünf davor, neueste zuerst."""
+    jahre = []
+    if aktuell and aktuell[:4].isdigit():
+        beginn = int(aktuell[:4])
+        jahre = [f'{beginn - n}/{beginn - n + 1}' for n in range(SCHULJAHRE_ZURUECK + 1)]
+    if gewaehlt and gewaehlt not in jahre:
+        jahre.append(gewaehlt)
+    return jahre
+
+
+def schuljahr_zeitraum(schuljahr):
+    """(1. August, 31. Juli) eines Schuljahres - großzügig, damit auch Tests
+    kurz vor den Sommerferien oder direkt nach dem Start hineinpassen."""
+    if not schuljahr or not schuljahr[:4].isdigit():
+        return None, None
+    beginn = int(schuljahr[:4])
+    return date(beginn, 8, 1), date(beginn + 1, 7, 31)
+
+
+def datum_im_schuljahr(datum, schuljahr):
+    von, bis = schuljahr_zeitraum(schuljahr)
+    return bool(datum and von and von <= datum <= bis)
+
+
+def jahre_zurueck(schuljahr, aktuelles_schuljahr):
+    try:
+        return int(aktuelles_schuljahr[:4]) - int(schuljahr[:4])
+    except (TypeError, ValueError):
+        return 0
+
+
+def jahrgang_im_schuljahr(kind, schuljahr, aktuelles_schuljahr):
+    """Der Jahrgang, den ein Kind im angegebenen Schuljahr hatte.
+
+    Zurückgerechnet vom heutigen Jahrgang: Wer jetzt in Klasse 4 ist, war vor
+    drei Jahren in Klasse 1. Eine Wiederholung kennt die Anwendung nicht - bei
+    einem Wiederholer liegt der Wert um ein Jahr daneben. Außerhalb von 1 bis 4
+    gibt es keinen Jahrgang.
+    """
+    heute = effective_jahrgang(kind)
+    if heute is None:
+        return None
+    damals = heute - jahre_zurueck(schuljahr, aktuelles_schuljahr)
+    return damals if 1 <= damals <= 4 else None
+
+
 def trend(frueher, spaeter):
     if frueher is None or spaeter is None:
         return None
@@ -330,7 +382,8 @@ WERTART_SCHLUESSEL = ('rohwert', 'prozentrang', 't_wert', 'lesequotient')
 
 
 def speichere_ergebnis(kind, testform, schuljahr, halbjahr, werte, user_id,
-                       datum=UNVERAENDERT, bemerkung=UNVERAENDERT, nur_kennwerte=None):
+                       datum=UNVERAENDERT, bemerkung=UNVERAENDERT, nur_kennwerte=None,
+                       aktuelles_schuljahr=None):
     """Legt ein Ergebnis an oder aktualisiert es. Gibt (Ergebnis, neu?) zurück.
 
     werte: {(kennwert_id, wertart): Zahl}. Kennwerte der Testform ohne Eintrag
@@ -351,7 +404,10 @@ def speichere_ergebnis(kind, testform, schuljahr, halbjahr, werte, user_id,
         ergebnis.datum = datum
     if bemerkung is not UNVERAENDERT:
         ergebnis.bemerkung = bemerkung or None
-    ergebnis.jahrgang = effective_jahrgang(kind)
+    if aktuelles_schuljahr is None:
+        config = SystemKonfiguration.query.first()
+        aktuelles_schuljahr = config.schuljahr if config else None
+    ergebnis.jahrgang = jahrgang_im_schuljahr(kind, schuljahr, aktuelles_schuljahr or schuljahr)
     ergebnis.erfasst_von_user_id = user_id
 
     for kennwert in testform.kennwerte:
