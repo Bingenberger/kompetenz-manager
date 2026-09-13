@@ -194,6 +194,7 @@ def index():
     }
 
     todos = []
+    klasse_kinder = []
     heute = utc_now().date()
     in_14_tagen = heute + timedelta(days=14)
     in_12_wochen_datetime = observation_period_start(utc_now() - timedelta(weeks=12))
@@ -515,6 +516,8 @@ def index():
         hero_klasse_typ=fokus_typ,
         hero_stats=stats,
         hero_todos=todos[:8],
+        klasse_kinder=klasse_kinder,
+        fachklassen=fachklassen,
         school_year=(config.schuljahr if config else None),
     )
 

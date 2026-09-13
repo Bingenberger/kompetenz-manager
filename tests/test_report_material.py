@@ -375,8 +375,9 @@ class ReportMaterialTestCase(unittest.TestCase):
         )
         self.assertIn('keine aktiven Kinder', response.get_data(as_text=True))
 
-    def test_dashboard_links_to_the_material(self):
-        self.assertIn('/report/zeugnismaterial', self.client.get('/').get_data(as_text=True))
+    def test_navigation_links_to_the_material(self):
+        # Erreichbar ueber die Unter-Navigation des Bereichs Auswertung.
+        self.assertIn('/report/zeugnismaterial', self.client.get('/report/matrix').get_data(as_text=True))
 
     @unittest.skipUnless(SOFFICE, 'LibreOffice nicht installiert')
     def test_pdf_export_is_a_real_pdf(self):

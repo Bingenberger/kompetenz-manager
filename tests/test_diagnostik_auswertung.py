@@ -160,11 +160,14 @@ class DiagnostikAuswertungTestCase(unittest.TestCase):
         self.assertNotIn('/diagnostik/ergebnis/', pane)
         self.assertNotIn('Ergebnis eintragen', pane)
 
-    def test_dashboard_links_to_overview(self):
+    def test_navigation_links_to_overview_and_entry(self):
         self._login()
         html = self.client.get('/').get_data(as_text=True)
-        self.assertIn('/diagnostik"', html)
+        self.assertIn('/diagnostik"', html)  # Bereich in der Kopfzeile
+        # Eintragen und Import liegen in der Unter-Navigation des Bereichs.
+        html = self.client.get('/diagnostik').get_data(as_text=True)
         self.assertIn('/diagnostik/erfassen', html)
+        self.assertIn('/diagnostik/import', html)
 
 
 if __name__ == '__main__':

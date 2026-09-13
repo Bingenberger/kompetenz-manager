@@ -96,6 +96,78 @@
             .nav-search { width: 100%; order: 10; }
         }
 
+        /* Bereichsnavigation unter der Kopfzeile */
+        .bereichsnav {
+            display: flex;
+            gap: .15rem;
+            flex-wrap: wrap;
+            padding: .15rem 0 .45rem;
+        }
+        .bereichsnav a {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            padding: .38rem .8rem;
+            border-radius: 9px;
+            color: rgba(255,255,255,0.9);
+            font-weight: 700;
+            font-size: .92rem;
+            text-decoration: none;
+        }
+        .bereichsnav a:hover { background: rgba(255,255,255,0.14); color: #fff; }
+        .bereichsnav a.aktiv { background: rgba(255,255,255,0.94); color: #1f5f7a; }
+        .bereichsnav a:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+        .unternav {
+            display: flex;
+            gap: .35rem;
+            flex-wrap: wrap;
+            margin: -0.4rem 0 1.1rem;
+        }
+        .unternav a {
+            padding: .3rem .75rem;
+            border-radius: 999px;
+            font-size: .85rem;
+            font-weight: 700;
+            color: #3b4a59;
+            background: rgba(255,255,255,0.85);
+            border: 1px solid rgba(87,117,144,0.2);
+            text-decoration: none;
+        }
+        .unternav a:hover { border-color: #277da1; color: #1f5f7a; }
+        .unternav a.aktiv { background: #1f5f7a; color: #fff; border-color: #1f5f7a; }
+        .fussnav { display: none; }
+        @media (max-width: 767px) {
+            .bereichsnav { display: none; }
+            .unternav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: .2rem; }
+            .unternav a { white-space: nowrap; }
+            .fussnav {
+                display: grid;
+                grid-template-columns: repeat(6, 1fr);
+                position: fixed;
+                left: 0; right: 0; bottom: 0;
+                z-index: 1030;
+                background: rgba(255,255,255,0.97);
+                border-top: 1px solid rgba(87,117,144,0.18);
+                box-shadow: 0 -6px 18px rgba(31,41,51,0.08);
+                padding: .3rem .2rem calc(.3rem + env(safe-area-inset-bottom));
+            }
+            .fussnav a {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: .15rem;
+                font-size: .66rem;
+                font-weight: 700;
+                color: #5f7387;
+                text-decoration: none;
+                padding: .2rem 0;
+                border-radius: 8px;
+            }
+            .fussnav a .bi { width: 1.25rem; height: 1.25rem; }
+            .fussnav a.aktiv { color: #1f5f7a; background: rgba(39,125,161,0.10); }
+            body { padding-bottom: 4.2rem; }
+        }
+
         .app-logo {
             width: 2rem;
             height: 2rem;
@@ -776,7 +848,7 @@
   </head>
   <body>
     <nav class="navbar mb-4 sticky-top">
-  <div class="container d-flex justify-content-between">
+  <div class="container d-flex flex-wrap justify-content-between">
     <a class="navbar-brand d-flex align-items-center" href="{{ url_for('system.index') }}">
         <img src="{{ url_for('static', filename='brand/kompetenzkompass-logo.svg') }}" alt="KompetenzKompass Logo" class="app-logo">
         <span class="ms-2 d-none d-md-inline">KompetenzKompass</span>
@@ -851,11 +923,32 @@
             <button type="submit" class="btn btn-sm btn-outline-light icon-btn">{{ bi('box-arrow-right', 'bi-icon-sm') }} <span>Abmelden</span></button>
         </form>
     </div>
+    {% if nav %}
+    <div class="bereichsnav w-100" aria-label="Bereiche">
+        {% for b in nav.bereiche %}
+        <a href="{{ b.url }}" class="{% if b.aktiv %}aktiv{% endif %}" {% if b.aktiv %}aria-current="page"{% endif %}>{{ bi(b.icon, 'bi-icon-sm') }} <span>{{ b.label }}</span></a>
+        {% endfor %}
+    </div>
+    {% endif %}
     {% endif %}
   </div>
 </nav>
+    {% if nav %}
+    <nav class="fussnav" aria-label="Bereiche">
+        {% for b in nav.bereiche %}
+        <a href="{{ b.url }}" class="{% if b.aktiv %}aktiv{% endif %}">{{ bi(b.icon, 'bi-icon-sm') }}<span>{{ b.label }}</span></a>
+        {% endfor %}
+    </nav>
+    {% endif %}
 
     <div class="container pb-5">
+        {% if nav and nav.unterpunkte %}
+        <nav class="unternav" aria-label="Unterbereiche">
+            {% for u in nav.unterpunkte %}
+            <a href="{{ u.url }}" class="{% if u.aktiv %}aktiv{% endif %}" {% if u.aktiv %}aria-current="page"{% endif %}>{{ u.label }}</a>
+            {% endfor %}
+        </nav>
+        {% endif %}
         {% with messages = get_flashed_messages() %}
           {% if messages %}
             <div class="alert alert-success shadow-sm border-0">

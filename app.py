@@ -16,6 +16,7 @@ from db_health_checks import (
 )
 from extensions import db, login_manager
 from models import Notification, User
+from navigation import navigation
 from routes.admin_routes import register_admin_routes
 from routes.diagnostik_routes import register_diagnostik_routes
 from routes.auth_routes import register_auth_routes
@@ -121,6 +122,12 @@ def create_app(config_overrides=None):
     @login_manager.user_loader
     def load_user(user_id):
         return db.session.get(User, int(user_id))
+
+    @app.context_processor
+    def inject_navigation():
+        if not getattr(current_user, 'is_authenticated', False):
+            return {'nav': None}
+        return {'nav': navigation()}
 
     @app.context_processor
     def inject_notification_data():
