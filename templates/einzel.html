@@ -41,7 +41,6 @@
             <div>
                 <span class="section-label">Beobachtung</span>
                 <h2 class="mt-2 mb-1">Schnelleintrag</h2>
-                <p class="text-muted mb-0">Kurznotiz mit Bewertung, Kommentar und optionalem Foto.</p>
             </div>
             <div class="d-flex gap-2">
                 <span class="badge bg-warning px-3 py-2 d-inline-flex align-items-center gap-1">{{ bi('lightning-charge', 'bi-icon-sm') }} Schnellmodus</span>
@@ -230,7 +229,7 @@
 
             <div class="d-flex flex-wrap gap-2 mt-4">
                 <a class="btn btn-outline-secondary btn-lg icon-btn" href="{{ url_for('erfassung.erfassen_einzel', tab=active_tab, schueler_id=selected_s_id, bogen_id=selected_bogen_id, next=next_url if next_url else None) }}">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
-                <button type="submit" class="btn btn-success btn-lg icon-btn">{{ bi('floppy', 'bi-icon') }} <span>Speichern</span></button>
+                <button type="submit" class="btn btn-primary btn-lg icon-btn">{{ bi('floppy', 'bi-icon') }} <span>Speichern</span></button>
                 <a href="{{ next_url if next_url else url_for('system.index') }}" class="btn btn-outline-secondary btn-lg icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
             </div>
         </form>

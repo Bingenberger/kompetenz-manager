@@ -12,7 +12,6 @@
             <div class="mb-4">
                 <span class="section-label">Bogen-Erfassung</span>
                 <h2 class="mt-2 mb-1">Schüler und Bogen wählen</h2>
-                <p class="text-muted mb-0">Kompletten Bogen für ein Kind in einem Schritt erfassen.</p>
             </div>
             <form method="GET">
                 {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
@@ -179,7 +178,7 @@
         </div>
         <div class="bogen-actions mt-3">
             <div class="d-flex flex-wrap gap-2">
-                <button type="submit" class="btn btn-success icon-btn">{{ bi('floppy', 'bi-icon') }} <span>Bogen speichern</span></button>
+                <button type="submit" class="btn btn-primary icon-btn">{{ bi('floppy', 'bi-icon') }} <span>Bogen speichern</span></button>
                 <a href="{{ next_url if next_url else url_for('erfassung.erfassen_schueler') }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
             </div>
         </div>

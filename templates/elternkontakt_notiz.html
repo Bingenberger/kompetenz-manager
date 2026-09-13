@@ -9,7 +9,6 @@
                 <div>
                     <span class="section-label">Elternkontakte</span>
                     <h2 class="mt-2 mb-1">{% if is_edit_mode %}Kleine Notiz bearbeiten{% else %}Kleine Notiz{% endif %}</h2>
-                    <p class="text-muted mb-0">Kurzkontakt strukturiert dokumentieren (Form + Mitteilung).</p>
                 </div>
                 <a href="{{ next_url if next_url else url_for('erfassung.elternkontakte_start') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
             </div>

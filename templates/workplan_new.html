@@ -35,7 +35,7 @@
     </div>
   </div>
   <div class="mt-4 d-flex gap-2">
-    <button class="btn btn-success icon-btn" type="submit">{{ bi('floppy', 'bi-icon') }} <span>{% if is_edit_mode %}Speichern{% else %}Anlegen{% endif %}</span></button>
+    <button class="btn btn-primary icon-btn" type="submit">{{ bi('floppy', 'bi-icon') }} <span>{% if is_edit_mode %}Speichern{% else %}Anlegen{% endif %}</span></button>
     <a href="{{ next_url if next_url else url_for('workplan.workplan_list_page', schueler_id=student.id) }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
   </div>
   <p class="small text-muted mt-3 mb-0">Der Plan startet automatisch im Status „in Planung“.</p>

@@ -6,7 +6,6 @@
         <div class="mb-4">
             <span class="section-label">Gruppenerfassung</span>
             <h2 class="mt-2 mb-1">Item wählen</h2>
-            <p class="text-muted mb-0">Wählen Sie eine Kompetenz, um anschließend mehrere Kinder nacheinander zu bewerten.</p>
         </div>
         {% for bogen in boegen %}
             <div class="mb-4">
@@ -61,7 +60,7 @@
                 </div>
             </div>
             {% endfor %}
-            <button type="submit" class="btn btn-success btn-lg w-100 mt-3 icon-btn justify-content-center">{{ bi('floppy', 'bi-icon') }} <span>Speichern</span></button>
+            <button type="submit" class="btn btn-primary btn-lg w-100 mt-3 icon-btn justify-content-center">{{ bi('floppy', 'bi-icon') }} <span>Speichern</span></button>
         </form>
     </div>
 {% endif %}

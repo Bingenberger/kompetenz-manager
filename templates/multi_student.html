@@ -78,7 +78,6 @@
     <div class="text-center mb-4">
         <span class="section-label">Multi-Erfassung</span>
         <h2 class="mt-2 mb-1">{{ schueler.vorname }} {{ schueler.nachname }}</h2>
-        <p class="text-muted mb-0">Mehrere Kompetenzen in einem Durchlauf bewerten.</p>
     </div>
 
 <form method="POST" action="{{ url_for('erfassung.multi_next') }}" enctype="multipart/form-data">
@@ -114,7 +113,7 @@
 
     <div class="multi-actions mt-3 mb-3">
         <div class="d-grid gap-2">
-            <button type="submit" name="action" value="speichern" class="btn btn-success icon-btn justify-content-center">
+            <button type="submit" name="action" value="speichern" class="btn btn-primary icon-btn justify-content-center">
                 {{ bi('check-circle', 'bi-icon') }} <span>Alles speichern & Weiter</span>
             </button>
             <button type="submit" name="action" value="skip" class="btn btn-secondary icon-btn justify-content-center" formnovalidate>

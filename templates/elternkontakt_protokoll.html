@@ -18,7 +18,6 @@
                 <div>
                     <span class="section-label">Elternkontakte</span>
                     <h2 class="mt-2 mb-1">{% if is_edit_mode %}Protokoll Elterngespräch bearbeiten{% else %}Protokoll Elterngespräch{% endif %}</h2>
-                    <p class="text-muted mb-0">Strukturierte Erfassung nach der Schulvorlage (Felder können bei Bedarf erweitert werden).</p>
                 </div>
                 <a href="{{ next_url if next_url else url_for('erfassung.elternkontakte_start') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon') }} <span>Zurück</span></a>
             </div>
@@ -109,7 +108,7 @@
                 </div>
 
                 <div class="d-flex flex-wrap gap-2 mt-4">
-                    <button type="submit" class="btn btn-warning btn-lg icon-btn">{{ bi('floppy', 'bi-icon') }} <span>{% if is_edit_mode %}Protokoll aktualisieren{% else %}Protokoll speichern{% endif %}</span></button>
+                    <button type="submit" class="btn btn-primary btn-lg icon-btn">{{ bi('floppy', 'bi-icon') }} <span>{% if is_edit_mode %}Protokoll aktualisieren{% else %}Protokoll speichern{% endif %}</span></button>
                     <a href="{{ next_url if next_url else (url_for('erfassung.elternkontakt_view', kontakt_id=kontakt.id) if is_edit_mode and kontakt is defined else url_for('erfassung.elternkontakte_start')) }}" class="btn btn-outline-secondary btn-lg icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
                 </div>
             </form>
