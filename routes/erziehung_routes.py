@@ -5,6 +5,7 @@ from flask_login import current_user, login_required
 
 import benachrichtigungen as bn
 from extensions import db
+from klassenzugriff import darf_elternkontakt_sehen, darf_ereignis_sehen, sichtbare_elternkontakte, sichtbare_ereignisse
 from models import (
     Elternkontakt,
     ErziehungsEreignis,
@@ -39,15 +40,11 @@ def _safe_next_url(candidate, fallback_url):
 
 
 def _is_admin(user):
-    return bool(user and getattr(user, 'username', None) == 'admin')
+    return bool(user and getattr(user, 'is_admin', False))
 
 
 def _get_accessible_students(user):
     return get_prioritized_students_for_user(user, include_archived=True)
-
-
-def _get_accessible_student_ids(user):
-    return {student.id for student in _get_accessible_students(user)}
 
 
 def _can_access_student(user, student_id):
@@ -60,9 +57,7 @@ def _get_event_or_404(event_id):
     event = db.session.get(ErziehungsEreignis, event_id)
     if not event:
         abort(404)
-    if _is_admin(current_user):
-        return event
-    if event.student_id not in _get_accessible_student_ids(current_user):
+    if not darf_ereignis_sehen(current_user, event):
         abort(403)
     return event
 
@@ -361,7 +356,7 @@ def _describe_event_changes(before, after):
 
 def _child_contacts_for_student(student_id):
     return (
-        Elternkontakt.query
+        sichtbare_elternkontakte(Elternkontakt.query, current_user)
         .filter(Elternkontakt.schueler_id == student_id)
         .order_by(Elternkontakt.datum.desc())
         .limit(40)
@@ -403,6 +398,13 @@ def _validate_event_form(selected_student):
 
 
 def _replace_relations(event, selected_student):
+    # Verknuepfte Elternkontakte, die die bearbeitende Lehrkraft nicht sehen
+    # darf, stehen nicht im Formular - sie bleiben erhalten.
+    verborgene_kontakt_ids = {
+        row.kontakt_id for row in event.linked_parent_contacts
+        if row.kontakt and row.kontakt.schueler_id == selected_student.id
+        and not darf_elternkontakt_sehen(current_user, row.kontakt)
+    }
     ErziehungsEreignisBetroffenesKind.query.filter_by(event_id=event.id).delete()
     ErziehungsEreignisKonsequenz.query.filter_by(event_id=event.id).delete()
     ErziehungsEreignisElternkontakt.query.filter_by(event_id=event.id).delete()
@@ -423,12 +425,12 @@ def _replace_relations(event, selected_student):
     for consequence_id in sorted(set(consequence_ids)):
         db.session.add(ErziehungsEreignisKonsequenz(event_id=event.id, consequence_id=consequence_id))
 
-    linked_contact_ids = []
+    linked_contact_ids = list(verborgene_kontakt_ids)
     for raw in request.form.getlist('elternkontakt_ids'):
         if raw.isdigit():
             kontakt_id = int(raw)
             kontakt = db.session.get(Elternkontakt, kontakt_id)
-            if kontakt and kontakt.schueler_id == selected_student.id:
+            if kontakt and kontakt.schueler_id == selected_student.id and darf_elternkontakt_sehen(current_user, kontakt):
                 linked_contact_ids.append(kontakt_id)
     for kontakt_id in sorted(set(linked_contact_ids)):
         db.session.add(ErziehungsEreignisElternkontakt(event_id=event.id, kontakt_id=kontakt_id))
@@ -527,8 +529,7 @@ def erziehung_list():
         .join(Schueler, ErziehungsEreignis.student_id == Schueler.id)
         .order_by(ErziehungsEreignis.datum.desc(), ErziehungsEreignis.id.desc())
     )
-    if not _is_admin(current_user):
-        query = query.filter(ErziehungsEreignis.student_id.in_(_get_accessible_student_ids(current_user)))
+    query = sichtbare_ereignisse(query, current_user)
     if selected_student:
         query = query.filter(ErziehungsEreignis.student_id == selected_student.id)
     if status_filter in {'offen', 'abgeschlossen'}:
@@ -596,7 +597,11 @@ def erziehung_new():
 def erziehung_view(event_id):
     event = _get_event_or_404(event_id)
     next_url = (request.args.get('next') or '').strip()
-    return render_template('erziehung_view.html', event=event, next_url=next_url)
+    sichtbare_kontakt_ids = {
+        row.kontakt_id for row in event.linked_parent_contacts
+        if darf_elternkontakt_sehen(current_user, row.kontakt)
+    }
+    return render_template('erziehung_view.html', event=event, next_url=next_url, sichtbare_kontakt_ids=sichtbare_kontakt_ids)
 
 
 @erziehung_bp.route('/erziehung/<int:event_id>/bearbeiten', methods=['GET', 'POST'])

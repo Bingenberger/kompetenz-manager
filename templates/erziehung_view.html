@@ -123,6 +123,9 @@
                 {% if event.linked_parent_contacts %}
                 <ul class="mb-0">
                     {% for row in event.linked_parent_contacts %}
+                    {% if row.kontakt_id not in sichtbare_kontakt_ids %}
+                    <li class="text-muted">{{ row.kontakt.datum.strftime('%d.%m.%Y') }} - {{ row.kontakt.eintrag_typ|capitalize }} · nur für Klassenleitung und Fachlehrkräfte des Kindes sichtbar</li>
+                    {% else %}
                     <li>
                         <a href="{{ url_for('erfassung.elternkontakt_view', kontakt_id=row.kontakt.id, next=request.full_path if request.query_string else request.path) }}">
                             {{ row.kontakt.datum.strftime('%d.%m.%Y') }} - {{ row.kontakt.eintrag_typ|capitalize }}
@@ -131,6 +134,7 @@
                         <span class="text-muted">· {{ row.kontakt.betreff or row.kontakt.mitteilung }}</span>
                         {% endif %}
                     </li>
+                    {% endif %}
                     {% endfor %}
                 </ul>
                 {% else %}

@@ -17,6 +17,7 @@ Lehrkraft wann etwas bearbeitet hat, und ist damit Verfahrensdokumentation
 """
 
 from extensions import db
+from klassenzugriff import sichtbare_elternkontakte, sichtbare_ereignisse
 from models import (
     Beobachtung,
     Bogen,
@@ -95,8 +96,18 @@ def _gefuellte_felder(objekt, felder):
     ]
 
 
-def collect_record(schueler):
-    """Traegt alles zusammen, was zu einem Kind gespeichert ist."""
+def collect_record(schueler, user=None):
+    """Traegt alles zusammen, was zu einem Kind gespeichert ist.
+
+    Mit user nur die Elternkontakte, Beratungen und Ereignisse, die diese
+    Lehrkraft sehen darf (klassenzugriff.py).
+    """
+    def kontakte(query, modell):
+        return sichtbare_elternkontakte(query, user, modell) if user is not None else query
+
+    def ereignisse(query):
+        return sichtbare_ereignisse(query, user) if user is not None else query
+
     beobachtungen = (
         db.session.query(Beobachtung, Item, Bogen)
         .join(Item, Beobachtung.item_id == Item.id)
@@ -139,19 +150,19 @@ def collect_record(schueler):
             .all()
         ),
         'elternkontakte': (
-            Elternkontakt.query
+            kontakte(Elternkontakt.query, Elternkontakt)
             .filter(Elternkontakt.schueler_id == schueler.id)
             .order_by(Elternkontakt.datum.asc())
             .all()
         ),
         'beratungen': (
-            Elternberatung.query
+            kontakte(Elternberatung.query, Elternberatung)
             .filter(Elternberatung.schueler_id == schueler.id)
             .order_by(Elternberatung.datum.asc())
             .all()
         ),
         'ereignisse': (
-            ErziehungsEreignis.query
+            ereignisse(ErziehungsEreignis.query)
             .filter(ErziehungsEreignis.student_id == schueler.id)
             .order_by(ErziehungsEreignis.datum.asc(), ErziehungsEreignis.id.asc())
             .all()

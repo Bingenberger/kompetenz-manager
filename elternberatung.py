@@ -19,6 +19,7 @@ from diagnostik import (
     verlauf,
     werte_zeilen,
 )
+from klassenzugriff import sichtbare_ereignisse
 from models import ErziehungsEreignis
 from school_year import active_school_year_start
 
@@ -107,21 +108,27 @@ def diagnostik_kontext(schueler):
     return bereiche
 
 
-def ereignisse_im_schuljahr(schueler, limit=12):
-    """Ereignisse des laufenden Schuljahres, neueste zuerst; ohne Schuljahr alle."""
+def ereignisse_im_schuljahr(schueler, limit=12, user=None):
+    """Ereignisse des laufenden Schuljahres, neueste zuerst; ohne Schuljahr alle.
+
+    Mit user nur die Ereignisse, die diese Lehrkraft sehen darf.
+    """
     query = ErziehungsEreignis.query.filter(ErziehungsEreignis.student_id == schueler.id)
+    if user is not None:
+        query = sichtbare_ereignisse(query, user)
     beginn = active_school_year_start()
     if beginn:
         query = query.filter(ErziehungsEreignis.datum >= beginn)
     return query.order_by(ErziehungsEreignis.datum.desc(), ErziehungsEreignis.id.desc()).limit(limit).all()
 
 
-def beratungs_kontext(schueler, bogen_rows, vertrauliches=True):
+def beratungs_kontext(schueler, bogen_rows, vertrauliches=True, user=None):
     """Alles, was die Vorlage für die Inhalte des Gesprächs braucht.
 
     vertrauliches: Diagnostik und Ereignisse sind an die Klasse gebunden -
     sie sieht nur, wer das Kind auch dort sehen darf (Klassenleitung,
-    Fachlehrkraft, Verwaltung). Elternkontakte selbst stehen allen offen.
+    Fachlehrkraft, Verwaltung). Ereignisse, die die Lehrkraft selbst angelegt
+    hat oder fuer die sie zustaendig ist, sieht sie trotzdem (user).
     """
     return {
         'uebersicht': kompetenz_uebersicht(bogen_rows),
@@ -129,6 +136,6 @@ def beratungs_kontext(schueler, bogen_rows, vertrauliches=True):
         'level_farben': LEVEL_FARBEN,
         'diagnostik': diagnostik_kontext(schueler) if vertrauliches else [],
         'diagnostik_stufen': STUFEN,
-        'ereignisse': ereignisse_im_schuljahr(schueler) if vertrauliches else [],
+        'ereignisse': ereignisse_im_schuljahr(schueler, user=user) if (vertrauliches or user is not None) else [],
         'vertrauliches': vertrauliches,
     }

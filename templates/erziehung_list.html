@@ -76,6 +76,7 @@
                 {% if selected_student %}
                 <span class="badge bg-primary">{{ selected_student.vorname }} {{ selected_student.nachname }}</span>
                 {% endif %}
+                {% if not current_user.is_admin %}<span class="text-muted small">Eigene, zugewiesene und die Ihrer Klassen</span>{% endif %}
                 <span class="badge bg-info">{{ events|length }} Einträge</span>
             </div>
         </div>

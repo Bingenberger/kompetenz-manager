@@ -8,7 +8,7 @@ from sqlalchemy import func
 
 import benachrichtigungen as bn
 from elternberatung import beratungs_kontext
-from klassenzugriff import darf_kind_sehen
+from klassenzugriff import darf_elternkontakt_sehen, darf_kind_sehen, sichtbare_elternkontakte
 from change_log import describe, describe_creation, snapshot
 from extensions import db
 from models import (
@@ -669,8 +669,12 @@ def elternkontakte_start():
     )
     selected_s_id = selection['selected_s_id']
     schueler = selection['students']
-    recent_contacts_query = Elternkontakt.query.join(Schueler).order_by(Elternkontakt.datum.desc())
-    recent_consultations_query = Elternberatung.query.join(Schueler).order_by(Elternberatung.datum.desc(), Elternberatung.id.desc())
+    recent_contacts_query = sichtbare_elternkontakte(
+        Elternkontakt.query.join(Schueler), current_user,
+    ).order_by(Elternkontakt.datum.desc())
+    recent_consultations_query = sichtbare_elternkontakte(
+        Elternberatung.query.join(Schueler), current_user, Elternberatung,
+    ).order_by(Elternberatung.datum.desc(), Elternberatung.id.desc())
     if selected_s_id:
         try:
             recent_contacts_query = recent_contacts_query.filter(Elternkontakt.schueler_id == int(selected_s_id))
@@ -771,6 +775,7 @@ def elternberatung():
         plan_context = _get_consultation_plan_context(selected_student.id)
         beratung_kontext = beratungs_kontext(
             selected_student, bogen_context['bogen_rows'], darf_kind_sehen(current_user, selected_student),
+            user=current_user,
         )
 
     return render_template(
@@ -804,6 +809,8 @@ def elternberatung_view(beratung_id):
     beratung = db.session.get(Elternberatung, beratung_id)
     if not beratung:
         abort(404)
+    if not darf_elternkontakt_sehen(current_user, beratung):
+        abort(403)
 
     bogen_context = _build_bogen_entries_for_student(beratung.schueler_id)
     plan_context = _get_consultation_plan_context(beratung.schueler_id)
@@ -818,7 +825,10 @@ def elternberatung_view(beratung_id):
         active_plan=plan_context['active_plan'],
         last_evaluated_plan=plan_context['last_evaluated_plan'],
         next_url=next_url,
-        **beratungs_kontext(beratung.schueler, bogen_context['bogen_rows'], darf_kind_sehen(current_user, beratung.schueler)),
+        **beratungs_kontext(
+            beratung.schueler, bogen_context['bogen_rows'], darf_kind_sehen(current_user, beratung.schueler),
+            user=current_user,
+        ),
     )
 
 
@@ -1022,6 +1032,8 @@ def elternkontakt_view(kontakt_id):
     kontakt = db.session.get(Elternkontakt, kontakt_id)
     if not kontakt:
         abort(404)
+    if not darf_elternkontakt_sehen(current_user, kontakt):
+        abort(403)
     return render_template(
         'elternkontakt_view.html',
         kontakt=kontakt,
@@ -1037,6 +1049,8 @@ def elternkontakt_edit(kontakt_id):
     kontakt = db.session.get(Elternkontakt, kontakt_id)
     if not kontakt:
         abort(404)
+    if not darf_elternkontakt_sehen(current_user, kontakt):
+        abort(403)
     next_url = (request.args.get('next') or request.form.get('next') or '').strip()
 
     if not _can_edit_elternkontakt(kontakt):
@@ -1122,6 +1136,8 @@ def elternkontakt_delete(kontakt_id):
     kontakt = db.session.get(Elternkontakt, kontakt_id)
     if not kontakt:
         abort(404)
+    if not darf_elternkontakt_sehen(current_user, kontakt):
+        abort(403)
 
     next_url = (request.form.get('next') or request.args.get('next') or '').strip()
     if not _can_edit_elternkontakt(kontakt):
@@ -1141,6 +1157,8 @@ def elternkontakt_protokoll_export_odt(kontakt_id):
     kontakt = db.session.get(Elternkontakt, kontakt_id)
     if not kontakt:
         abort(404)
+    if not darf_elternkontakt_sehen(current_user, kontakt):
+        abort(403)
     next_url = (request.args.get('next') or '').strip()
     if kontakt.eintrag_typ != 'protokoll':
         flash('ODT-Export ist nur für Protokolle verfügbar.')
@@ -1169,6 +1187,8 @@ def elternkontakt_protokoll_export_pdf(kontakt_id):
     kontakt = db.session.get(Elternkontakt, kontakt_id)
     if not kontakt:
         abort(404)
+    if not darf_elternkontakt_sehen(current_user, kontakt):
+        abort(403)
     next_url = (request.args.get('next') or '').strip()
     if kontakt.eintrag_typ != 'protokoll':
         flash('PDF-Export ist nur für Protokolle verfügbar.')

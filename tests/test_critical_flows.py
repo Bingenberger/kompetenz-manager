@@ -1137,6 +1137,9 @@ class CriticalFlowsTestCase(unittest.TestCase):
                 naechste_schritte='E',
             )
             db.session.add(kontakt)
+            # Fachlehrkraft der Klasse: sieht das Protokoll, darf es aber nicht aendern.
+            kollege = User.query.filter_by(username='kollege').first()
+            db.session.add(UserKlassenzuordnung(user_id=kollege.id, klasse='4a', rolle='fach'))
             db.session.commit()
             kontakt_id = kontakt.id
 
@@ -1201,6 +1204,9 @@ class CriticalFlowsTestCase(unittest.TestCase):
                 naechste_schritte='E',
             )
             db.session.add(kontakt)
+            # Fachlehrkraft der Klasse: sieht das Protokoll, darf es aber nicht aendern.
+            kollege = User.query.filter_by(username='kollege').first()
+            db.session.add(UserKlassenzuordnung(user_id=kollege.id, klasse='4a', rolle='fach'))
             db.session.commit()
             kontakt_id = kontakt.id
 
@@ -1608,6 +1614,8 @@ class CriticalFlowsTestCase(unittest.TestCase):
                 created_by_user_id=admin.id, datum=date(2025, 9, 3),
             )
             db.session.add_all([observation, event])
+            kollege = User.query.filter_by(username='kollege').first()
+            db.session.add(UserKlassenzuordnung(user_id=kollege.id, klasse='4b', rolle='klassenleitung'))
             db.session.commit()
             student_id, bogen_id = student.id, bogen.id
 

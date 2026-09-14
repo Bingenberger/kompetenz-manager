@@ -12,6 +12,7 @@ from werkzeug.security import generate_password_hash
 
 from diagnostik import STUFEN as DIAGNOSTIK_STUFEN, diagramm as diagnostik_diagramm_geometrie, risikogrenzen, stufen_baender, verlauf as diagnostik_verlauf, werte_zeilen
 from extensions import db
+from klassenzugriff import darf_ereignis_sehen, sichtbare_elternkontakte, sichtbare_ereignisse
 from models import Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, ErziehungsEreignisAnhang, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan, WorkPlanTaskAttachment
 from odt_export import build_odt_document, convert_odt_bytes_to_pdf
 from school_year import observation_period_start
@@ -596,14 +597,14 @@ def schuelerakte():
             .all()
         )
         erziehungsereignisse = (
-            ErziehungsEreignis.query
+            sichtbare_ereignisse(ErziehungsEreignis.query, current_user)
             .filter(ErziehungsEreignis.student_id == selected_student.id)
             .order_by(ErziehungsEreignis.datum.desc(), ErziehungsEreignis.id.desc())
             .all()
         )
 
         elternkontakte = (
-            Elternkontakt.query
+            sichtbare_elternkontakte(Elternkontakt.query, current_user)
             .filter(Elternkontakt.schueler_id == selected_student.id)
             .order_by(Elternkontakt.datum.desc())
             .limit(12)
@@ -669,7 +670,7 @@ def schuelerakte():
 def _build_student_record_document(schueler):
     """Baut das ODT der vollstaendigen Akte und liefert Puffer samt Dateiname."""
     jetzt = utc_now()
-    record = collect_record(schueler)
+    record = collect_record(schueler, current_user)
     blocks = record_blocks(record, jetzt.strftime('%d.%m.%Y'))
     return build_odt_document(blocks), filename_stem(schueler, jetzt)
 
@@ -1077,10 +1078,8 @@ def media_erziehung_attachment(attachment_id):
     if not event:
         abort(404)
 
-    if not _is_admin(current_user):
-        accessible_ids = {student.id for student in get_prioritized_students_for_user(current_user)}
-        if event.student_id not in accessible_ids:
-            abort(403)
+    if not darf_ereignis_sehen(current_user, event):
+        abort(403)
 
     return _send_upload_or_404(
         attachment.file_path,
