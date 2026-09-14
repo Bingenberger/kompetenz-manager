@@ -406,7 +406,12 @@ trap - EXIT
 log "Update abgeschlossen"
 info "Version:  $(git rev-parse --short HEAD)  $(git log -1 --pretty=%s)"
 if [[ ! -f "/etc/cron.d/$APP_NAME-benachrichtigungen" ]]; then
-  warn "E-Mail-Benachrichtigungen sind noch nicht eingerichtet - einmalig als root:"
+  warn "E-Mail-Benachrichtigungen sind noch nicht eingerichtet - ohne diesen Schritt"
+  warn "wird keine einzige Benachrichtigungsmail verschickt. Einmalig als root:"
+  info "  bash $APP_DIR/deploy/install_benachrichtigungen.sh"
+elif ! grep -q 'taeglich-geplant' "/etc/cron.d/$APP_NAME-benachrichtigungen"; then
+  # Aeltere Einrichtung: Sammelmail fiel oft aus und lief in UTC.
+  warn "Der Benachrichtigungsversand nutzt eine veraltete Einrichtung. Einmalig als root erneuern:"
   info "  bash $APP_DIR/deploy/install_benachrichtigungen.sh"
 fi
 info "Status:   systemctl status $SERVICE_NAME"

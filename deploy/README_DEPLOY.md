@@ -256,17 +256,31 @@ sudo systemctl restart kompetenzkompass
 Unter *Verwaltung → E-Mail-Versand* zeigt die App die Einstellungen und
 verschickt eine Testmail an die eigene Adresse.
 
-**3. Versandlauf einrichten** (einmalig, als root):
+**3. Versandlauf einrichten** (einmalig, als root – ohne diesen Schritt geht
+keine Benachrichtigungsmail hinaus, nur die Testmail funktioniert):
 
 ```bash
 bash /pfad/zur/app/deploy/install_benachrichtigungen.sh
 ```
 
 Das legt einen Cron-Eintrag an: alle fünf Minuten die Sofort-Mails, montags
-bis freitags um 15 Uhr die Sammelmails und die Terminerinnerungen. Uhrzeit und
-Tage lassen sich beim Aufruf ändern, z. B.
-`DAILY_HOUR=14 DAILY_MINUTE=30 DAILY_WEEKDAYS='*' bash deploy/install_benachrichtigungen.sh`.
-Protokoll: `/var/log/kompetenzkompass/benachrichtigungen.log`.
+bis freitags um 15 Uhr deutscher Zeit die Sammelmails und die
+Terminerinnerungen – auch wenn der Server auf UTC läuft, und über die
+Sommerzeit hinweg. Uhrzeit, Tage und Zeitzone lassen sich beim Aufruf ändern, z. B.
+`DAILY_HOUR=14 DAILY_MINUTE=30 DAILY_WEEKDAYS='*' bash deploy/install_benachrichtigungen.sh`
+(`DAILY_TZ`, Standard `Europe/Berlin`). Erneutes Ausführen überschreibt die
+Einrichtung; `update.sh` weist darauf hin, wenn sie fehlt oder veraltet ist.
+
+Probelauf und Protokoll:
+
+```bash
+sudo -u <dienstbenutzer> /usr/local/bin/kompetenzkompass-benachrichtigungen sofort
+sudo -u <dienstbenutzer> /usr/local/bin/kompetenzkompass-benachrichtigungen taeglich   # Sammelmail sofort
+tail -n 5 /var/log/kompetenzkompass/benachrichtigungen.log
+```
+
+Der Versandlauf liest die Env-Datei wie systemd: Werte stehen ohne
+Anführungszeichen hinter dem `=`, Sonderzeichen im Passwort bleiben erhalten.
 
 Schlägt eine Zustellung fehl, bleibt die Benachrichtigung offen und der
 nächste Lauf versucht es erneut. Nach sieben Tagen wird sie nicht mehr
