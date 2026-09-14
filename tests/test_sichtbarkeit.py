@@ -228,5 +228,62 @@ class SichtbarkeitTestCase(unittest.TestCase):
             self.assertEqual('Geändert', db.session.get(ErziehungsEreignis, self.ids['e_anna']).beschreibung)
 
 
+    # ------------------------------------------------------------------ Anlegen
+
+    def test_any_teacher_can_record_entries_for_any_child(self):
+        """Vertretung oder Pausenaufsicht: Eintragen geht fuer jedes Kind.
+
+        fachl unterrichtet nur 3a und traegt fuer Ben (1b) ein. Die eigenen
+        Eintraege sieht fachl danach, die Klassenleitung von Ben ebenso.
+        """
+        token = self._login('fachl')
+        ben = self.ids['ben']
+        self.assertIn('Berg', self.client.get(f'/erziehung/neu?schueler_id={ben}').get_data(as_text=True))
+
+        antworten = [
+            self.client.post('/erfassen/elternkontakte/notiz', data={
+                '_csrf_token': token, 'schueler_id': ben, 'kontaktform': 'Kurz-Kontakt',
+                'betreff': 'Pausennotiz Ben', 'mitteilung': 'Auf dem Hof gestürzt',
+            }),
+            self.client.post('/erfassen/elternkontakte/protokoll', data={
+                '_csrf_token': token, 'schueler_id': ben, 'betreff': 'Vertretungsprotokoll Ben',
+                'kurzfassung': 'x', 'teilnehmende': 'Mutter',
+            }),
+            self.client.post(f'/erfassen/elternberatung?schueler_id={ben}&tab=dropdown', data={
+                '_csrf_token': token, 'schueler_id': ben, 'tab': 'dropdown', 'datum': '2026-09-10',
+                'anlass': 'Vertretungsberatung Ben',
+            }),
+            self.client.post('/erziehung/neu', data={
+                '_csrf_token': token, 'schueler_id': ben, 'datum': '2026-09-10',
+                'event_template_id': self.ids['vorlage_anna'], 'ort_id': self.ids['ort'],
+                'beschreibung': 'Pausenvorfall Ben', 'status': 'offen',
+            }),
+        ]
+        for antwort in antworten:
+            self.assertEqual(302, antwort.status_code, antwort.get_data(as_text=True)[:300])
+
+        with self.app.app_context():
+            fachl = self._user('fachl')
+            kontakte = {k.betreff for k in Elternkontakt.query.filter_by(user_id=fachl.id).all()}
+            self.assertEqual({'Pausennotiz Ben', 'Vertretungsprotokoll Ben'}, kontakte)
+            beratung = Elternberatung.query.filter_by(user_id=fachl.id).one()
+            ereignis = ErziehungsEreignis.query.filter_by(created_by_user_id=fachl.id).one()
+            beratung_id, ereignis_id = beratung.id, ereignis.id
+
+        html = self.client.get('/erfassen/elternkontakte?schueler_id=').get_data(as_text=True)
+        self.assertIn('Pausennotiz Ben', html)
+        self.assertIn('Vertretungsprotokoll Ben', html)
+        self.assertIn('Vertretungsberatung Ben', html)
+        self.assertEqual(200, self.client.get(f'/erfassen/elternberatung/view/{beratung_id}').status_code)
+        self.assertEqual(200, self.client.get(f'/erziehung/{ereignis_id}').status_code)
+        self.assertNotIn('Notiz Ben Fremd', html)
+
+        self._login('fremd')
+        html = self.client.get('/erfassen/elternkontakte?schueler_id=').get_data(as_text=True)
+        self.assertIn('Pausennotiz Ben', html)
+        self.assertIn('Vertretungsberatung Ben', html)
+        self.assertEqual(200, self.client.get(f'/erziehung/{ereignis_id}').status_code)
+
+
 if __name__ == '__main__':
     unittest.main()
