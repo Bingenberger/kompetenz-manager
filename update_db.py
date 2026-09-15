@@ -597,7 +597,9 @@ with app.app_context():
     nachgeschaerft = schaerfe_vorbelegung_nach()
     if nachgeschaerft:
         print(f"HSP-Vorbelegung an die Auswertungsmappen angepasst ({nachgeschaerft} Testform(en)).")
-    from diagnostik import sls_ohne_prozentrang
+    from diagnostik import ergaenze_sls_testplan, sls_ohne_prozentrang
+    if ergaenze_sls_testplan():
+        print("SLS-Testplan um die Mitte von Klasse 2 ergänzt.")
     ohne_pr = sls_ohne_prozentrang()
     if ohne_pr:
         print(f"SLS: Prozentrang aus {ohne_pr} Kennwert(en) entfernt - das SLS liefert nur Rohwert und LQ.")

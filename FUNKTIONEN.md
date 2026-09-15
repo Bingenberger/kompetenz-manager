@@ -237,7 +237,7 @@ Hinterlegte Verfahren (von der Verwaltung als Katalog pflegbar, erweiterbar):
 | Verfahren | Lernbereich | Kennwerte | Vorbelegter Testplan |
 |---|---|---|---|
 | **HSP** (Hamburger Schreib-Probe; Testformen 1+, 2, 3, 4-5) | Rechtschreiben | Graphemtreffer, Wörter richtig, Strategien: alphabetisch, orthografisch, morphematisch, wortübergreifend (je Rohwert, Prozentrang, T-Wert) | Klasse 1–4, jeweils Mitte und Ende des Schuljahres |
-| **SLS 1–4** (Salzburger Lese-Screening) | Lesen | Leseleistung (Rohwert und Lesequotient – das SLS weist keinen Prozentrang aus) | Ende Klasse 1 und 2 |
+| **SLS 1–4** (Salzburger Lese-Screening) | Lesen | Leseleistung (Rohwert und Lesequotient – das SLS weist keinen Prozentrang aus) | Ende Klasse 1, Mitte und Ende Klasse 2 |
 | **ELFE II** (Leseverständnistest) | Lesen | Wort-, Satz-, Textverständnis und Gesamt (Rohwert, Prozentrang, T-Wert) | Ende Klasse 3 und 4 |
 
 - Der **Testplan** legt fest, welche Testform in welchem Jahrgang zur Mitte oder am

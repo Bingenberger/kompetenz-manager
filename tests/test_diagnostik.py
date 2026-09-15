@@ -15,6 +15,7 @@ from diagnostik import (
     diagramm,
     diagramme,
     grenze_text,
+    ergaenze_sls_testplan,
     lege_vorbelegung_an,
     skalen_im_verlauf,
     sls_ohne_prozentrang,
@@ -143,6 +144,8 @@ class DiagnostikLogikTestCase(unittest.TestCase):
 
     def test_plan_for_grade_skips_inactive_forms(self):
         self.assertEqual({'HSP 1+', 'SLS 1-4'}, {z.testform.name for z in zeitpunkte_fuer(1)})
+        self.assertEqual({'HSP 2', 'SLS 1-4'}, {z.testform.name for z in zeitpunkte_fuer(2, 'mitte')})
+        self.assertEqual(['ende'], [z.halbjahr for z in zeitpunkte_fuer(1) if z.testform.name == 'SLS 1-4'])
         self.assertEqual(['HSP 1+'], [z.testform.name for z in zeitpunkte_fuer(1, 'mitte')])
         self._testform('SLS 1-4').is_active = False
         db.session.commit()
@@ -258,6 +261,23 @@ class DiagnostikLogikTestCase(unittest.TestCase):
         # "bis 84" endet an der Linie 85, das unterste Band beginnt am Rand der Skala.
         self.assertEqual(round(geometrie['y'](85), 1), baender[1]['y'])
         self.assertEqual(geometrie['unten'], round(baender[0]['y'] + baender[0]['hoehe'], 1))
+
+    def test_sls_plan_gets_middle_of_grade_two_only_if_unchanged(self):
+        testform = self._testform('SLS 1-4')
+        mitte2 = next(z for z in testform.zeitpunkte if (z.jahrgang, z.halbjahr) == (2, 'mitte'))
+        db.session.delete(mitte2)
+        db.session.commit()
+        self.assertEqual(1, ergaenze_sls_testplan())
+        db.session.commit()
+        self.assertEqual({(1, 'ende'), (2, 'mitte'), (2, 'ende')}, {(z.jahrgang, z.halbjahr) for z in testform.zeitpunkte})
+        self.assertEqual(0, ergaenze_sls_testplan())
+
+        # Von der Verwaltung geaendert: bleibt, wie es ist.
+        for z in list(testform.zeitpunkte):
+            if z.jahrgang == 2:
+                db.session.delete(z)
+        db.session.commit()
+        self.assertEqual(0, ergaenze_sls_testplan())
 
     def test_migration_removes_percentile_from_sls(self):
         kennwert = self._testform('SLS 1-4').kennwerte[0]

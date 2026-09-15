@@ -635,6 +635,11 @@ HSP_TESTPLAN = {
     'HSP 4-5': [(4, 'mitte'), (4, 'ende')],
 }
 
+# SLS an der Schule: Ende Klasse 1, Mitte und Ende Klasse 2.
+SLS_TESTPLAN = [(1, 'ende'), (2, 'mitte'), (2, 'ende')]
+# So stand der Plan in der ersten Vorbelegung - nur ein unveränderter Plan wird ergänzt.
+SLS_TESTPLAN_ALT = {(1, 'ende'), (2, 'ende')}
+
 VORBELEGUNG = [
     {
         'name': 'HSP', 'bereich': 'Rechtschreiben',
@@ -647,7 +652,7 @@ VORBELEGUNG = [
         'name': 'SLS 1-4', 'bereich': 'Lesen',
         'beschreibung': 'Salzburger Lesescreening für die Klassenstufen 1–4. Rohwert: richtig beurteilte Sätze.',
         'testformen': [
-            ('SLS 1-4', [_kennwert('Leseleistung', pr=False, lq=True, leit=True)], [(1, 'ende'), (2, 'ende')]),
+            ('SLS 1-4', [_kennwert('Leseleistung', pr=False, lq=True, leit=True)], SLS_TESTPLAN),
         ],
     },
     {
@@ -719,6 +724,29 @@ def schaerfe_vorbelegung_nach():
                 testform.zeitpunkte.append(DiagnostikZeitpunkt(jahrgang=jahrgang, halbjahr=halbjahr))
                 geaendert = vorher + 1
     return geaendert
+
+
+def ergaenze_sls_testplan():
+    """Ergänzt im SLS-Testplan die Mitte von Klasse 2.
+
+    Nur wenn der Plan noch genau der ersten Vorbelegung entspricht (Ende 1 und
+    Ende 2) - hat die Verwaltung ihn geändert, bleibt er, wie er ist. Idempotent;
+    gibt die Zahl ergänzter Zeitpunkte zurück. Committet nicht.
+    """
+    testform = (
+        DiagnostikTestform.query.join(DiagnostikVerfahren)
+        .filter(DiagnostikVerfahren.name == 'SLS 1-4', DiagnostikTestform.name == 'SLS 1-4')
+        .first()
+    )
+    if not testform:
+        return 0
+    vorhanden = {(z.jahrgang, z.halbjahr) for z in testform.zeitpunkte}
+    if vorhanden != SLS_TESTPLAN_ALT:
+        return 0
+    neu = [(jahrgang, halbjahr) for jahrgang, halbjahr in SLS_TESTPLAN if (jahrgang, halbjahr) not in vorhanden]
+    for jahrgang, halbjahr in neu:
+        testform.zeitpunkte.append(DiagnostikZeitpunkt(jahrgang=jahrgang, halbjahr=halbjahr))
+    return len(neu)
 
 
 def sls_ohne_prozentrang():
