@@ -13,9 +13,8 @@ from competency_matrix import LEVEL_LABELS, competency_level
 from competency_trend import compute_trend
 from diagnostik import (
     STUFEN,
-    diagramm,
+    diagramme,
     risikogrenzen,
-    stufen_baender,
     verlauf,
     werte_zeilen,
 )
@@ -98,11 +97,9 @@ def diagnostik_kontext(schueler):
     grenzen = risikogrenzen()
     bereiche = []
     for eintrag in verlauf(schueler, grenzen):
-        geometrie = diagramm(eintrag)
         bereiche.append({
             'eintrag': eintrag,
-            'geometrie': geometrie,
-            'baender': stufen_baender(geometrie, grenzen),
+            'diagramme': diagramme(eintrag, grenzen),
             'zeilen': [(a, werte_zeilen(a.ergebnis)) for a in reversed(eintrag['auswertungen'])],
         })
     return bereiche

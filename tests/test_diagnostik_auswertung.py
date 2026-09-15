@@ -53,8 +53,9 @@ class DiagnostikAuswertungTestCase(unittest.TestCase):
                 self.kinder[vorname] = kind.id
             db.session.commit()
 
-            # Anna: Lesen SLS PR 40 (Kl. 2), ELFE PR 12 (Kl. 3) -> auffaellig, schlechter
-            self._ergebnis('Anna', 'SLS 1-4', '2024/2025', 'ende', Leseleistung={'rohwert': 25, 'prozentrang': 40})
+            # Anna: Lesen SLS LQ 104 (Kl. 1), ELFE PR 40 (Kl. 2), ELFE PR 12 (Kl. 3) -> auffaellig, schlechter
+            self._ergebnis('Anna', 'SLS 1-4', '2023/2024', 'ende', Leseleistung={'rohwert': 25, 'lesequotient': 104})
+            self._ergebnis('Anna', 'ELFE II', '2024/2025', 'ende', Gesamt={'rohwert': 40, 'prozentrang': 40})
             self._ergebnis('Anna', 'ELFE II', '2025/2026', 'ende', Gesamt={'rohwert': 30, 't_wert': 38})
             # Ben: Rechtschreiben HSP 3 PR 60 -> unauffaellig
             self._ergebnis('Ben', 'HSP 3', '2025/2026', 'ende', **{'Graphemtreffer': {'prozentrang': 60}, 'Wörter richtig': {'prozentrang': 55}})
@@ -143,7 +144,11 @@ class DiagnostikAuswertungTestCase(unittest.TestCase):
         self.assertIn('id="akte-diagnostik-pane"', html)
         self.assertIn('<svg', html)
         self.assertIn('Gesamt (ELFE II): PR 12 (abgeleitet)', html)
-        self.assertIn('Leseleistung (SLS 1-4): PR 40', html)
+        # Das SLS hat keinen Prozentrang: eigene Grafik auf der LQ-Skala.
+        self.assertIn('Leseleistung (SLS 1-4): LQ 104', html)
+        self.assertIn('Lesequotient (LQ)', html)
+        self.assertNotIn('Leseleistung (SLS 1-4): PR', html)
+        self.assertIn('RW 25 · LQ 104', html)
         self.assertIn('RW 30 · T 38', html)
         self.assertIn('Notiz ELFE II', html)
         self.assertIn('/diagnostik/ergebnis/', html)  # Loeschen fuer die Klassenleitung

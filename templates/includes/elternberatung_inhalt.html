@@ -104,11 +104,11 @@
         <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
             <h4 class="h6 mb-0">{{ eintrag.bereich }}</h4>
             {% if eintrag.aktuell %}
-            {% if eintrag.aktuell.niedrigster_prozentrang is not none %}<span class="small text-muted">zuletzt PR {{ eintrag.aktuell.niedrigster_prozentrang }}</span>{% endif %}
+            {% if eintrag.aktuell.schwaechster_leitwert %}<span class="small text-muted">zuletzt {{ eintrag.aktuell.schwaechster_leitwert.anzeige }}</span>{% endif %}
             {% if eintrag.aktuell.stufe %}<span class="badge text-bg-{{ diagnostik_stufen[eintrag.aktuell.stufe][1] }}">{{ diagnostik_stufen[eintrag.aktuell.stufe][0] }}</span>{% endif %}
             {% endif %}
         </div>
-        {% if bereich.geometrie.reihen %}{{ diagnostik_diagramm(bereich.geometrie, bereich.baender, diagnostik_stufen, eintrag.bereich) }}{% endif %}
+        <div class="row g-3">{% for d in bereich.diagramme %}<div class="{{ 'col-xl-6' if bereich.diagramme|length > 1 else 'col-12' }}">{{ diagnostik_diagramm(d.geometrie, d.baender, diagnostik_stufen, eintrag.bereich) }}</div>{% endfor %}</div>
         <div class="table-responsive">
             <table class="table table-sm align-middle mb-0">
                 <thead class="table-light"><tr><th>Zeitpunkt</th><th>Test</th><th>Werte</th><th>Einordnung</th></tr></thead>

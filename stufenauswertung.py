@@ -10,7 +10,8 @@ Nachgebaut nach den Auswertungsdokumenten der Schule (HSP, SLS, ELFE II):
 
 "Auffällig" richtet sich nach den Risikostufen der Anwendung - wer eine Stufe
 hat, steht in der Liste. Die Tendenz vergleicht mit dem vorigen Ergebnis
-desselben Kennwerts im selben Verfahren.
+desselben Kennwerts im selben Verfahren. Beim SLS stehen in der Liste die
+Lesequotienten, sonst Prozentränge.
 """
 
 from dataclasses import dataclass, field
@@ -22,10 +23,14 @@ from diagnostik import (
     STUFE_BEOBACHTEN,
     STUFE_DEUTLICH,
     STUFEN,
+    SKALA_LQ,
+    SKALA_PR,
+    SKALEN,
     TREND_SCHWELLE,
     auswerten,
     foerderangaben_fuer,
-    prozentrang_aus,
+    grenze_text,
+    vergleichswert,
     schuljahr_zeitraum,
     zeitschluessel,
 )
@@ -80,7 +85,7 @@ class ListenZeile:
     schueler: Schueler
     klasse: str
     stufe: str
-    werte: list            # [(Kennwert, PR, abgeleitet, Tendenz)] je Risikospalte
+    werte: list            # [(Kennwert, Wert, abgeleitet, Tendenz)] je Risikospalte - PR oder LQ
     foerderplan: bool
     angaben: object = None  # Foerderangaben oder None
     ausloeser: list = field(default_factory=list)
@@ -117,7 +122,7 @@ def _foerderplan_im_schuljahr(schueler_ids, schuljahr):
     return ids
 
 
-def _vorheriger_prozentrang(kind_ergebnisse, aktuell, kennwert_name, verfahren_id):
+def _vorheriger_wert(kind_ergebnisse, aktuell, kennwert_name, verfahren_id, skala):
     schluessel = zeitschluessel(aktuell.schuljahr, aktuell.halbjahr)
     frueher = [
         e for e in kind_ergebnisse
@@ -128,9 +133,9 @@ def _vorheriger_prozentrang(kind_ergebnisse, aktuell, kennwert_name, verfahren_i
     for ergebnis in sorted(frueher, key=lambda e: zeitschluessel(e.schuljahr, e.halbjahr), reverse=True):
         kennwert = next((k for k in ergebnis.testform.kennwerte if k.name == kennwert_name), None)
         if kennwert:
-            prozentrang, _ = prozentrang_aus(ergebnis.wert_fuer(kennwert.id))
-            if prozentrang is not None:
-                return prozentrang
+            fruehere_skala, wert, _ = vergleichswert(kennwert, ergebnis.wert_fuer(kennwert.id))
+            if wert is not None and fruehere_skala == skala:
+                return wert
     return None
 
 
@@ -181,6 +186,8 @@ def erstelle_auswertung(verfahren, schuljahr, halbjahr, jahrgang, grenzen, erlau
         if haupt:
             spalten.append(DurchschnittSpalte(kennwert.name, haupt))
     risikospalten = [k.name for k in kennwert_liste if k.risiko]
+    spalten_skala = {k.name: k.skala for k in kennwert_liste if k.risiko}
+    skalen = [skala for skala in (SKALA_PR, SKALA_LQ) if skala in spalten_skala.values()] or [SKALA_PR]
 
     auswertungen = {e.id: auswerten(e, grenzen) for e in ergebnisse}
 
@@ -218,9 +225,9 @@ def erstelle_auswertung(verfahren, schuljahr, halbjahr, jahrgang, grenzen, erlau
         werte = []
         for name in risikospalten:
             kennwert = next((k for k in ergebnis.testform.kennwerte if k.name == name), None)
-            prozentrang, abgeleitet = prozentrang_aus(ergebnis.wert_fuer(kennwert.id)) if kennwert else (None, False)
-            frueher = _vorheriger_prozentrang(ergebnis.schueler.diagnostik_ergebnisse, ergebnis, name, verfahren.id)
-            werte.append((name, prozentrang, abgeleitet, _tendenz(frueher, prozentrang)))
+            skala, wert, abgeleitet = vergleichswert(kennwert, ergebnis.wert_fuer(kennwert.id)) if kennwert else (SKALA_PR, None, False)
+            frueher = _vorheriger_wert(ergebnis.schueler.diagnostik_ergebnisse, ergebnis, name, verfahren.id, skala)
+            werte.append((name, wert, abgeleitet, _tendenz(frueher, wert)))
         liste.append(ListenZeile(
             schueler=ergebnis.schueler,
             klasse=ergebnis.klasse or '–',
@@ -245,6 +252,9 @@ def erstelle_auswertung(verfahren, schuljahr, halbjahr, jahrgang, grenzen, erlau
         'klassen': klassen_zeilen,
         'gesamt': gesamt,
         'risikospalten': risikospalten,
+        'spalten_kuerzel': {name: SKALEN[skala]['kuerzel'] for name, skala in spalten_skala.items()},
+        'skalen': skalen,
+        'grenze_text': ' bzw. '.join(filter(None, (grenze_text(grenzen, skala) for skala in skalen))),
         'liste': liste,
         'kuerzel': kuerzel,
         'stufen': STUFEN,
@@ -260,6 +270,9 @@ def legende(auswertung):
     teile = [f'{kuerzel(name)} = {name}' for name in auswertung['risikospalten'] if kuerzel(name) != name]
     teile += [f'{kurz} = {lang}' for _, kurz, lang in FOERDER_KUERZEL]
     teile.append('FP = Förderplan')
-    teile.append('↑ / → / ↓ = Prozentrang mindestens 10 Punkte höher / etwa gleich / mindestens 10 Punkte niedriger als beim vorigen Test')
-    teile.append('* = Prozentrang aus T-Wert oder Lesequotient abgeleitet')
+    namen = ' bzw. '.join(SKALEN[skala]['name'] for skala in auswertung.get('skalen', [SKALA_PR]))
+    teile.append(f'↑ / → / ↓ = {namen} mindestens {TREND_SCHWELLE} Punkte höher / etwa gleich / '
+                 f'mindestens {TREND_SCHWELLE} Punkte niedriger als beim vorigen Test')
+    if SKALA_PR in auswertung.get('skalen', [SKALA_PR]):
+        teile.append('* = Prozentrang aus dem T-Wert abgeleitet')
     return 'Legende: ' + ', '.join(teile)

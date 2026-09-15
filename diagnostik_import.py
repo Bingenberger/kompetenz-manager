@@ -8,7 +8,8 @@ Erkannt werden drei Formate, so wie sie in der Schule im Einsatz sind:
 - ELFE-II-Auswertungstabelle (XLSX): Blatt "Daten", Gruppenzeile
   (Wortverständnis, Satzverständnis, Textverständnis, Gesamtauswertung) über
   einer Zeile RW / T-W / PR.
-- SLS-Auswertungstabelle (ODS oder XLSX): Name, Vorname w / Vorname m, RW, LQ.
+- SLS-Auswertungstabelle (ODS oder XLSX): Name, Vorname w / Vorname m, RW, LQ
+  (kein Prozentrang - das SLS weist keinen aus).
 
 Die Mappen rechnen Normwerte per Formel aus. Gelesen werden die zuletzt
 gespeicherten Ergebnisse dieser Formeln - deshalb muss eine Datei nach dem
@@ -338,10 +339,11 @@ def _lese_sls(blaetter, dateiname):
         kopf_index, koepfe = _finde_kopfzeile(zeilen, ['name', 'rw', 'lq'])
         if kopf_index is None:
             continue
+        # Das SLS weist nur Rohwert und Lesequotient aus. Eine PR-Spalte, die
+        # jemand ergänzt hat, wird bewusst nicht gelesen.
         spalten = {'Leseleistung': {'rohwert': koepfe['rw'], 'lesequotient': koepfe['lq']}}
-        if 'pr' in koepfe:
-            spalten['Leseleistung']['prozentrang'] = koepfe['pr']
         datei = ImportDatei(format='sls', verfahren='SLS', kennwerte=list(spalten))
+        datei.hinweise.append('Das SLS liefert Rohwert und Lesequotient; eingestuft wird über den LQ, einen Prozentrang gibt es nicht.')
         datei.jahrgang = zahl(_wert_rechts_von(zeilen, 'klassenstufe'))
         zeitpunkt = _text(_wert_rechts_von(zeilen, 'zeitpunkt') or _wert_rechts_von(zeilen, 'zeipunkt')).casefold()
         datei.halbjahr = zeitpunkt if zeitpunkt in ('mitte', 'ende') else None

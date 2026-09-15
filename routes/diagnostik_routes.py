@@ -112,20 +112,28 @@ def admin_katalog():
 @admin_required(redirect_endpoint='admin.admin_dashboard', message=ADMIN_MELDUNG)
 def admin_grenzen():
     werte = {}
-    for stufe in ('beobachten', 'auffaellig', 'deutlich'):
-        zahl, gueltig = _int_oder_none(request.form.get(stufe), 0, 100)
-        if not gueltig:
-            flash('Die Grenzen müssen Prozentränge zwischen 0 und 100 sein.')
+    for praefix, minimum, maximum, name in (('', 0, 100, 'Prozentränge zwischen 0 und 100'),
+                                            ('lq_', 40, 160, 'Lesequotienten zwischen 40 und 160')):
+        if praefix and not any(praefix + stufe in request.form for stufe in ('beobachten', 'auffaellig', 'deutlich')):
+            continue  # Formular ohne LQ-Felder: LQ-Grenzen bleiben, wie sie sind
+        for stufe in ('beobachten', 'auffaellig', 'deutlich'):
+            zahl, gueltig = _int_oder_none(request.form.get(praefix + stufe), minimum, maximum)
+            if not gueltig:
+                flash(f'Die Grenzen müssen {name} sein.')
+                return redirect(url_for('diagnostik.admin_katalog'))
+            werte[praefix + stufe] = zahl
+        gesetzt = [werte[praefix + s] for s in ('deutlich', 'auffaellig', 'beobachten') if werte[praefix + s] is not None]
+        if gesetzt != sorted(gesetzt) or len(set(gesetzt)) != len(gesetzt):
+            flash('Die Grenzen müssen aufsteigen: deutlich auffällig < auffällig < beobachten.')
             return redirect(url_for('diagnostik.admin_katalog'))
-        werte[stufe] = zahl
-    gesetzt = [werte[s] for s in ('deutlich', 'auffaellig', 'beobachten') if werte[s] is not None]
-    if gesetzt != sorted(gesetzt) or len(set(gesetzt)) != len(gesetzt):
-        flash('Die Grenzen müssen aufsteigen: deutlich auffällig < auffällig < beobachten.')
-        return redirect(url_for('diagnostik.admin_katalog'))
     config = _konfiguration()
     config.diagnostik_pr_beobachten = werte['beobachten']
     config.diagnostik_pr_auffaellig = werte['auffaellig']
     config.diagnostik_pr_deutlich = werte['deutlich']
+    if 'lq_beobachten' in werte:
+        config.diagnostik_lq_beobachten = werte['lq_beobachten']
+        config.diagnostik_lq_auffaellig = werte['lq_auffaellig']
+        config.diagnostik_lq_deutlich = werte['lq_deutlich']
     db.session.commit()
     flash('Risikogrenzen gespeichert.')
     return redirect(url_for('diagnostik.admin_katalog'))
@@ -1009,6 +1017,13 @@ def admin_logo():
     return redirect(url_for('diagnostik.admin_katalog'))
 
 
+def _spaltenkopf(a, name):
+    """Kürzel des Kennwerts; beim LQ mit Zusatz, damit niemand einen PR liest."""
+    kurz = a['kuerzel'](name)
+    skala = a['spalten_kuerzel'].get(name, 'PR')
+    return f'{kurz} ({skala})' if skala != 'PR' else kurz
+
+
 def _stufenauswertung_bloecke(a):
     zahl = lambda wert: f'{wert:.1f}'.replace('.', ',') if wert is not None else '–'
     bloecke = []
@@ -1034,17 +1049,16 @@ def _stufenauswertung_bloecke(a):
         zeilen.append([z.klasse, str(z.anzahl)] + [zahl(w) for w in z.durchschnitte] + [str(z.stufen[s]) for s in a['stufen_reihenfolge']])
     bloecke.append({'type': 'table', 'head': kopf, 'rows': zeilen, 'widths': breiten_schnitt})
 
-    grenze = a['grenzen'].get('beobachten') or a['grenzen'].get('auffaellig') or a['grenzen'].get('deutlich')
     bloecke.append({'type': 'heading', 'level': 1,
-                    'text': f'Auffällige Kinder (mindestens ein Teilbereich bis PR {grenze})' if grenze else 'Auffällige Kinder'})
+                    'text': f'Auffällige Kinder (mindestens ein Teilbereich {a["grenze_text"]})' if a['grenze_text'] else 'Auffällige Kinder'})
     if a['liste']:
-        kopf = ['Name', 'Klasse'] + [a['kuerzel'](n) for n in a['risikospalten']] + ['Stufe', 'NTA', 'FK', 'FP', 'EF',
+        kopf = ['Name', 'Klasse'] + [_spaltenkopf(a, n) for n in a['risikospalten']] + ['Stufe', 'NTA', 'FK', 'FP', 'EF',
                                                                                     'Schwerpunkt der individuellen Förderung', 'Anmerkungen zum Kind']
         zeilen = []
         for z in a['liste']:
             werte = []
-            for _, pr, abgeleitet, tendenz in z.werte:
-                werte.append('–' if pr is None else f'{pr}{"*" if abgeleitet else ""}{" " + a["tendenz_zeichen"][tendenz] if tendenz else ""}')
+            for _, wert, abgeleitet, tendenz in z.werte:
+                werte.append('–' if wert is None else f'{wert}{"*" if abgeleitet else ""}{" " + a["tendenz_zeichen"][tendenz] if tendenz else ""}')
             f = z.angaben
             zeilen.append([f'{z.schueler.nachname}, {z.schueler.vorname}', z.klasse] + werte + [
                 a['stufen'][z.stufe][0],

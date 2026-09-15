@@ -13,7 +13,12 @@ from diagnostik import (
     STUFE_DEUTLICH,
     auswerten,
     diagramm,
+    diagramme,
+    grenze_text,
     lege_vorbelegung_an,
+    skalen_im_verlauf,
+    sls_ohne_prozentrang,
+    stufen_baender,
     prozentrang_aus,
     risikogrenzen,
     stufe_fuer,
@@ -188,23 +193,81 @@ class DiagnostikLogikTestCase(unittest.TestCase):
     def test_reading_history_spans_sls_and_elfe(self):
         self._ergebnis('SLS 1-4', '2024/2025', 'ende', Leseleistung={'rohwert': 20, 'lesequotient': 82})
         self._ergebnis('ELFE II', '2025/2026', 'ende', Gesamt={'rohwert': 60, 't_wert': 48, 'prozentrang': 42})
-        self._ergebnis('SLS 1-4', '2023/2024', 'ende', Leseleistung={'rohwert': 8, 'prozentrang': 20})
+        self._ergebnis('SLS 1-4', '2023/2024', 'ende', Leseleistung={'rohwert': 30, 'lesequotient': 95})
 
         bereiche = verlauf(self.kind, risikogrenzen())
         lesen = next(b for b in bereiche if b['bereich'] == 'Lesen')
         self.assertEqual(['Ende 2023/2024', 'Ende 2024/2025', 'Ende 2025/2026'], [label for _, label in lesen['zeiten']])
-        self.assertEqual(42, lesen['aktuell'].niedrigster_prozentrang)
-        self.assertEqual('besser', lesen['trend'])
+        self.assertEqual('PR 42', lesen['aktuell'].schwaechster_leitwert.anzeige)
+        # Von LQ zu PR gibt es keinen Trend - die Skalen sind nicht vergleichbar.
+        self.assertIsNone(lesen['trend'])
         self.assertEqual({'Leseleistung (SLS 1-4)', 'Gesamt (ELFE II)'}, set(lesen['reihen']))
+        self.assertEqual(['lq', 'pr'], skalen_im_verlauf(lesen))
 
-        geometrie = diagramm(lesen)
-        self.assertEqual(3, len(geometrie['achse']))
-        sls = next(r for r in geometrie['reihen'] if r['name'].startswith('Leseleistung'))
-        self.assertEqual(2, len(sls['punkte']))
-        # LQ 82 (PR 12) liegt tiefer im Diagramm als PR 20.
-        self.assertEqual([20, 12], [p['pr'] for p in sls['punkte']])
-        self.assertGreater(sls['punkte'][1]['y'], sls['punkte'][0]['y'])
-        self.assertEqual(geometrie['oben'], round(geometrie['y'](100), 1))
+        lq = diagramm(lesen, 'lq')
+        self.assertEqual(['Ende 2023/2024', 'Ende 2024/2025'], [p['label'] for p in lq['achse']])
+        self.assertEqual(['Leseleistung (SLS 1-4)'], [r['name'] for r in lq['reihen']])
+        punkte = lq['reihen'][0]['punkte']
+        self.assertEqual([95, 82], [p['wert'] for p in punkte])
+        self.assertEqual([None, None], [p['pr'] for p in punkte])
+        self.assertGreater(punkte[1]['y'], punkte[0]['y'])
+        self.assertEqual(lq['oben'], round(lq['y'](150), 1))
+        self.assertEqual(lq['unten'], round(lq['y'](30), 1), 'Werte unter der Skala liegen am Rand')
+
+        pr = diagramm(lesen, 'pr')
+        self.assertEqual(['Ende 2025/2026'], [p['label'] for p in pr['achse']])
+        self.assertEqual(pr['oben'], round(pr['y'](100), 1))
+        self.assertEqual(['lq', 'pr'], [d['geometrie']['skala'] for d in diagramme(lesen, risikogrenzen())])
+
+    def test_sls_is_rated_by_lesequotient_not_percentile(self):
+        grenzen = risikogrenzen()
+        self.assertEqual({'beobachten': 89, 'auffaellig': 79, 'deutlich': 69}, grenzen.lq)
+        erwartet = {90: None, 89: STUFE_BEOBACHTEN, 80: STUFE_BEOBACHTEN, 79: STUFE_AUFFAELLIG, 69: STUFE_DEUTLICH}
+        for jahr, (lq, stufe) in enumerate(erwartet.items(), start=2019):
+            # Ein versehentlich eingetragener PR zaehlt nicht.
+            ergebnis = self._ergebnis('SLS 1-4', f'{jahr}/{jahr + 1}', 'ende',
+                                      Leseleistung={'rohwert': 10, 'lesequotient': lq, 'prozentrang': 50})
+            auswertung = auswerten(ergebnis, grenzen)
+            self.assertEqual(stufe, auswertung.stufe, f'LQ {lq}')
+            self.assertEqual(f'LQ {lq}', auswertung.schwaechster_leitwert.anzeige)
+            self.assertIsNone(auswertung.niedrigster_prozentrang)
+            self.assertFalse(auswertung.leitwerte[0].abgeleitet)
+        self.assertEqual(['rohwert', 'lesequotient'], self._testform('SLS 1-4').kennwerte[0].wertarten)
+        self.assertEqual('lq', self._testform('SLS 1-4').kennwerte[0].skala)
+
+    def test_lq_limits_follow_configuration_and_trend_stays_on_lq(self):
+        config = SystemKonfiguration.query.first() or SystemKonfiguration()
+        db.session.add(config)
+        db.session.commit()
+        config.diagnostik_lq_beobachten, config.diagnostik_lq_auffaellig, config.diagnostik_lq_deutlich = None, 84, 74
+        db.session.commit()
+        grenzen = risikogrenzen()
+        self.assertEqual({'auffaellig': 84, 'deutlich': 74}, grenzen.lq)
+        self.assertEqual('bis LQ 84', grenze_text(grenzen, 'lq'))
+
+        self._ergebnis('SLS 1-4', '2023/2024', 'ende', Leseleistung={'lesequotient': 100})
+        self._ergebnis('SLS 1-4', '2024/2025', 'ende', Leseleistung={'lesequotient': 84})
+        lesen = next(b for b in verlauf(self.kind, grenzen) if b['bereich'] == 'Lesen')
+        self.assertEqual('schlechter', lesen['trend'])
+        self.assertEqual(STUFE_AUFFAELLIG, lesen['aktuell'].stufe)
+
+        geometrie = diagramm(lesen, 'lq')
+        baender = stufen_baender(geometrie, grenzen)
+        self.assertEqual(['deutlich', 'auffaellig'], [b['stufe'] for b in baender])
+        self.assertEqual(['bis LQ 74', 'bis LQ 84'], [b['text'] for b in baender])
+        # "bis 84" endet an der Linie 85, das unterste Band beginnt am Rand der Skala.
+        self.assertEqual(round(geometrie['y'](85), 1), baender[1]['y'])
+        self.assertEqual(geometrie['unten'], round(baender[0]['y'] + baender[0]['hoehe'], 1))
+
+    def test_migration_removes_percentile_from_sls(self):
+        kennwert = self._testform('SLS 1-4').kennwerte[0]
+        kennwert.prozentrang = True
+        db.session.commit()
+        self.assertEqual('pr', kennwert.skala)
+        self.assertEqual(1, sls_ohne_prozentrang())
+        db.session.commit()
+        self.assertEqual(['rohwert', 'lesequotient'], kennwert.wertarten)
+        self.assertEqual(0, sls_ohne_prozentrang())
 
     def test_results_are_deleted_with_the_child(self):
         self._ergebnis('HSP 3', '2025/2026', 'ende', Graphemtreffer={'prozentrang': 50})

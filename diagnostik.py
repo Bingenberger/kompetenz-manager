@@ -1,14 +1,18 @@
 """Standardisierte Diagnostik: Auswertung, Risikostufen und Verlauf.
 
-Verglichen wird über den Prozentrang. Er ist bei allen Verfahren vorhanden oder
-aus dem Normwert ableitbar und macht Ergebnisse verschiedener Tests
-vergleichbar - etwa wenn der Lesetest in Klasse 3 vom SLS zu ELFE II wechselt.
+Verglichen wird auf zwei Skalen:
 
-Fehlt der Prozentrang, wird er aus T-Wert (Mittel 50, Streuung 10) oder
-Lesequotient (Mittel 100, Streuung 15) über die Normalverteilung abgeleitet.
-Das ist die Definition dieser Skalen, keine Normtabelle - der Wert wird aber
-als abgeleitet gekennzeichnet, weil die Tabelle eines Tests davon um ein, zwei
-Punkte abweichen kann.
+- Prozentrang (PR) für Tests, die ihn ausweisen (HSP, ELFE II). Fehlt er, wird
+  er aus dem T-Wert (Mittel 50, Streuung 10) über die Normalverteilung
+  abgeleitet und als abgeleitet gekennzeichnet.
+- Lesequotient (LQ) für Tests, die nur Rohwert und LQ liefern (SLS). Ein
+  Kennwert gehört zu dieser Skala, wenn er einen LQ, aber keinen PR hat. Die
+  Schule ordnet den LQ nach eigenen Grenzen ein (unter 90 unterdurchschnittlich,
+  unter 80 schwach, unter 70 sehr schwach); daraus werden eigene Risikogrenzen,
+  und ein PR wird für diese Tests weder angezeigt noch errechnet.
+
+Ergebnisse unterschiedlicher Skalen werden nicht gegeneinander verrechnet:
+kein Trend von LQ zu PR, und das Diagramm zeigt je Skala eine eigene Grafik.
 """
 
 from dataclasses import dataclass, field
@@ -50,8 +54,20 @@ STUFEN = {
     STUFE_BEOBACHTEN: ('beobachten', 'info'),
 }
 STANDARD_GRENZEN = {STUFE_BEOBACHTEN: 25, STUFE_AUFFAELLIG: 16, STUFE_DEUTLICH: 10}
+# LQ-Grenzen (einschließlich) nach der Auswertungstabelle SLS der Schule:
+# unter 90 unterdurchschnittlich, unter 80 schwach, unter 70 sehr schwach.
+STANDARD_GRENZEN_LQ = {STUFE_BEOBACHTEN: 89, STUFE_AUFFAELLIG: 79, STUFE_DEUTLICH: 69}
 
-# Ab dieser Veränderung des Prozentrangs gilt ein Verlauf als Bewegung.
+SKALA_PR = 'pr'
+SKALA_LQ = 'lq'
+SKALEN = {
+    SKALA_PR: {'kuerzel': 'PR', 'name': 'Prozentrang', 'min': 0, 'max': 100, 'ticks': [0, 25, 50, 75, 100]},
+    SKALA_LQ: {'kuerzel': 'LQ', 'name': 'Lesequotient', 'min': 50, 'max': 150, 'ticks': [50, 70, 90, 110, 130, 150]},
+}
+
+# Ab dieser Veränderung (PR- bzw. LQ-Punkte) gilt ein Verlauf als Bewegung.
+# Beim LQ sind zehn Punkte etwa zwei Messfehler des SLS und eine Stufe der
+# Auswertungstabelle - kleinere Schwankungen sind kein Fortschritt.
 TREND_SCHWELLE = 10
 
 
@@ -78,26 +94,69 @@ def prozentrang_aus(wert):
     return max(0, min(100, round(_normalverteilung(z) * 100))), True
 
 
+class Grenzen(dict):
+    """Stufe -> Prozentrang-Grenze; die LQ-Grenzen hängen als .lq daran."""
+
+    def __init__(self, pr, lq=None):
+        super().__init__(pr)
+        self.lq = dict(STANDARD_GRENZEN_LQ if lq is None else lq)
+
+    def fuer(self, skala):
+        return self.lq if skala == SKALA_LQ else self
+
+
+def grenzen_fuer(grenzen, skala):
+    """Die Grenzen einer Skala - auch für ein schlichtes dict (nur PR)."""
+    if skala == SKALA_LQ:
+        return getattr(grenzen, 'lq', STANDARD_GRENZEN_LQ)
+    return grenzen
+
+
 def risikogrenzen(config=None):
-    """Stufe -> Prozentrang-Grenze (einschließlich); ausgeschaltete fehlen."""
+    """Stufe -> Grenze (einschließlich) je Skala; ausgeschaltete Stufen fehlen."""
     config = config if config is not None else SystemKonfiguration.query.first()
     if config is None:
-        return dict(STANDARD_GRENZEN)
-    grenzen = {
+        return Grenzen(STANDARD_GRENZEN)
+    pr = {
         STUFE_BEOBACHTEN: config.diagnostik_pr_beobachten,
         STUFE_AUFFAELLIG: config.diagnostik_pr_auffaellig,
         STUFE_DEUTLICH: config.diagnostik_pr_deutlich,
     }
-    return {stufe: grenze for stufe, grenze in grenzen.items() if grenze is not None}
+    lq = {
+        STUFE_BEOBACHTEN: config.diagnostik_lq_beobachten,
+        STUFE_AUFFAELLIG: config.diagnostik_lq_auffaellig,
+        STUFE_DEUTLICH: config.diagnostik_lq_deutlich,
+    }
+    return Grenzen(
+        {stufe: grenze for stufe, grenze in pr.items() if grenze is not None},
+        {stufe: grenze for stufe, grenze in lq.items() if grenze is not None},
+    )
 
 
-def stufe_fuer(prozentrang, grenzen):
-    """Die schwerste Stufe, deren Grenze der Prozentrang erreicht."""
-    if prozentrang is None:
+def grenze_text(grenzen, skala=SKALA_PR):
+    """'bis PR 25' - die weiteste eingeschaltete Grenze einer Skala."""
+    werte = grenzen_fuer(grenzen, skala)
+    grenze = werte.get(STUFE_BEOBACHTEN) or werte.get(STUFE_AUFFAELLIG) or werte.get(STUFE_DEUTLICH)
+    return f'bis {SKALEN[skala]["kuerzel"]} {grenze}' if grenze is not None else None
+
+
+def vergleichswert(kennwert, wert):
+    """(Skala, Wert, abgeleitet?) eines eingetragenen Werts, sonst (Skala, None, False)."""
+    skala = kennwert.skala
+    if skala == SKALA_LQ:
+        lq = wert.lesequotient if wert is not None else None
+        return skala, lq, False
+    prozentrang, abgeleitet = prozentrang_aus(wert)
+    return skala, prozentrang, abgeleitet
+
+
+def stufe_fuer(wert, grenzen):
+    """Die schwerste Stufe, deren Grenze der Wert erreicht (PR oder LQ - je nach Grenzen)."""
+    if wert is None:
         return None
     for stufe in (STUFE_DEUTLICH, STUFE_AUFFAELLIG, STUFE_BEOBACHTEN):
         grenze = grenzen.get(stufe)
-        if grenze is not None and prozentrang <= grenze:
+        if grenze is not None and wert <= grenze:
             return stufe
     return None
 
@@ -112,9 +171,23 @@ def schwerste_stufe(stufen):
 @dataclass
 class Leitwert:
     kennwert: DiagnostikKennwert
-    prozentrang: int
+    wert: int
     abgeleitet: bool
     stufe: str
+    skala: str = SKALA_PR
+
+    @property
+    def prozentrang(self):
+        return self.wert if self.skala == SKALA_PR else None
+
+    @property
+    def kuerzel(self):
+        return SKALEN[self.skala]['kuerzel']
+
+    @property
+    def anzeige(self):
+        """'PR 12' oder 'LQ 85'."""
+        return f'{self.kuerzel} {self.wert}'
 
 
 @dataclass
@@ -135,7 +208,7 @@ class Auswertung:
         stufe = self.stufe
         if not stufe:
             return []
-        return sorted((w for w in self.risikowerte if w.stufe == stufe), key=lambda w: w.prozentrang)
+        return sorted((w for w in self.risikowerte if w.stufe == stufe), key=lambda w: (w.skala, w.wert))
 
     @property
     def hat_werte(self):
@@ -143,8 +216,17 @@ class Auswertung:
 
     @property
     def niedrigster_prozentrang(self):
-        werte = [leitwert.prozentrang for leitwert in self.leitwerte]
+        werte = [leitwert.wert for leitwert in self.leitwerte if leitwert.skala == SKALA_PR]
         return min(werte) if werte else None
+
+    @property
+    def schwaechster_leitwert(self):
+        """Der niedrigste Leitwert - Prozentränge vor Lesequotienten, falls beides vorkommt."""
+        for skala in (SKALA_PR, SKALA_LQ):
+            werte = [leitwert for leitwert in self.leitwerte if leitwert.skala == skala]
+            if werte:
+                return min(werte, key=lambda w: w.wert)
+        return None
 
 
 def auswerten(ergebnis, grenzen):
@@ -153,12 +235,13 @@ def auswerten(ergebnis, grenzen):
     for kennwert in ergebnis.testform.kennwerte:
         if not (kennwert.leitwert or kennwert.risiko):
             continue
-        prozentrang, abgeleitet = prozentrang_aus(ergebnis.wert_fuer(kennwert.id))
-        if prozentrang is None:
+        skala, vergleich, abgeleitet = vergleichswert(kennwert, ergebnis.wert_fuer(kennwert.id))
+        if vergleich is None:
             continue
         wert = Leitwert(
-            kennwert, prozentrang, abgeleitet,
-            stufe_fuer(prozentrang, grenzen) if kennwert.risiko else None,
+            kennwert, vergleich, abgeleitet,
+            stufe_fuer(vergleich, grenzen_fuer(grenzen, skala)) if kennwert.risiko else None,
+            skala,
         )
         if kennwert.leitwert:
             auswertung.leitwerte.append(wert)
@@ -275,7 +358,8 @@ def verlauf(schueler, grenzen):
 
     Rückgabe: Liste von dicts je Bereich mit
       'bereich', 'auswertungen' (chronologisch),
-      'reihen' (Kennwertname -> [(zeitschlüssel, PR, abgeleitet, stufe)]),
+      'reihen' (Kennwertname -> [(zeitschlüssel, Wert, abgeleitet, stufe)]),
+      'skalen' (Kennwertname -> 'pr' oder 'lq'),
       'zeiten' (sortierte Zeitschlüssel mit Label),
       'aktuell' (letzte Auswertung), 'trend'.
     """
@@ -286,16 +370,15 @@ def verlauf(schueler, grenzen):
     bereiche = {}
     for ergebnis in ergebnisse:
         bereich = ergebnis.testform.verfahren.bereich
-        eintrag = bereiche.setdefault(bereich, {'bereich': bereich, 'auswertungen': [], 'reihen': {}, 'zeiten': {}})
+        eintrag = bereiche.setdefault(bereich, {'bereich': bereich, 'auswertungen': [], 'reihen': {}, 'skalen': {}, 'zeiten': {}})
         auswertung = auswerten(ergebnis, grenzen)
         eintrag['auswertungen'].append(auswertung)
         schluessel = zeitschluessel(ergebnis.schuljahr, ergebnis.halbjahr)
         eintrag['zeiten'][schluessel] = zeitlabel(ergebnis.schuljahr, ergebnis.halbjahr)
         for leitwert in auswertung.leitwerte:
-            reihe = eintrag['reihen'].setdefault(
-                f'{leitwert.kennwert.name} ({ergebnis.testform.verfahren.name})', []
-            )
-            reihe.append((schluessel, leitwert.prozentrang, leitwert.abgeleitet, leitwert.stufe))
+            name = f'{leitwert.kennwert.name} ({ergebnis.testform.verfahren.name})'
+            eintrag['reihen'].setdefault(name, []).append((schluessel, leitwert.wert, leitwert.abgeleitet, leitwert.stufe))
+            eintrag['skalen'][name] = leitwert.skala
 
     ergebnis_liste = []
     for eintrag in bereiche.values():
@@ -303,36 +386,58 @@ def verlauf(schueler, grenzen):
         mit_werten = [a for a in eintrag['auswertungen'] if a.hat_werte]
         eintrag['aktuell'] = mit_werten[-1] if mit_werten else None
         vorher = mit_werten[-2] if len(mit_werten) > 1 else None
-        eintrag['trend'] = trend(
-            vorher.niedrigster_prozentrang if vorher else None,
-            eintrag['aktuell'].niedrigster_prozentrang if eintrag['aktuell'] else None,
-        )
+        jetzt = eintrag['aktuell'].schwaechster_leitwert if eintrag['aktuell'] else None
+        frueher = vorher.schwaechster_leitwert if vorher else None
+        # Nur auf derselben Skala vergleichbar: vom SLS (LQ) zu ELFE II (PR) gibt es keinen Trend.
+        vergleichbar = jetzt is not None and frueher is not None and jetzt.skala == frueher.skala
+        eintrag['trend'] = trend(frueher.wert, jetzt.wert) if vergleichbar else None
         ergebnis_liste.append(eintrag)
     return sorted(ergebnis_liste, key=lambda e: e['bereich'].lower())
 
 
-def diagramm(eintrag, breite=560, hoehe=220):
-    """Geometrie für ein Liniendiagramm der Prozentränge eines Bereichs.
+def skalen_im_verlauf(eintrag):
+    """Die Skalen eines Bereichs in der Reihenfolge ihres ersten Auftretens."""
+    erste = {}
+    for name, punkte in eintrag['reihen'].items():
+        skala = eintrag.get('skalen', {}).get(name, SKALA_PR)
+        beginn = min(p[0] for p in punkte)
+        erste[skala] = min(erste.get(skala, beginn), beginn)
+    return sorted(erste, key=lambda skala: erste[skala])
 
-    Gibt Koordinaten zurück; das SVG baut die Vorlage. y läuft von PR 100 oben
-    bis 0 unten.
+
+def diagramm(eintrag, skala=SKALA_PR, breite=560, hoehe=220):
+    """Geometrie für ein Liniendiagramm der Werte einer Skala eines Bereichs.
+
+    Gibt Koordinaten zurück; das SVG baut die Vorlage. y läuft vom höchsten Wert
+    der Skala oben zum niedrigsten unten; Werte außerhalb liegen am Rand.
     """
+    skalen = eintrag.get('skalen', {})
+    reihen_der_skala = {
+        name: punkte for name, punkte in eintrag['reihen'].items()
+        if skalen.get(name, SKALA_PR) == skala
+    }
+    benutzte_zeiten = {p[0] for punkte in reihen_der_skala.values() for p in punkte}
+    zeiten = [(s, label) for s, label in eintrag['zeiten'] if s in benutzte_zeiten]
+    info = SKALEN[skala]
+    minimum, maximum = info['min'], info['max']
+
     # Seitlich Platz für die halbe Breite einer Achsenbeschriftung ("Mitte 2025/2026").
     rand_links, rand_rechts, rand_oben, rand_unten = 64, 52, 12, 34
-    zeiten = eintrag['zeiten']
     innen_b = breite - rand_links - rand_rechts
     innen_h = hoehe - rand_oben - rand_unten
     schritt = innen_b / max(1, len(zeiten) - 1)
     x_von = {schluessel: rand_links + (i * schritt if len(zeiten) > 1 else innen_b / 2) for i, (schluessel, _) in enumerate(zeiten)}
 
-    def y(prozentrang):
-        return rand_oben + innen_h * (1 - prozentrang / 100)
+    def y(wert):
+        wert = max(minimum, min(maximum, wert))
+        return rand_oben + innen_h * (1 - (wert - minimum) / (maximum - minimum))
 
     reihen = []
-    for name, punkte in eintrag['reihen'].items():
+    for name, punkte in reihen_der_skala.items():
         koordinaten = [
-            {'x': round(x_von[s], 1), 'y': round(y(pr), 1), 'pr': pr, 'abgeleitet': abgeleitet, 'stufe': stufe}
-            for s, pr, abgeleitet, stufe in punkte
+            {'x': round(x_von[s], 1), 'y': round(y(wert), 1), 'wert': wert, 'pr': wert if skala == SKALA_PR else None,
+             'abgeleitet': abgeleitet, 'stufe': stufe}
+            for s, wert, abgeleitet, stufe in punkte
         ]
         reihen.append({'name': name, 'punkte': koordinaten,
                        'pfad': ' '.join(f"{p['x']},{p['y']}" for p in koordinaten)})
@@ -341,9 +446,21 @@ def diagramm(eintrag, breite=560, hoehe=220):
         'links': rand_links, 'rechts': breite - rand_rechts,
         'oben': rand_oben, 'unten': hoehe - rand_unten,
         'y': y,
+        'skala': skala, 'kuerzel': info['kuerzel'], 'skala_name': info['name'],
+        'minimum': minimum, 'maximum': maximum, 'ticks': info['ticks'],
         'achse': [{'x': round(x_von[s], 1), 'label': label} for s, label in zeiten],
         'reihen': reihen,
+        'abgeleitet': any(p['abgeleitet'] for r in reihen for p in r['punkte']),
     }
+
+
+def diagramme(eintrag, grenzen):
+    """Je Skala eines Bereichs: Geometrie und Stufenbänder."""
+    ergebnis = []
+    for skala in skalen_im_verlauf(eintrag):
+        geometrie = diagramm(eintrag, skala)
+        ergebnis.append({'geometrie': geometrie, 'baender': stufen_baender(geometrie, grenzen)})
+    return ergebnis
 
 
 def werte_zeilen(ergebnis):
@@ -365,16 +482,21 @@ def werte_zeilen(ergebnis):
 
 def stufen_baender(geometrie, grenzen):
     """Farbige Bänder der Risikostufen fürs Diagramm, von unten nach oben."""
+    skala = geometrie.get('skala', SKALA_PR)
+    werte = grenzen_fuer(grenzen, skala)
     baender = []
-    untergrenze = 0
+    untergrenze = geometrie.get('minimum', 0)
     for stufe in (STUFE_DEUTLICH, STUFE_AUFFAELLIG, STUFE_BEOBACHTEN):
-        grenze = grenzen.get(stufe)
-        if grenze is None or grenze <= untergrenze:
+        grenze = werte.get(stufe)
+        # LQ-Grenzen sind ganze Zahlen einschließlich - "bis 89" endet an der 90.
+        kante = grenze + 1 if grenze is not None and skala == SKALA_LQ else grenze
+        if grenze is None or kante <= untergrenze:
             continue
-        oben = round(geometrie['y'](grenze), 1)
+        oben = round(geometrie['y'](kante), 1)
         unten = round(geometrie['y'](untergrenze), 1)
-        baender.append({'stufe': stufe, 'y': oben, 'hoehe': round(unten - oben, 1), 'grenze': grenze})
-        untergrenze = grenze
+        baender.append({'stufe': stufe, 'y': oben, 'hoehe': round(unten - oben, 1), 'grenze': grenze,
+                        'text': f'bis {SKALEN[skala]["kuerzel"]} {grenze}'})
+        untergrenze = kante
     return baender
 
 
@@ -525,7 +647,7 @@ VORBELEGUNG = [
         'name': 'SLS 1-4', 'bereich': 'Lesen',
         'beschreibung': 'Salzburger Lesescreening für die Klassenstufen 1–4. Rohwert: richtig beurteilte Sätze.',
         'testformen': [
-            ('SLS 1-4', [_kennwert('Leseleistung', lq=True, leit=True)], [(1, 'ende'), (2, 'ende')]),
+            ('SLS 1-4', [_kennwert('Leseleistung', pr=False, lq=True, leit=True)], [(1, 'ende'), (2, 'ende')]),
         ],
     },
     {
@@ -596,6 +718,26 @@ def schaerfe_vorbelegung_nach():
             if (jahrgang, halbjahr) not in vorhanden:
                 testform.zeitpunkte.append(DiagnostikZeitpunkt(jahrgang=jahrgang, halbjahr=halbjahr))
                 geaendert = vorher + 1
+    return geaendert
+
+
+def sls_ohne_prozentrang():
+    """Das SLS weist nur Rohwert und Lesequotient aus - kein Prozentrang.
+
+    Nimmt den PR aus den Kennwerten der SLS-Vorbelegung, die einen LQ haben.
+    Eingetragene Prozentränge bleiben in der Datenbank, zählen aber nicht mehr
+    und verschwinden beim nächsten Speichern des Ergebnisses. Idempotent; gibt
+    die Zahl geänderter Kennwerte zurück. Committet nicht.
+    """
+    verfahren = DiagnostikVerfahren.query.filter_by(name='SLS 1-4').first()
+    if not verfahren:
+        return 0
+    geaendert = 0
+    for testform in verfahren.testformen:
+        for kennwert in testform.kennwerte:
+            if kennwert.lesequotient and kennwert.prozentrang:
+                kennwert.prozentrang = False
+                geaendert += 1
     return geaendert
 
 

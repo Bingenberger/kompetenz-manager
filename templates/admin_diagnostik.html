@@ -45,7 +45,7 @@
                                 {% for k in t.kennwerte %}
                                 <div>
                                     {% if k.leitwert %}<strong title="Leitwert: Verlauf und Diagramm">{{ k.name }}</strong>{% else %}{{ k.name }}{% endif %}
-                                    {% if k.risiko %}<span class="badge bg-warning-subtle text-warning-emphasis border ms-1" title="Prozentrang zählt für die Risikostufe">Risiko</span>{% endif %}
+                                    {% if k.risiko %}<span class="badge bg-warning-subtle text-warning-emphasis border ms-1" title="Zählt für die Risikostufe (Prozentrang, beim SLS Lesequotient)">Risiko</span>{% endif %}
                                     <span class="text-muted">({% for art in k.wertarten %}{{ wertart_kuerzel[art] }}{% if not loop.last %}, {% endif %}{% endfor %})</span>
                                 </div>
                                 {% endfor %}
@@ -65,7 +65,7 @@
         {% else %}
         <div class="alert alert-info">Noch keine Verfahren angelegt.</div>
         {% endfor %}
-        <p class="small text-muted"><strong>Fett</strong>: Leitwerte, sie bilden Verlauf und Diagramm. <span class="badge bg-warning-subtle text-warning-emphasis border">Risiko</span>: Der Prozentrang zählt für die Risikostufe. RW = Rohwert, PR = Prozentrang, T = T-Wert, LQ = Lesequotient.</p>
+        <p class="small text-muted"><strong>Fett</strong>: Leitwerte, sie bilden Verlauf und Diagramm. <span class="badge bg-warning-subtle text-warning-emphasis border">Risiko</span>: Der Wert zählt für die Risikostufe – der Prozentrang, bei Kennwerten mit LQ und ohne PR (SLS) der Lesequotient. RW = Rohwert, PR = Prozentrang, T = T-Wert, LQ = Lesequotient.</p>
     </div>
 
     <div class="col-xl-4">
@@ -74,6 +74,7 @@
             <p class="small text-muted">Ein Ergebnis erhält die schwerste Stufe, die einer seiner Risiko-Kennwerte erreicht. Leeres Feld: Stufe ausgeschaltet.</p>
             <form method="POST" action="{{ url_for('diagnostik.admin_grenzen') }}">
                 {{ csrf_input() }}
+                <div class="small fw-semibold mb-1">Prozentrang (HSP, ELFE II)</div>
                 {% for stufe in ['beobachten', 'auffaellig', 'deutlich'] %}
                 {% set label, farbe = stufen[stufe] %}
                 <div class="input-group mb-2">
@@ -83,9 +84,19 @@
                     <input type="number" min="0" max="100" class="form-control" style="max-width: 6rem;" name="{{ stufe }}" id="grenze-{{ stufe }}" value="{{ grenzen.get(stufe, '') }}">
                 </div>
                 {% endfor %}
+                <div class="small fw-semibold mb-1 mt-3">Lesequotient (SLS, ohne Prozentrang)</div>
+                {% for stufe in ['beobachten', 'auffaellig', 'deutlich'] %}
+                {% set label, farbe = stufen[stufe] %}
+                <div class="input-group mb-2">
+                    <label class="input-group-text flex-grow-1 justify-content-between" for="grenze-lq-{{ stufe }}">
+                        <span class="badge text-bg-{{ farbe }}">{{ label }}</span> <span class="small">bis LQ</span>
+                    </label>
+                    <input type="number" min="40" max="160" class="form-control" style="max-width: 6rem;" name="lq_{{ stufe }}" id="grenze-lq-{{ stufe }}" value="{{ grenzen.lq.get(stufe, '') }}">
+                </div>
+                {% endfor %}
                 <button type="submit" class="btn btn-primary icon-btn mt-2">{{ bi('floppy', 'bi-icon-sm') }} <span>Grenzen speichern</span></button>
             </form>
-            <p class="small text-muted mt-3 mb-0">Zur Orientierung: PR 16 entspricht etwa T-Wert 40 und Lesequotient 85, PR 10 etwa T-Wert 37.</p>
+            <p class="small text-muted mt-3 mb-0">Zur Orientierung: PR 16 entspricht etwa T-Wert 40, PR 10 etwa T-Wert 37. Die LQ-Voreinstellung folgt der Auswertungstabelle SLS: unter 90 unterdurchschnittlich, unter 80 schwach, unter 70 sehr schwach.</p>
         </div>
 
         <div class="surface-panel p-4 mt-4">

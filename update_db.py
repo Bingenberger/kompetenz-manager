@@ -521,6 +521,9 @@ def _add_new_columns():
         ("system_konfiguration", "diagnostik_pr_beobachten", "INTEGER DEFAULT 25", None),
         ("system_konfiguration", "diagnostik_pr_auffaellig", "INTEGER DEFAULT 16", None),
         ("system_konfiguration", "diagnostik_pr_deutlich", "INTEGER DEFAULT 10", None),
+        ("system_konfiguration", "diagnostik_lq_beobachten", "INTEGER DEFAULT 89", None),
+        ("system_konfiguration", "diagnostik_lq_auffaellig", "INTEGER DEFAULT 79", None),
+        ("system_konfiguration", "diagnostik_lq_deutlich", "INTEGER DEFAULT 69", None),
         # Was bisher die Stufe bestimmte (Leitwerte), zaehlt weiter; dazu die
         # HSP-Strategien, deren Prozentraenge die Schule einbeziehen will.
         ("diagnostik_kennwert", "risiko", "BOOLEAN NOT NULL DEFAULT FALSE",
@@ -594,6 +597,10 @@ with app.app_context():
     nachgeschaerft = schaerfe_vorbelegung_nach()
     if nachgeschaerft:
         print(f"HSP-Vorbelegung an die Auswertungsmappen angepasst ({nachgeschaerft} Testform(en)).")
+    from diagnostik import sls_ohne_prozentrang
+    ohne_pr = sls_ohne_prozentrang()
+    if ohne_pr:
+        print(f"SLS: Prozentrang aus {ohne_pr} Kennwert(en) entfernt - das SLS liefert nur Rohwert und LQ.")
     db.session.commit()
     
     print("--- FERTIG! Die Datenbank wurde erweitert. ---")

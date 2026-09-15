@@ -1,22 +1,23 @@
 {#
-  Verlaufsdiagramm der Prozentränge eines Lernbereichs.
+  Verlaufsdiagramm eines Lernbereichs auf einer Skala (Prozentrang oder Lesequotient).
   geometrie: diagnostik.diagramm(), baender: diagnostik.stufen_baender()
 #}
 {% macro diagnostik_diagramm(geometrie, baender, stufen, titel) -%}
 {% set farben = ['#277da1', '#43aa8b', '#f8961e', '#577590', '#90be6d', '#f94144'] %}
 {% set bandfarben = {'deutlich': 'rgba(249,65,68,0.14)', 'auffaellig': 'rgba(248,150,30,0.14)', 'beobachten': 'rgba(39,125,161,0.08)'} %}
 <figure class="mb-2">
+    <div class="small text-muted mb-1">{{ geometrie.skala_name }} ({{ geometrie.kuerzel }})</div>
     <div class="table-responsive">
-    <svg viewBox="0 0 {{ geometrie.breite }} {{ geometrie.hoehe }}" width="100%" style="max-width: {{ geometrie.breite }}px; min-width: 420px;" role="img" aria-label="{{ titel }}: Prozentränge im Verlauf">
+    <svg viewBox="0 0 {{ geometrie.breite }} {{ geometrie.hoehe }}" width="100%" style="max-width: {{ geometrie.breite }}px; min-width: 420px;" role="img" aria-label="{{ titel }}: {{ geometrie.skala_name }} im Verlauf">
         {% for band in baender %}
         <rect x="{{ geometrie.links }}" y="{{ band.y }}" width="{{ geometrie.rechts - geometrie.links }}" height="{{ band.hoehe }}" fill="{{ bandfarben[band.stufe] }}">
-            <title>{{ stufen[band.stufe][0] }}: bis PR {{ band.grenze }}</title>
+            <title>{{ stufen[band.stufe][0] }}: {{ band.text }}</title>
         </rect>
         {% endfor %}
-        {% for pr in [0, 25, 50, 75, 100] %}
-        {% set y = geometrie.y(pr)|round(1) %}
+        {% for tick in geometrie.ticks %}
+        {% set y = geometrie.y(tick)|round(1) %}
         <line x1="{{ geometrie.links }}" x2="{{ geometrie.rechts }}" y1="{{ y }}" y2="{{ y }}" stroke="rgba(87,117,144,0.18)" stroke-width="1"/>
-        <text x="{{ geometrie.links - 6 }}" y="{{ y + 4 }}" text-anchor="end" font-size="11" fill="#6c7a89">{{ pr }}</text>
+        <text x="{{ geometrie.links - 6 }}" y="{{ y + 4 }}" text-anchor="end" font-size="11" fill="#6c7a89">{{ tick }}</text>
         {% endfor %}
         {% for punkt in geometrie.achse %}
         <text x="{{ punkt.x }}" y="{{ geometrie.unten + 18 }}" text-anchor="middle" font-size="11" fill="#3b4a59">{{ punkt.label }}</text>
@@ -28,7 +29,7 @@
         {% endif %}
         {% for p in reihe.punkte %}
         <circle cx="{{ p.x }}" cy="{{ p.y }}" r="4.5" fill="{{ '#fff' if p.abgeleitet else farbe }}" stroke="{{ farbe }}" stroke-width="2">
-            <title>{{ reihe.name }}: PR {{ p.pr }}{% if p.abgeleitet %} (abgeleitet){% endif %}{% if p.stufe %} – {{ stufen[p.stufe][0] }}{% endif %}</title>
+            <title>{{ reihe.name }}: {{ geometrie.kuerzel }} {{ p.wert }}{% if p.abgeleitet %} (abgeleitet){% endif %}{% if p.stufe %} – {{ stufen[p.stufe][0] }}{% endif %}</title>
         </circle>
         {% endfor %}
         {% endfor %}
@@ -38,7 +39,7 @@
         {% for reihe in geometrie.reihen %}
         <span class="d-inline-flex align-items-center gap-1"><span style="display:inline-block;width:14px;height:3px;background:{{ farben[loop.index0 % farben|length] }};"></span>{{ reihe.name }}</span>
         {% endfor %}
-        <span>○ = aus T-Wert/LQ abgeleitet</span>
+        {% if geometrie.abgeleitet %}<span>○ = aus dem T-Wert abgeleitet</span>{% endif %}
     </figcaption>
 </figure>
 {%- endmacro %}

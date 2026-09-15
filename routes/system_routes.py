@@ -10,7 +10,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import func
 from werkzeug.security import generate_password_hash
 
-from diagnostik import STUFEN as DIAGNOSTIK_STUFEN, diagramm as diagnostik_diagramm_geometrie, risikogrenzen, stufen_baender, verlauf as diagnostik_verlauf, werte_zeilen
+from diagnostik import STUFEN as DIAGNOSTIK_STUFEN, diagramme as diagnostik_diagramme, risikogrenzen, verlauf as diagnostik_verlauf, werte_zeilen
 from extensions import db
 from klassenzugriff import darf_ereignis_sehen, sichtbare_elternkontakte, sichtbare_ereignisse
 from models import Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, ErziehungsEreignisAnhang, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan, WorkPlanTaskAttachment
@@ -571,11 +571,9 @@ def schuelerakte():
         from routes.diagnostik_routes import darf_kind_sehen
         grenzen = risikogrenzen()
         for eintrag in diagnostik_verlauf(selected_student, grenzen):
-            geometrie = diagnostik_diagramm_geometrie(eintrag)
             diagnostik.append({
                 'eintrag': eintrag,
-                'geometrie': geometrie,
-                'baender': stufen_baender(geometrie, grenzen),
+                'diagramme': diagnostik_diagramme(eintrag, grenzen),
                 'zeilen': [(a, werte_zeilen(a.ergebnis)) for a in reversed(eintrag['auswertungen'])],
             })
         diagnostik_bearbeitbar = selected_student.is_active and darf_kind_sehen(current_user, selected_student)

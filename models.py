@@ -447,6 +447,11 @@ class SystemKonfiguration(db.Model):
     diagnostik_pr_beobachten = db.Column(db.Integer, nullable=True, default=25)
     diagnostik_pr_auffaellig = db.Column(db.Integer, nullable=True, default=16)
     diagnostik_pr_deutlich = db.Column(db.Integer, nullable=True, default=10)
+    # Dasselbe als Lesequotient für Tests ohne Prozentrang (SLS), nach der
+    # Auswertungstabelle der Schule: unter 90 / 80 / 70.
+    diagnostik_lq_beobachten = db.Column(db.Integer, nullable=True, default=89)
+    diagnostik_lq_auffaellig = db.Column(db.Integer, nullable=True, default=79)
+    diagnostik_lq_deutlich = db.Column(db.Integer, nullable=True, default=69)
 
 
 class Schuljahreswechsel(db.Model):
@@ -644,6 +649,11 @@ class DiagnostikKennwert(db.Model):
     @property
     def wertarten(self):
         return [art for art in ('rohwert', 'prozentrang', 't_wert', 'lesequotient') if getattr(self, art)]
+
+    @property
+    def skala(self):
+        """'lq', wenn der Test nur einen Lesequotienten liefert (SLS), sonst 'pr'."""
+        return 'lq' if self.lesequotient and not self.prozentrang else 'pr'
 
 
 class DiagnostikZeitpunkt(db.Model):

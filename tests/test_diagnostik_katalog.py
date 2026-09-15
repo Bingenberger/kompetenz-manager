@@ -107,6 +107,30 @@ class DiagnostikKatalogTestCase(unittest.TestCase):
         })
         with self.app.app_context():
             self.assertEqual({'auffaellig': 20, 'deutlich': 8}, risikogrenzen())
+            self.assertEqual({'beobachten': 89, 'auffaellig': 79, 'deutlich': 69}, risikogrenzen().lq,
+                             'ohne LQ-Felder bleiben die LQ-Grenzen')
+
+    def test_lq_limits_are_shown_validated_and_saved(self):
+        self._login()
+        html = self.client.get('/admin/diagnostik').get_data(as_text=True)
+        self.assertIn('name="lq_beobachten"', html)
+        self.assertIn('value="89"', html)
+        pfad = '/admin/diagnostik/grenzen'
+        basis = {'beobachten': '25', 'auffaellig': '16', 'deutlich': '10'}
+        antwort = self.client.post(pfad, data={'_csrf_token': self._token('/admin/diagnostik'), **basis,
+                                               'lq_beobachten': '89', 'lq_auffaellig': '200', 'lq_deutlich': '69'},
+                                   follow_redirects=True)
+        self.assertIn('Lesequotienten zwischen 40 und 160', antwort.get_data(as_text=True))
+        antwort = self.client.post(pfad, data={'_csrf_token': self._token('/admin/diagnostik'), **basis,
+                                               'lq_beobachten': '70', 'lq_auffaellig': '80', 'lq_deutlich': '69'},
+                                   follow_redirects=True)
+        self.assertIn('müssen aufsteigen', antwort.get_data(as_text=True))
+        self.client.post(pfad, data={'_csrf_token': self._token('/admin/diagnostik'), **basis,
+                                     'lq_beobachten': '84', 'lq_auffaellig': '', 'lq_deutlich': '74'})
+        with self.app.app_context():
+            grenzen = risikogrenzen()
+            self.assertEqual({'beobachten': 84, 'deutlich': 74}, grenzen.lq)
+            self.assertEqual({'beobachten': 25, 'auffaellig': 16, 'deutlich': 10}, dict(grenzen))
 
     def test_new_procedure_and_test_form(self):
         self._login()

@@ -119,7 +119,7 @@
         <div class="table-toolbar">
             <div>
                 <div class="table-toolbar-title">Auffällige Kinder ({{ a.liste|length }})</div>
-                <div class="small text-muted">Alle Kinder mit einer Risikostufe (bis PR {{ a.grenzen.get('beobachten', a.grenzen.get('auffaellig', a.grenzen.get('deutlich', '–'))) }}). Die Förderangaben gelten für das Schuljahr {{ a.schuljahr }}.</div>
+                <div class="small text-muted">Alle Kinder mit einer Risikostufe{% if a.grenze_text %} ({{ a.grenze_text }}){% endif %}. Die Förderangaben gelten für das Schuljahr {{ a.schuljahr }}.</div>
             </div>
             {% if a.liste %}<button type="submit" class="btn btn-sm btn-primary icon-btn">{{ bi('floppy', 'bi-icon-sm') }} <span>Förderangaben speichern</span></button>{% endif %}
         </div>
@@ -128,7 +128,7 @@
                 <thead class="table-light">
                     <tr>
                         <th>Name</th><th>Klasse</th>
-                        {% for name in a.risikospalten %}<th class="text-center" title="{{ name }}">{{ a.kuerzel(name) }}</th>{% endfor %}
+                        {% for name in a.risikospalten %}<th class="text-center" title="{{ name }}{% if a.spalten_kuerzel[name] != 'PR' %} ({{ a.spalten_kuerzel[name] }}){% endif %}">{{ a.kuerzel(name) }}{% if a.spalten_kuerzel[name] != 'PR' %} <span class="fw-normal small">({{ a.spalten_kuerzel[name] }})</span>{% endif %}</th>{% endfor %}
                         <th>Stufe</th>
                         {% for feld, kurz, lang in a.foerder_kuerzel %}{% if kurz == 'EF' %}<th class="text-center" title="Förderplan">FP</th>{% endif %}<th class="text-center" title="{{ lang }}">{{ kurz }}</th>{% endfor %}
                         <th>Schwerpunkt der individuellen Förderung</th><th>Anmerkungen zum Kind</th>
@@ -140,9 +140,9 @@
                     <tr>
                         <td class="text-nowrap"><input type="hidden" name="kinder" value="{{ kid }}"><a href="{{ url_for('system.schuelerakte', schueler_id=kid) }}#akte-diagnostik">{{ z.schueler.nachname }}, {{ z.schueler.vorname }}</a></td>
                         <td>{{ z.klasse }}</td>
-                        {% for name, pr, abgeleitet, tendenz in z.werte %}
+                        {% for name, wert, abgeleitet, tendenz in z.werte %}
                         <td class="text-center text-nowrap {% if z.ausloeser|selectattr('kennwert.name', 'equalto', name)|list %}fw-bold text-danger-emphasis{% endif %}">
-                            {% if pr is not none %}{{ pr }}{% if abgeleitet %}*{% endif %}{% if tendenz %}<span class="tendenz" title="{{ tendenz }}">{{ a.tendenz_zeichen[tendenz] }}</span>{% endif %}{% else %}–{% endif %}
+                            {% if wert is not none %}{{ wert }}{% if abgeleitet %}*{% endif %}{% if tendenz %}<span class="tendenz" title="{{ tendenz }}">{{ a.tendenz_zeichen[tendenz] }}</span>{% endif %}{% else %}–{% endif %}
                         </td>
                         {% endfor %}
                         <td><span class="badge text-bg-{{ a.stufen[z.stufe][1] }}">{{ a.stufen[z.stufe][0] }}</span></td>

@@ -320,9 +320,12 @@ class ImportAblaufTestCase(unittest.TestCase):
         with self.app.app_context():
             self.assertEqual({self.kinder['Ben'], self.kinder['Cem']}, {e.schueler_id for e in DiagnostikErgebnis.query.all()})
 
-    def test_sls_import_derives_percentile_from_lq(self):
+    def test_sls_import_takes_raw_value_and_lq_without_percentile(self):
         html = self._hochladen(sls_datei(), 'Auswertungstabelle SLS.ods', datum='2025-07-01').get_data(as_text=True)
         self.assertIn('1 Zeile(n) haben Werte, aber keinen Namen', html)
+        self.assertIn('eingestuft wird über den LQ', html)
+        self.assertIn('RW 17 · LQ 96', html)
+        self.assertNotIn('PR', html[html.index('RW 17'):html.index('RW 17') + 40])
         formular = self._formular(html)
         formular.update({'_csrf_token': self._token(), 'aktion': 'speichern', 'schuljahr': '2024/2025'})
         self.client.post('/diagnostik/import', data=formular)

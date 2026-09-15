@@ -483,7 +483,7 @@
 
                 <div class="tab-pane fade" id="akte-diagnostik-pane" role="tabpanel" aria-labelledby="akte-diagnostik-tab" tabindex="0">
                     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-                        <div class="small text-muted">Standardisierte Tests über die Schuljahre. Verglichen wird am Prozentrang der Leitwerte.</div>
+                        <div class="small text-muted">Standardisierte Tests über die Schuljahre. Verglichen wird am Prozentrang der Leitwerte, beim SLS am Lesequotienten.</div>
                         {% if diagnostik_bearbeitbar %}
                         <div class="akte-tab-actions">
                             <a href="{{ url_for('diagnostik.erfassen', schueler_id=selected_student.id) }}" class="btn btn-sm btn-outline-secondary icon-btn">
@@ -543,13 +543,15 @@
                         <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
                             <h4 class="h5 mb-0">{{ eintrag.bereich }}</h4>
                             {% if eintrag.aktuell %}
-                            {% if eintrag.aktuell.niedrigster_prozentrang is not none %}<span class="small text-muted">zuletzt PR {{ eintrag.aktuell.niedrigster_prozentrang }}</span>{% endif %}
+                            {% if eintrag.aktuell.schwaechster_leitwert %}<span class="small text-muted">zuletzt {{ eintrag.aktuell.schwaechster_leitwert.anzeige }}</span>{% endif %}
                             {% if eintrag.aktuell.stufe %}<span class="badge text-bg-{{ diagnostik_stufen[eintrag.aktuell.stufe][1] }}">{{ diagnostik_stufen[eintrag.aktuell.stufe][0] }}</span>{% endif %}
                             {% endif %}
                         </div>
-                        {% if bereich.geometrie.reihen %}
-                        {{ diagnostik_diagramm(bereich.geometrie, bereich.baender, diagnostik_stufen, eintrag.bereich) }}
-                        {% endif %}
+                        <div class="row g-3">
+                        {% for d in bereich.diagramme %}
+                        <div class="{{ 'col-xl-6' if bereich.diagramme|length > 1 else 'col-12' }}">{{ diagnostik_diagramm(d.geometrie, d.baender, diagnostik_stufen, eintrag.bereich) }}</div>
+                        {% endfor %}
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-sm align-middle mb-0 akte-mini-table">
                                 <thead class="table-light">
@@ -572,7 +574,7 @@
                                         </td>
                                         <td>
                                             {% if auswertung.stufe %}<span class="badge text-bg-{{ diagnostik_stufen[auswertung.stufe][1] }}">{{ diagnostik_stufen[auswertung.stufe][0] }}</span>
-                                            <div class="small text-muted mt-1">{% for w in auswertung.ausloeser %}{{ w.kennwert.name }} PR {{ w.prozentrang }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
+                                            <div class="small text-muted mt-1">{% for w in auswertung.ausloeser %}{{ w.kennwert.name }} {{ w.anzeige }}{% if not loop.last %}, {% endif %}{% endfor %}</div>
                                             {% elif auswertung.hat_werte %}<span class="small text-muted">unauffällig</span>{% endif %}
                                         </td>
                                         <td class="text-end text-nowrap">

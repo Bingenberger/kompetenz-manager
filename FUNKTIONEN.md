@@ -237,7 +237,7 @@ Hinterlegte Verfahren (von der Verwaltung als Katalog pflegbar, erweiterbar):
 | Verfahren | Lernbereich | Kennwerte | Vorbelegter Testplan |
 |---|---|---|---|
 | **HSP** (Hamburger Schreib-Probe; Testformen 1+, 2, 3, 4-5) | Rechtschreiben | Graphemtreffer, Wörter richtig, Strategien: alphabetisch, orthografisch, morphematisch, wortübergreifend (je Rohwert, Prozentrang, T-Wert) | Klasse 1–4, jeweils Mitte und Ende des Schuljahres |
-| **SLS 1–4** (Salzburger Lese-Screening) | Lesen | Leseleistung (Rohwert, Lesequotient, Prozentrang) | Ende Klasse 1 und 2 |
+| **SLS 1–4** (Salzburger Lese-Screening) | Lesen | Leseleistung (Rohwert und Lesequotient – das SLS weist keinen Prozentrang aus) | Ende Klasse 1 und 2 |
 | **ELFE II** (Leseverständnistest) | Lesen | Wort-, Satz-, Textverständnis und Gesamt (Rohwert, Prozentrang, T-Wert) | Ende Klasse 3 und 4 |
 
 - Der **Testplan** legt fest, welche Testform in welchem Jahrgang zur Mitte oder am
@@ -245,21 +245,24 @@ Hinterlegte Verfahren (von der Verwaltung als Katalog pflegbar, erweiterbar):
   bilden gemeinsam den Verlauf im Lernbereich Lesen.
 - **Eintragen:** klassenweise oder für ein Kind, mit Rohwert und Normwerten aus dem
   Auswertungsbogen (Prozentrang, T-Wert oder Lesequotient), Testdatum (Pflicht) und
-  Bemerkung. Die App rechnet keine Normtabellen nach. Fehlt der Prozentrang, leitet
-  sie ihn aus T-Wert oder Lesequotient ab und kennzeichnet das.
+  Bemerkung. Die App rechnet keine Normtabellen nach. Fehlt bei HSP oder ELFE II der
+  Prozentrang, leitet sie ihn aus dem T-Wert ab und kennzeichnet das.
 - **Nachtragen** von Ergebnissen früherer Schuljahre ist möglich.
 - **Import** aus den Tabellen der Schule (XLSX/ODS).
-- **Risikostufen** nach Prozentrang (Grenzen einstellbar, Standard):
+- **Risikostufen** (Grenzen einstellbar, Standard). HSP und ELFE II werden über den
+  Prozentrang eingestuft, das SLS über den Lesequotienten – nach der Auswertungstabelle
+  der Schule (unter 90 unterdurchschnittlich, unter 80 schwach, unter 70 sehr schwach):
 
-  | Stufe | Prozentrang |
-  |---|---|
-  | beobachten | ≤ 25 |
-  | auffällig | ≤ 16 |
-  | deutlich auffällig | ≤ 10 |
+  | Stufe | Prozentrang (HSP, ELFE II) | Lesequotient (SLS) |
+  |---|---|---|
+  | beobachten | ≤ 25 | ≤ 89 |
+  | auffällig | ≤ 16 | ≤ 79 |
+  | deutlich auffällig | ≤ 10 | ≤ 69 |
 
   Bei der HSP zählen auch die Prozentränge der Strategien.
-- **Übersicht** je Klasse und **Verlauf je Kind** mit Diagramm über die Schuljahre;
-  Tendenz zum vorigen Test.
+- **Übersicht** je Klasse und **Verlauf je Kind** mit Diagramm über die Schuljahre –
+  je Skala eine eigene Grafik (Lesen: SLS als Lesequotient, ELFE II als Prozentrang);
+  Tendenz zum vorigen Test derselben Skala (ab 10 Punkten Unterschied).
 - **Förderangaben je Kind und Schuljahr:** Nachteilsausgleich (NTA), Förderkurs (FK),
   externe Förderung (EF), Förderschwerpunkt, Anmerkungen. Ob ein aktiver Förderplan
   besteht, ergänzt die App selbst.

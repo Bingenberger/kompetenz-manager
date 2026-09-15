@@ -6,7 +6,7 @@
     <div>
         <span class="section-label">Diagnostik</span>
         <h2 class="h4 mt-2 mb-1">Übersicht{% if klasse %} Klasse {{ klasse }}{% endif %}</h2>
-        <p class="text-muted mb-0">Letztes Ergebnis je Lernbereich, gemessen am niedrigsten Prozentrang der Leitwerte. Offene Tests beziehen sich auf den Testplan {{ schuljahr or '' }}.</p>
+        <p class="text-muted mb-0">Letztes Ergebnis je Lernbereich, gemessen am niedrigsten Leitwert: Prozentrang, beim SLS Lesequotient. Offene Tests beziehen sich auf den Testplan {{ schuljahr or '' }}.</p>
     </div>
     <div class="toolbar-actions">
         {% if klasse %}
@@ -57,12 +57,12 @@
                         {% if eintrag and eintrag.aktuell %}
                         {% set a = eintrag.aktuell %}
                         <div class="d-flex align-items-center gap-2">
-                            {% if a.niedrigster_prozentrang is not none %}<span class="fw-semibold">PR {{ a.niedrigster_prozentrang }}</span>{% endif %}
+                            {% if a.schwaechster_leitwert %}<span class="fw-semibold">{{ a.schwaechster_leitwert.anzeige }}</span>{% endif %}
                             {% if a.stufe %}<span class="badge text-bg-{{ stufen[a.stufe][1] }}">{{ stufen[a.stufe][0] }}</span>{% endif %}
                             {% if eintrag.trend %}{% set t = trendzeichen[eintrag.trend] %}<span class="{{ t[1] }}" title="{{ t[2] }}" aria-label="{{ t[2] }}">{{ t[0] }}</span>{% endif %}
                         </div>
                         {% if a.ausloeser and not (a.ausloeser|selectattr('kennwert.leitwert')|list) %}
-                        <div class="small text-warning-emphasis">wegen {% for w in a.ausloeser %}{{ w.kennwert.name }} (PR {{ w.prozentrang }}){% if not loop.last %}, {% endif %}{% endfor %}</div>
+                        <div class="small text-warning-emphasis">wegen {% for w in a.ausloeser %}{{ w.kennwert.name }} ({{ w.anzeige }}){% if not loop.last %}, {% endif %}{% endfor %}</div>
                         {% endif %}
                         <div class="small text-muted">{{ a.ergebnis.testform.name }} · {{ halbjahre[a.ergebnis.halbjahr] }} {{ a.ergebnis.schuljahr }}</div>
                         {% else %}
@@ -88,6 +88,6 @@
         </table>
     </div>
 </div>
-<p class="small text-muted mt-2">PR: niedrigster Prozentrang der Leitwerte. Die Stufe berücksichtigt alle Kennwerte, die im Katalog für das Risiko zählen (etwa die HSP-Strategien) – löst ein anderer Wert sie aus, steht er darunter. ↗ / ↘: Prozentrang mindestens 10 Punkte besser bzw. schlechter als beim vorigen Ergebnis.</p>
+<p class="small text-muted mt-2">PR = Prozentrang, LQ = Lesequotient (das SLS weist keinen Prozentrang aus). Die Stufe berücksichtigt alle Kennwerte, die im Katalog für das Risiko zählen (etwa die HSP-Strategien) – löst ein anderer Wert sie aus, steht er darunter. ↗ / ↘: mindestens 10 Punkte besser bzw. schlechter als beim vorigen Ergebnis derselben Skala.</p>
 {% endif %}
 {% endblock %}

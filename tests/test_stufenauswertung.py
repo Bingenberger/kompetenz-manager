@@ -147,6 +147,41 @@ class StufenauswertungTestCase(unittest.TestCase):
         self.assertFalse(a['liste'][1].foerderplan)
         self.assertIn('MS = Morphematische Strategie', legende(a))
 
+    def test_sls_report_lists_lesequotient_without_percentile(self):
+        with self.app.app_context():
+            sls = DiagnostikTestform.query.filter_by(name='SLS 1-4').one()
+            leseleistung = sls.kennwerte[0].id
+            for name, lq_vorjahr, lq in (('Anna', 100, 78), ('Ben', 95, 104), ('Cem', None, 88)):
+                kind = db.session.get(Schueler, self.kind_ids[name])
+                if lq_vorjahr:
+                    speichere_ergebnis(kind, sls, '2024/2025', 'ende', {(leseleistung, 'lesequotient'): lq_vorjahr}, None,
+                                       datum=date(2025, 6, 20))
+                speichere_ergebnis(kind, sls, '2025/2026', 'ende',
+                                   {(leseleistung, 'rohwert'): 20, (leseleistung, 'lesequotient'): lq}, None,
+                                   datum=date(2026, 6, 15))
+            db.session.commit()
+            verfahren = sls.verfahren
+            a = erstelle_auswertung(verfahren, '2025/2026', 'ende', 3, risikogrenzen())
+            self.assertEqual(['Ø RW Lesen', 'Ø LQ Lesen'], [s.label for s in a['spalten']])
+            self.assertEqual(['Anna', 'Cem'], [z.schueler.vorname for z in a['liste']])
+            self.assertEqual([('Leseleistung', 78, False, 'schlechter')], a['liste'][0].werte)   # 100 -> 78
+            self.assertEqual(['auffaellig', 'beobachten'], [z.stufe for z in a['liste']])
+            self.assertEqual({'Leseleistung': 'LQ'}, a['spalten_kuerzel'])
+            self.assertEqual('bis LQ 89', a['grenze_text'])
+            self.assertIn('Lesequotient mindestens 10 Punkte', legende(a))
+            self.assertNotIn('Prozentrang', legende(a))
+            verfahren_id = verfahren.id
+
+        self._login()
+        html = self.client.get(f'/diagnostik/stufenauswertung?verfahren_id={verfahren_id}&schuljahr=2025%2F2026&halbjahr=ende&jahrgang=3').get_data(as_text=True)
+        self.assertIn('Alle Kinder mit einer Risikostufe (bis LQ 89)', html)
+        self.assertIn('(LQ)</span>', html)
+        antwort = self.client.get(f'/diagnostik/stufenauswertung/export/odt?verfahren_id={verfahren_id}&schuljahr=2025%2F2026&halbjahr=ende&jahrgang=3')
+        inhalt = self._odt_inhalt(antwort)['content.xml'].decode()
+        for text in ('mindestens ein Teilbereich bis LQ 89', 'Lesen (LQ)', '78 ↓'):
+            self.assertIn(text, inhalt)
+        self.assertNotIn('bis PR', inhalt)
+
     def test_teacher_sees_only_own_classes(self):
         with self.app.app_context():
             verfahren = db.session.get(DiagnostikVerfahren, self.hsp_id)
