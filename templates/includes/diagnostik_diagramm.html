@@ -3,7 +3,8 @@
   geometrie: diagnostik.diagramm(), baender: diagnostik.stufen_baender()
 #}
 {% macro diagnostik_diagramm(geometrie, baender, stufen, titel) -%}
-{% set farben = ['#277da1', '#43aa8b', '#f8961e', '#577590', '#90be6d', '#f94144'] %}
+{# Leitwerte durchgezogen, weitere Risiko-Kennwerte (HSP-Strategien) gestrichelt. #}
+{% set farben = ['#277da1', '#43aa8b', '#7b5ea7', '#f3722c', '#c0487a', '#4d908e', '#577590', '#90be6d'] %}
 {% set bandfarben = {'deutlich': 'rgba(249,65,68,0.14)', 'auffaellig': 'rgba(248,150,30,0.14)', 'beobachten': 'rgba(39,125,161,0.08)'} %}
 <figure class="mb-2">
     <div class="small text-muted mb-1">{{ geometrie.skala_name }} ({{ geometrie.kuerzel }})</div>
@@ -24,11 +25,12 @@
         {% endfor %}
         {% for reihe in geometrie.reihen %}
         {% set farbe = farben[loop.index0 % farben|length] %}
+        {% set zusatz = reihe.art == 'risiko' %}
         {% if reihe.punkte|length > 1 %}
-        <polyline points="{{ reihe.pfad }}" fill="none" stroke="{{ farbe }}" stroke-width="2.5" stroke-linejoin="round"/>
+        <polyline points="{{ reihe.pfad }}" fill="none" stroke="{{ farbe }}" stroke-width="{{ 1.8 if zusatz else 2.5 }}" stroke-linejoin="round"{% if zusatz %} stroke-dasharray="6 4"{% endif %}/>
         {% endif %}
         {% for p in reihe.punkte %}
-        <circle cx="{{ p.x }}" cy="{{ p.y }}" r="4.5" fill="{{ '#fff' if p.abgeleitet else farbe }}" stroke="{{ farbe }}" stroke-width="2">
+        <circle cx="{{ p.x }}" cy="{{ p.y }}" r="{{ 3.5 if zusatz else 4.5 }}" fill="{{ '#fff' if p.abgeleitet else farbe }}" stroke="{{ farbe }}" stroke-width="2">
             <title>{{ reihe.name }}: {{ geometrie.kuerzel }} {{ p.wert }}{% if p.abgeleitet %} (abgeleitet){% endif %}{% if p.stufe %} – {{ stufen[p.stufe][0] }}{% endif %}</title>
         </circle>
         {% endfor %}
@@ -37,7 +39,7 @@
     </div>
     <figcaption class="d-flex flex-wrap gap-3 small text-muted mt-1">
         {% for reihe in geometrie.reihen %}
-        <span class="d-inline-flex align-items-center gap-1"><span style="display:inline-block;width:14px;height:3px;background:{{ farben[loop.index0 % farben|length] }};"></span>{{ reihe.name }}</span>
+        <span class="d-inline-flex align-items-center gap-1"><span style="display:inline-block;width:18px;border-top:3px {{ 'dashed' if reihe.art == 'risiko' else 'solid' }} {{ farben[loop.index0 % farben|length] }};"></span>{{ reihe.name }}</span>
         {% endfor %}
         {% if geometrie.abgeleitet %}<span>○ = aus dem T-Wert abgeleitet</span>{% endif %}
     </figcaption>

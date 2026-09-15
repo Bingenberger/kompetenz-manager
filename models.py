@@ -642,8 +642,8 @@ class DiagnostikKennwert(db.Model):
     # Leitwerte bilden Verlauf, Diagramm und den angezeigten Prozentrang.
     leitwert = db.Column(db.Boolean, nullable=False, default=False)
     # Kennwerte, deren Prozentrang in die Risikostufe eingeht - neben den
-    # Leitwerten etwa die HSP-Strategien. Getrennt vom Leitwert, damit das
-    # Diagramm nicht sechs Linien je HSP zeigt.
+    # Leitwerten etwa die HSP-Strategien. Sie erscheinen im Diagramm als
+    # gestrichelte Linien, zählen aber nicht für den angezeigten Leitwert.
     risiko = db.Column(db.Boolean, nullable=False, default=False)
 
     @property

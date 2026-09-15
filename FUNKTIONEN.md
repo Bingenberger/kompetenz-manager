@@ -261,7 +261,8 @@ Hinterlegte Verfahren (von der Verwaltung als Katalog pflegbar, erweiterbar):
 
   Bei der HSP zählen auch die Prozentränge der Strategien.
 - **Übersicht** je Klasse und **Verlauf je Kind** mit Diagramm über die Schuljahre –
-  je Skala eine eigene Grafik (Lesen: SLS als Lesequotient, ELFE II als Prozentrang);
+  je Skala eine eigene Grafik (Lesen: SLS als Lesequotient, ELFE II als Prozentrang;
+  Rechtschreiben: Graphemtreffer und Wörter richtig durchgezogen, die Strategien gestrichelt);
   Tendenz zum vorigen Test derselben Skala (ab 10 Punkten Unterschied).
 - **Förderangaben je Kind und Schuljahr:** Nachteilsausgleich (NTA), Förderkurs (FK),
   externe Förderung (EF), Förderschwerpunkt, Anmerkungen. Ob ein aktiver Förderplan

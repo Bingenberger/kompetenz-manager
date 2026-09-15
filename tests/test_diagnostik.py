@@ -222,6 +222,30 @@ class DiagnostikLogikTestCase(unittest.TestCase):
         self.assertEqual(pr['oben'], round(pr['y'](100), 1))
         self.assertEqual(['lq', 'pr'], [d['geometrie']['skala'] for d in diagramme(lesen, risikogrenzen())])
 
+    def test_hsp_chart_shows_strategies_as_additional_lines(self):
+        self._ergebnis('HSP 2', '2024/2025', 'ende', **{
+            'Graphemtreffer': {'prozentrang': 40}, 'Wörter richtig': {'prozentrang': 35},
+            'Alphabetische Strategie': {'prozentrang': 30}, 'Orthografische Strategie': {'t_wert': 45}})
+        self._ergebnis('HSP 3', '2025/2026', 'ende', **{
+            'Graphemtreffer': {'prozentrang': 12}, 'Wörter richtig': {'prozentrang': 38},
+            'Alphabetische Strategie': {'prozentrang': 20}, 'Morphematische Strategie': {'prozentrang': 8}})
+
+        rechtschreiben = next(b for b in verlauf(self.kind, risikogrenzen()) if b['bereich'] == 'Rechtschreiben')
+        # Der angezeigte Leitwert und der Trend kommen weiter nur aus den Leitwerten.
+        self.assertEqual('PR 12', rechtschreiben['aktuell'].schwaechster_leitwert.anzeige)
+        self.assertEqual('schlechter', rechtschreiben['trend'])   # niedrigster Leitwert 35 -> 12
+        geometrie = diagramm(rechtschreiben)
+        namen = [(r['name'], r['art']) for r in geometrie['reihen']]
+        self.assertEqual([
+            ('Graphemtreffer (HSP)', 'leitwert'), ('Wörter richtig (HSP)', 'leitwert'),
+            ('Alphabetische Strategie (HSP)', 'risiko'), ('Orthografische Strategie (HSP)', 'risiko'),
+            ('Morphematische Strategie (HSP)', 'risiko'),
+        ], namen)
+        alphabetisch = geometrie['reihen'][2]
+        self.assertEqual([30, 20], [p['wert'] for p in alphabetisch['punkte']])
+        orthografisch = geometrie['reihen'][3]
+        self.assertEqual([(31, True)], [(p['wert'], p['abgeleitet']) for p in orthografisch['punkte']])   # aus T 45
+
     def test_sls_is_rated_by_lesequotient_not_percentile(self):
         grenzen = risikogrenzen()
         self.assertEqual({'beobachten': 89, 'auffaellig': 79, 'deutlich': 69}, grenzen.lq)

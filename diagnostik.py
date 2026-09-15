@@ -360,6 +360,8 @@ def verlauf(schueler, grenzen):
       'bereich', 'auswertungen' (chronologisch),
       'reihen' (Kennwertname -> [(zeitschlüssel, Wert, abgeleitet, stufe)]),
       'skalen' (Kennwertname -> 'pr' oder 'lq'),
+      'arten' (Kennwertname -> 'leitwert' oder 'risiko' - Risiko-Kennwerte wie
+               die HSP-Strategien zeichnet das Diagramm gestrichelt),
       'zeiten' (sortierte Zeitschlüssel mit Label),
       'aktuell' (letzte Auswertung), 'trend'.
     """
@@ -370,15 +372,18 @@ def verlauf(schueler, grenzen):
     bereiche = {}
     for ergebnis in ergebnisse:
         bereich = ergebnis.testform.verfahren.bereich
-        eintrag = bereiche.setdefault(bereich, {'bereich': bereich, 'auswertungen': [], 'reihen': {}, 'skalen': {}, 'zeiten': {}})
+        eintrag = bereiche.setdefault(bereich, {'bereich': bereich, 'auswertungen': [], 'reihen': {}, 'skalen': {}, 'arten': {}, 'zeiten': {}})
         auswertung = auswerten(ergebnis, grenzen)
         eintrag['auswertungen'].append(auswertung)
         schluessel = zeitschluessel(ergebnis.schuljahr, ergebnis.halbjahr)
         eintrag['zeiten'][schluessel] = zeitlabel(ergebnis.schuljahr, ergebnis.halbjahr)
-        for leitwert in auswertung.leitwerte:
-            name = f'{leitwert.kennwert.name} ({ergebnis.testform.verfahren.name})'
-            eintrag['reihen'].setdefault(name, []).append((schluessel, leitwert.wert, leitwert.abgeleitet, leitwert.stufe))
-            eintrag['skalen'][name] = leitwert.skala
+        zusaetzlich = [w for w in auswertung.risikowerte if not w.kennwert.leitwert]
+        for art, werte in (('leitwert', auswertung.leitwerte), ('risiko', zusaetzlich)):
+            for wert in werte:
+                name = f'{wert.kennwert.name} ({ergebnis.testform.verfahren.name})'
+                eintrag['reihen'].setdefault(name, []).append((schluessel, wert.wert, wert.abgeleitet, wert.stufe))
+                eintrag['skalen'][name] = wert.skala
+                eintrag['arten'].setdefault(name, art)
 
     ergebnis_liste = []
     for eintrag in bereiche.values():
@@ -412,10 +417,12 @@ def diagramm(eintrag, skala=SKALA_PR, breite=560, hoehe=220):
     der Skala oben zum niedrigsten unten; Werte außerhalb liegen am Rand.
     """
     skalen = eintrag.get('skalen', {})
-    reihen_der_skala = {
-        name: punkte for name, punkte in eintrag['reihen'].items()
-        if skalen.get(name, SKALA_PR) == skala
-    }
+    arten = eintrag.get('arten', {})
+    # Leitwerte zuerst (durchgezogen), danach die übrigen Risiko-Kennwerte (gestrichelt).
+    reihen_der_skala = dict(sorted(
+        ((name, punkte) for name, punkte in eintrag['reihen'].items() if skalen.get(name, SKALA_PR) == skala),
+        key=lambda paar: arten.get(paar[0], 'leitwert') != 'leitwert',
+    ))
     benutzte_zeiten = {p[0] for punkte in reihen_der_skala.values() for p in punkte}
     zeiten = [(s, label) for s, label in eintrag['zeiten'] if s in benutzte_zeiten]
     info = SKALEN[skala]
@@ -439,7 +446,7 @@ def diagramm(eintrag, skala=SKALA_PR, breite=560, hoehe=220):
              'abgeleitet': abgeleitet, 'stufe': stufe}
             for s, wert, abgeleitet, stufe in punkte
         ]
-        reihen.append({'name': name, 'punkte': koordinaten,
+        reihen.append({'name': name, 'punkte': koordinaten, 'art': arten.get(name, 'leitwert'),
                        'pfad': ' '.join(f"{p['x']},{p['y']}" for p in koordinaten)})
     return {
         'breite': breite, 'hoehe': hoehe,
