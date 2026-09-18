@@ -76,7 +76,7 @@
         <div class="start-panel h-100">
             <h1 class="start-gruss">Willkommen, {{ teacher_name }}</h1>
             <p class="start-meta">
-                {% if hero_klasse_typ == 'klassenleitung' %}Klasse {{ hero_klasse }}{% elif hero_klasse %}Fachklasse {{ hero_klasse }}{% else %}Keine Klasse zugeordnet{% endif %}
+                {% if hero_klasse_typ == 'klassenleitung' %}Klasse {{ hero_klasse }}{% elif hero_klasse %}Fachklasse {{ hero_klasse }}{% elif current_user.sieht_alle_kinder %}{{ current_user.rolle_label }} · alle Klassen{% else %}Keine Klasse zugeordnet{% endif %}
                 {% if school_year %} · Schuljahr {{ school_year }}{% endif %}
             </p>
             <div class="schnellzugriff">
@@ -91,6 +91,9 @@
                 <a class="kennzahl" href="{{ url_for('workplan.workplan_list_page') }}"><b>{{ hero_stats.aktive_arbeitsplaene }}</b> aktive Arbeitspläne</a>
                 <a class="kennzahl" href="{{ url_for('erziehung.erziehung_list') }}"><b>{{ hero_stats.offene_erziehungsfaelle }}</b> offene Fälle</a>
             </div>
+            {% elif current_user.sieht_alle_kinder %}
+            <p class="small text-muted mt-3 mb-2">Sie sehen alle Kinder der Schule – über „Kind öffnen“, die Suche oder die Bereiche oben.</p>
+            {% if current_user.ist_schulleitung %}<a href="{{ url_for('diagnostik.schuluebersicht') }}" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('clipboard-data', 'bi-icon-sm') }} <span>Schulübersicht Diagnostik</span></a>{% endif %}
             {% else %}
             <p class="small text-muted mt-3 mb-0">Kennzahlen und Aufgaben erscheinen, sobald die Verwaltung Ihnen eine Klasse zugeordnet hat.</p>
             {% endif %}
