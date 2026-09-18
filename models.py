@@ -104,6 +104,15 @@ class Beobachtung(db.Model):
     )
 
 
+# Rollen: Schlüssel in user.role -> Bezeichnung. Reihenfolge = Auswahl im Formular.
+ROLLEN = {
+    'teacher': 'Lehrkraft',
+    'foerderpaedagogik': 'Förderpädagogik',
+    'schulleitung': 'Schulleitung',
+    'admin': 'Admin',
+}
+
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True)
@@ -127,7 +136,30 @@ class User(UserMixin, db.Model):
 
     @property
     def is_admin(self):
-        return (self.role or '').strip().lower() == 'admin'
+        return self.rolle == 'admin'
+
+    @property
+    def rolle(self):
+        rolle = (self.role or '').strip().lower()
+        return rolle if rolle in ROLLEN else 'teacher'
+
+    @property
+    def rolle_label(self):
+        return ROLLEN[self.rolle]
+
+    @property
+    def sieht_alle_kinder(self):
+        """Zugriff auf die klassengebundenen Bereiche aller Kinder.
+
+        Verwaltung, Schulleitung und Förderpädagogik arbeiten klassenübergreifend.
+        Verwaltungsrechte (Benutzer, Kataloge, Einstellungen) hat nur die Verwaltung.
+        """
+        return self.rolle in ('admin', 'schulleitung', 'foerderpaedagogik')
+
+    @property
+    def ist_schulleitung(self):
+        """Schulweite Auswertungen - Schulleitung und Verwaltung."""
+        return self.rolle in ('admin', 'schulleitung')
 
 
 class UserKlassenzuordnung(db.Model):

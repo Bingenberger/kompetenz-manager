@@ -18,6 +18,8 @@ from diagnostik import (
     aktuelles_halbjahr,
     auswerten,
     datum_im_schuljahr,
+    diagramm,
+    stufen_baender,
     jahre_zurueck,
     jahrgang_im_schuljahr,
     schuljahr_auswahl,
@@ -33,6 +35,14 @@ from diagnostik import (
 import schullogo
 from odt_export import build_odt_document, convert_odt_bytes_to_pdf
 from stufenauswertung import erstelle_auswertung, legende
+from schuluebersicht import (
+    STATUS,
+    erfassungsstand,
+    jahrgaenge_mit_klassen,
+    kennwert_auswahl,
+    klassendurchschnitt,
+    verfahren_mit_ergebnissen,
+)
 from diagnostik_import import ImportDatei, ImportFehler, ImportZeile, lese_import, ordne_kinder_zu
 from extensions import db
 from jahrgang import JAHRGAENGE, klassen_jahrgaenge
@@ -663,6 +673,63 @@ def uebersicht():
 
 
 # ----------------------------------------------------------------------
+# Schulübersicht (Schulleitung)
+# ----------------------------------------------------------------------
+
+@diagnostik_bp.route('/diagnostik/schule')
+@login_required
+def schuluebersicht():
+    if not current_user.ist_schulleitung:
+        flash('Die Schulübersicht ist der Schulleitung vorbehalten.')
+        return redirect(url_for('diagnostik.uebersicht'))
+    config = SystemKonfiguration.query.first()
+    aktuell = config.schuljahr if config else None
+    schuljahre = schuljahr_auswahl(aktuell)
+    schuljahr = (request.args.get('schuljahr') or '').strip()
+    if schuljahr not in schuljahre:
+        schuljahr = aktuell
+    stand = erfassungsstand(schuljahr, aktuell) if schuljahr else []
+
+    verfahren_liste = verfahren_mit_ergebnissen()
+    verfahren_id = request.args.get('verfahren_id', type=int)
+    verfahren = next((v for v in verfahren_liste if v.id == verfahren_id), verfahren_liste[0] if verfahren_liste else None)
+    kennwerte, kennwert, jahrgang, durchschnitt, grafik = [], None, None, None, None
+    jahrgaenge = jahrgaenge_mit_klassen()
+    if verfahren:
+        kennwerte = kennwert_auswahl(verfahren)
+        namen = [name for name, _ in kennwerte]
+        kennwert = request.args.get('kennwert') if request.args.get('kennwert') in namen else (namen[0] if namen else None)
+        jahrgang = request.args.get('jahrgang', type=int)
+        if jahrgang not in jahrgaenge:
+            jahrgang = None
+        if kennwert:
+            grenzen = risikogrenzen(config)
+            durchschnitt = klassendurchschnitt(verfahren, kennwert, grenzen, jahrgang)
+            if durchschnitt['klassen']:
+                geometrie = diagramm(durchschnitt['verlauf'], durchschnitt['skala'], breite=900, hoehe=300)
+                grafik = {'geometrie': geometrie, 'baender': stufen_baender(geometrie, grenzen)}
+
+    return render_template(
+        'diagnostik_schule.html',
+        schuljahr=schuljahr,
+        schuljahr_aktuell=aktuell,
+        schuljahre=schuljahre,
+        stand=stand,
+        status=STATUS,
+        halbjahre=HALBJAHRE,
+        verfahren_liste=verfahren_liste,
+        verfahren=verfahren,
+        kennwerte=kennwerte,
+        kennwert=kennwert,
+        jahrgaenge=jahrgaenge,
+        jahrgang=jahrgang,
+        durchschnitt=durchschnitt,
+        grafik=grafik,
+        stufen=STUFEN,
+    )
+
+
+# ----------------------------------------------------------------------
 # Import aus Auswertungsmappen
 # ----------------------------------------------------------------------
 
@@ -957,7 +1024,7 @@ def _stufenauswertung_parameter(config):
 def _erstelle_stufenauswertung(parameter, config):
     if not (parameter['verfahren'] and parameter['schuljahr'] and parameter['jahrgang']):
         return None
-    erlaubt = None if current_user.is_admin else set(zugaengliche_klassen(current_user))
+    erlaubt = None if current_user.sieht_alle_kinder else set(zugaengliche_klassen(current_user))
     return erstelle_auswertung(
         parameter['verfahren'], parameter['schuljahr'], parameter['halbjahr'], parameter['jahrgang'],
         risikogrenzen(config), erlaubte_klassen=erlaubt,
@@ -999,7 +1066,7 @@ def stufenauswertung():
         schuljahre=_schuljahr_auswahl(parameter['schuljahr_aktuell'], parameter['schuljahr']),
         halbjahre=HALBJAHRE,
         jahrgaenge=JAHRGAENGE,
-        nur_eigene_klassen=not current_user.is_admin,
+        nur_eigene_klassen=not current_user.sieht_alle_kinder,
         **parameter,
     )
 

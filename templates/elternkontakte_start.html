@@ -163,7 +163,7 @@
                 {% if selected_student %}
                 <span class="badge bg-primary">{{ selected_student.vorname }} {{ selected_student.nachname }}</span>
                 {% else %}
-                <span class="text-muted small">{% if current_user.is_admin %}Alle Einträge{% else %}Eigene Einträge und die Ihrer Klassen{% endif %}</span>
+                <span class="text-muted small">{% if current_user.sieht_alle_kinder %}Alle Einträge{% else %}Eigene Einträge und die Ihrer Klassen{% endif %}</span>
                 {% endif %}
                 <span class="badge bg-info">{{ recent_entries|length }} Einträge</span>
             </div>

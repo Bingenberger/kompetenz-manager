@@ -2,8 +2,9 @@
 
 Die meisten Seiten zeigen alle Kinder der Schule. Was an die Klasse gebunden
 ist - Diagnostik, Ereignisse, Elternkontakte - sieht nur, wer das Kind auch
-unterrichtet: Klassenleitung, Fachlehrkraft oder die Verwaltung. Eigene
-Eintraege sieht jede Lehrkraft immer.
+unterrichtet: Klassenleitung, Fachlehrkraft - und wer klassenübergreifend
+arbeitet (Verwaltung, Schulleitung, Förderpädagogik). Eigene Eintraege sieht
+jede Lehrkraft immer.
 """
 
 from sqlalchemy import func, or_, select
@@ -18,7 +19,7 @@ def zugaengliche_klassen(user):
     Namen ohne Leerzeichen am Rand: Formulare kuerzen ihre Eingabe, und ein
     gespeichertes "1c " darf deshalb nicht zu einer Ablehnung von "1c" fuehren.
     """
-    if user.is_admin:
+    if user.sieht_alle_kinder:
         namen = get_distinct_klassen()
     else:
         kontext = get_user_klassenkontext(user)
@@ -31,7 +32,7 @@ def zugaengliche_klassen(user):
 def darf_kind_sehen(user, schueler):
     if not schueler:
         return False
-    if user.is_admin:
+    if user.sieht_alle_kinder:
         return True
     return bool((schueler.klasse or '').strip()) and schueler.klasse.strip() in zugaengliche_klassen(user)
 
@@ -53,7 +54,7 @@ def _kinder_der_klassen(user):
 def sichtbare_elternkontakte(query, user, modell=None):
     """Schraenkt eine Abfrage auf Elternkontakt oder Elternberatung ein."""
     modell = modell or Elternkontakt
-    if user.is_admin:
+    if user.sieht_alle_kinder:
         return query
     return query.filter(or_(modell.user_id == user.id, modell.schueler_id.in_(_kinder_der_klassen(user))))
 
@@ -62,13 +63,13 @@ def darf_elternkontakt_sehen(user, eintrag):
     """Fuer Elternkontakt (Notiz, Protokoll) und Elternberatung."""
     if not eintrag:
         return False
-    if user.is_admin or (eintrag.user_id and eintrag.user_id == user.id):
+    if user.sieht_alle_kinder or (eintrag.user_id and eintrag.user_id == user.id):
         return True
     return darf_kind_sehen(user, eintrag.schueler)
 
 
 def sichtbare_ereignisse(query, user):
-    if user.is_admin:
+    if user.sieht_alle_kinder:
         return query
     kinder = _kinder_der_klassen(user)
     betroffen = select(ErziehungsEreignisBetroffenesKind.event_id).where(
@@ -85,7 +86,7 @@ def sichtbare_ereignisse(query, user):
 def darf_ereignis_sehen(user, ereignis):
     if not ereignis:
         return False
-    if user.is_admin or user.id in {ereignis.created_by_user_id, ereignis.assigned_user_id}:
+    if user.sieht_alle_kinder or user.id in {ereignis.created_by_user_id, ereignis.assigned_user_id}:
         return True
     if darf_kind_sehen(user, ereignis.student):
         return True

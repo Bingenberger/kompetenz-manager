@@ -12,6 +12,7 @@ from routes.auth_routes import normalize_email
 from authz import admin_required
 from db_utils import get_or_404_session
 from extensions import db
+from models import ROLLEN
 from models import (
     Beobachtung,
     Bogen,
@@ -493,7 +494,7 @@ def admin_users():
         nachname = (request.form.get('nachname') or '').strip() or None
         password = request.form.get('password')
         role = (request.form.get('role') or 'teacher').strip().lower()
-        if role not in {'admin', 'teacher'}:
+        if role not in ROLLEN:
             role = 'teacher'
         email, email_fehler = normalize_email(request.form.get('email'))
 
@@ -533,10 +534,12 @@ def admin_users():
 
     # Nach einem Fehler beim Anlegen die Eingaben stehen lassen (ohne Passwort).
     eingaben = request.form if request.method == 'POST' else {}
-    ohne_klasse = sum(1 for u in users if u.id not in zuordnungen_by_user and u.username != 'admin')
+    # Schulleitung und Förderpädagogik arbeiten klassenübergreifend - ihnen fehlt keine Klasse.
+    ohne_klasse = sum(1 for u in users if u.id not in zuordnungen_by_user and u.username != 'admin' and not u.sieht_alle_kinder)
     return render_template(
         'admin_users.html', users=users, zuordnungen_by_user=zuordnungen_by_user, eingaben=eingaben,
         anzahl_admins=sum(1 for u in users if u.is_admin),
+        rollen=ROLLEN,
         anzahl_ohne_klasse=ohne_klasse,
         anzahl_ohne_email=sum(1 for u in users if not u.email),
     )
@@ -573,13 +576,13 @@ def admin_user_edit(user_id):
             return _render_user_edit(user, next_url)
         user.email = email
         requested_role = (request.form.get('role') or user.role or 'teacher').strip().lower()
-        if requested_role not in {'admin', 'teacher'}:
+        if requested_role not in ROLLEN:
             requested_role = user.role or 'teacher'
 
         if user.is_admin and requested_role != 'admin':
             admin_count = User.query.filter_by(role='admin').count()
             if admin_count <= 1:
-                flash('Der letzte Administrator kann nicht auf Lehrkraft zurückgesetzt werden.')
+                flash('Der letzte Administrator muss Admin bleiben.')
                 return _render_user_edit(user, next_url)
 
         user.role = requested_role
@@ -595,6 +598,7 @@ def _render_user_edit(user, next_url):
     return render_template(
         'admin_user_edit.html',
         user=user,
+        rollen=ROLLEN,
         next_url=next_url,
         klassenleitung=next((z.klasse for z in zuordnungen if z.rolle == 'klassenleitung'), None),
         fachklassen=sorted({z.klasse for z in zuordnungen if z.rolle == 'fach'}, key=str.lower),

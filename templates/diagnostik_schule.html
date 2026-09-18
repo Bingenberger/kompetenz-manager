@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% from "includes/diagnostik_diagramm.html" import diagnostik_diagramm %}
+{% block content %}
+<style>
+    .stand-test { display: inline-flex; flex-direction: column; border-radius: .6rem; padding: .3rem .6rem; margin: 0 .35rem .35rem 0; font-size: .8rem; line-height: 1.25; }
+    .stand-test .zahl { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .durchschnitt-tabelle td, .durchschnitt-tabelle th { white-space: nowrap; }
+    .durchschnitt-tabelle .anzahl { color: #6c7a89; font-size: .75rem; }
+</style>
+
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Diagnostik</span>
+        <h2 class="h4 mt-2 mb-1">Schulübersicht</h2>
+        <p class="text-muted mb-0">Welche Klasse welche Tests eingetragen hat, und wie die Klassen im Durchschnitt stehen.</p>
+    </div>
+</div>
+
+{# ---------------------------------------------------------------- Erfassungsstand #}
+<div class="surface-panel p-4 mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
+        <div>
+            <h3 class="h5 mb-1">Erfassungsstand</h3>
+            <div class="small text-muted">
+                {% if schuljahr == schuljahr_aktuell %}Eingetragen / erwartet laut Testplan – erwartet sind die Kinder des passenden Jahrgangs.
+                {% else %}Früheres Schuljahr: Anzahl eingetragener Ergebnisse nach der Klasse zum Testzeitpunkt.{% endif %}
+            </div>
+        </div>
+        <form method="GET" class="d-flex align-items-center gap-2">
+            {% for feld in ['verfahren_id', 'kennwert', 'jahrgang'] %}{% if request.args.get(feld) %}<input type="hidden" name="{{ feld }}" value="{{ request.args.get(feld) }}">{% endif %}{% endfor %}
+            <label class="small text-muted" for="stand-schuljahr">Schuljahr</label>
+            <select name="schuljahr" id="stand-schuljahr" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                {% for j in schuljahre %}<option value="{{ j }}" {% if j == schuljahr %}selected{% endif %}>{{ j }}</option>{% endfor %}
+            </select>
+        </form>
+    </div>
+    <div class="d-flex flex-wrap gap-2 small mb-3">
+        {% for key in ['vollstaendig', 'teilweise', 'offen', 'zusaetzlich'] %}
+        {% if schuljahr == schuljahr_aktuell or key == 'zusaetzlich' %}<span class="badge text-bg-{{ status[key][1] }}">{{ status[key][0] }}</span>{% endif %}
+        {% endfor %}
+    </div>
+    {% if stand %}
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light"><tr><th>Klasse</th>{% if schuljahr == schuljahr_aktuell %}<th class="text-end">Kinder</th>{% endif %}<th>Tests</th></tr></thead>
+            <tbody>
+                {% for zeile in stand %}
+                <tr>
+                    <td class="fw-semibold"><a href="{{ url_for('diagnostik.uebersicht', klasse=zeile.klasse) }}" class="text-decoration-none">{{ zeile.klasse }}</a></td>
+                    {% if schuljahr == schuljahr_aktuell %}<td class="text-end">{{ zeile.kinder if zeile.kinder is not none else '–' }}</td>{% endif %}
+                    <td>
+                        {% for t in zeile.tests %}
+                        {% set farbe = status[t.status][1] %}
+                        <span class="stand-test bg-{{ farbe }}-subtle text-{{ farbe }}-emphasis border border-{{ farbe }}-subtle" title="{{ t.testform.name }} · {{ halbjahre[t.halbjahr] }}: {{ status[t.status][0] }}{% if t.datum_bis %}, zuletzt am {{ t.datum_bis.strftime('%d.%m.%Y') }}{% endif %}">
+                            <span>{{ t.testform.name }} · {{ halbjahre[t.halbjahr] }}</span>
+                            <span class="zahl">{{ t.anzahl }}{% if t.erwartet %} / {{ t.erwartet }}{% endif %}</span>
+                        </span>
+                        {% else %}<span class="text-muted small">keine Tests</span>{% endfor %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="text-muted">Für dieses Schuljahr gibt es keine Klassen oder Ergebnisse.</div>
+    {% endif %}
+</div>
+
+{# ---------------------------------------------------------------- Klassendurchschnitt #}
+<div class="surface-panel p-4 mb-4">
+    <h3 class="h5 mb-1">Klassendurchschnitt im Verlauf</h3>
+    <p class="small text-muted mb-3">
+        Mittelwert je Klasse und Testzeitpunkt – {% if durchschnitt and durchschnitt.skala == 'lq' %}des Lesequotienten{% else %}der Prozentränge (fehlt der PR, aus dem T-Wert abgeleitet){% endif %}.
+        Die Klasse ist die heutige Klasse der Kinder: Die Linie der 3a zeigt, wie sich diese Kinder seit ihren ersten Tests entwickelt haben.
+    </p>
+    {% if not verfahren_liste %}
+    <div class="text-muted">Es sind noch keine Diagnostik-Ergebnisse eingetragen.</div>
+    {% else %}
+    <form method="GET" class="row g-2 align-items-end mb-3">
+        <input type="hidden" name="schuljahr" value="{{ schuljahr or '' }}">
+        <div class="col-sm-4 col-lg-3">
+            <label class="form-label small mb-1" for="d-verfahren">Verfahren</label>
+            <select name="verfahren_id" id="d-verfahren" class="form-select form-select-sm" onchange="this.form.kennwert.value=''; this.form.submit()">
+                {% for v in verfahren_liste %}<option value="{{ v.id }}" {% if verfahren and v.id == verfahren.id %}selected{% endif %}>{{ v.name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-sm-4 col-lg-3">
+            <label class="form-label small mb-1" for="d-kennwert">Kennwert</label>
+            <select name="kennwert" id="d-kennwert" class="form-select form-select-sm" onchange="this.form.submit()">
+                {% for name, leit in kennwerte %}<option value="{{ name }}" {% if name == kennwert %}selected{% endif %}>{{ name }}{% if not leit %} (Teilwert){% endif %}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-sm-4 col-lg-3">
+            <label class="form-label small mb-1" for="d-jahrgang">Heutiger Jahrgang</label>
+            <select name="jahrgang" id="d-jahrgang" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">alle Klassen</option>
+                {% for j in jahrgaenge %}<option value="{{ j }}" {% if j == jahrgang %}selected{% endif %}>Jahrgang {{ j }}</option>{% endfor %}
+            </select>
+        </div>
+    </form>
+
+    {% if durchschnitt and durchschnitt.klassen %}
+    {% if grafik %}{{ diagnostik_diagramm(grafik.geometrie, grafik.baender, stufen, verfahren.name ~ ' – ' ~ kennwert) }}{% endif %}
+    <div class="table-responsive mt-3">
+        <table class="table table-sm align-middle mb-0 durchschnitt-tabelle">
+            <thead class="table-light">
+                <tr>
+                    <th>Klasse (heute)</th>
+                    {% for s, label in durchschnitt.zeiten %}<th class="text-end">{{ label }}</th>{% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for k in durchschnitt.klassen %}
+                <tr>
+                    <td class="fw-semibold">{{ k.klasse }}</td>
+                    {% for s, label in durchschnitt.zeiten %}
+                    {% set w = k.werte.get(s) %}
+                    <td class="text-end">
+                        {% if w %}
+                        <span title="Ø {{ durchschnitt.kuerzel }} aus {{ w.anzahl }} Ergebnis(sen){% if w.risiko %}, davon {{ w.risiko }} mit Risikostufe{% endif %}">{{ '%.1f'|format(w.mittel)|replace('.', ',') }}</span>
+                        <div class="anzahl">n = {{ w.anzahl }}{% if w.risiko %} · {{ w.risiko }} auff.{% endif %}</div>
+                        {% else %}<span class="text-muted">–</span>{% endif %}
+                    </td>
+                    {% endfor %}
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <p class="small text-muted mt-2 mb-0">Ø {{ durchschnitt.kuerzel }} = {{ durchschnitt.skala_name }}. n = Anzahl der Ergebnisse, „auff.“ = davon mit Risikostufe (sofern der Kennwert für das Risiko zählt).</p>
+    {% else %}
+    <div class="text-muted">Für diese Auswahl gibt es keine Ergebnisse.</div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}

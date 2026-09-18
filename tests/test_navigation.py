@@ -69,8 +69,8 @@ class NavigationTestCase(unittest.TestCase):
             from flask import url_for
             for _, _, _, ziel, punkte in BEREICHE:
                 url_for(ziel)
-                for _, punkt_ziel, _ in punkte:
-                    url_for(punkt_ziel)
+                for punkt in punkte:
+                    url_for(punkt[1])
 
     def test_endpoint_to_area(self):
         self.assertEqual('start', aktiver_bereich('system.index'))

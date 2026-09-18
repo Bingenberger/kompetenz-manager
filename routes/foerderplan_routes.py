@@ -92,7 +92,7 @@ FOERDERGRUNDLAGE_TEMPLATE = 'odt_templates/Deckblatt_Foerderplan.ott'
 def _teacher_can_access_student(user, student):
     if not user or not student:
         return False
-    if user.is_admin or not student.is_active:
+    if user.sieht_alle_kinder or not student.is_active:
         return True
 
     kontext = get_user_klassenkontext(user)
@@ -112,7 +112,7 @@ def _ensure_student_access_or_403(student_id):
 
 def _foerderplan_query_for_user(user):
     query = Foerderplan.query
-    if user.is_admin:
+    if user.sieht_alle_kinder:
         return query
     accessible_student_ids = [
         student.id
@@ -126,7 +126,7 @@ def _foerderplan_query_for_user(user):
 
 def _ensure_plan_access_or_404(plan_id):
     plan = get_or_404_session(Foerderplan, plan_id)
-    if current_user.is_admin:
+    if current_user.sieht_alle_kinder:
         return plan
     if not _teacher_can_access_student(current_user, plan.schueler):
         abort(404)
@@ -578,7 +578,7 @@ def foerderplan_list():
         include_archived=True,
     )
     filter_info = {
-        "is_admin": current_user.is_admin,
+        "is_admin": current_user.sieht_alle_kinder,
         "klassenleitung": None,
         "fachklassen": [],
         "selected_s_id": selection["selected_s_id"],

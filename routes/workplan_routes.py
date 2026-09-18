@@ -295,7 +295,12 @@ def _merge_pdf_buffers(pdf_buffers):
 
 
 def _is_admin(user):
-    return bool(user and getattr(user, 'username', None) == 'admin')
+    return bool(user and getattr(user, 'is_admin', False))
+
+
+def _sieht_alle(user):
+    """Klassenübergreifend: Verwaltung, Schulleitung, Förderpädagogik."""
+    return bool(user and getattr(user, 'sieht_alle_kinder', False))
 
 
 def _safe_next_url(candidate, fallback_url):
@@ -329,7 +334,7 @@ def _response(payload=None, status=200, redirect_to=None, flash_message=None):
 def _teacher_can_access_student(user, student):
     if not user or not student:
         return False
-    if _is_admin(user) or not student.is_active:
+    if _sieht_alle(user) or not student.is_active:
         return True
 
     kontext = get_user_klassenkontext(user)
@@ -342,7 +347,7 @@ def _teacher_can_access_student(user, student):
 
 def _workplan_query_for_user(user):
     query = WorkPlan.query
-    if _is_admin(user):
+    if _sieht_alle(user):
         return query
     accessible_student_ids = [
         student.id
@@ -355,7 +360,7 @@ def _workplan_query_for_user(user):
 
 
 def _accessible_classes_for_user(user):
-    if _is_admin(user):
+    if _sieht_alle(user):
         rows = db.session.query(Schueler.klasse).filter(Schueler.klasse.isnot(None)).distinct().all()
         return sorted({(row[0] or '').strip() for row in rows if (row[0] or '').strip()}, key=lambda x: x.lower())
 
@@ -378,7 +383,7 @@ def _ensure_template_view_access_or_404(template_id):
     if not template or not template.library:
         abort(404)
 
-    if _is_admin(current_user):
+    if _sieht_alle(current_user):
         return template
 
     accessible = set(_accessible_classes_for_user(current_user))
@@ -399,7 +404,7 @@ def _ensure_plan_access_or_404(plan_id):
     if not plan:
         abort(404)
 
-    if _is_admin(current_user):
+    if _sieht_alle(current_user):
         return plan
 
     if not _teacher_can_access_student(current_user, plan.student):
@@ -1499,7 +1504,7 @@ def workplan_library_page():
     libraries_query = ClassTaskLibrary.query
     if selected_class:
         libraries_query = libraries_query.filter(ClassTaskLibrary.class_name == selected_class)
-    elif not _is_admin(current_user):
+    elif not _sieht_alle(current_user):
         libraries_query = libraries_query.filter(ClassTaskLibrary.class_name.in_(accessible_classes))
 
     libraries = libraries_query.order_by(ClassTaskLibrary.name.asc()).all()
@@ -1507,7 +1512,7 @@ def workplan_library_page():
     for library in libraries:
         templates.extend(library.templates)
 
-    if not _is_admin(current_user):
+    if not _sieht_alle(current_user):
         templates = [t for t in templates if t.library and t.library.class_name in set(accessible_classes)]
 
     templates.sort(
@@ -1542,7 +1547,7 @@ def workplan_library_page():
 def workplan_library_create_template_page():
     class_name = (request.form.get('class_name') or '').strip()
     accessible_classes = _accessible_classes_for_user(current_user)
-    if class_name not in accessible_classes and not _is_admin(current_user):
+    if class_name not in accessible_classes and not _sieht_alle(current_user):
         abort(403)
 
     title = (request.form.get('title') or '').strip()

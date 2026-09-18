@@ -491,7 +491,7 @@ def index():
                 'url': url_for('erfassung.erfassen_schueler'),
                 'priority': 50,
             })
-    else:
+    elif not getattr(current_user, 'sieht_alle_kinder', False):
         todos.append({
             'title': 'Klasse zuordnen lassen',
             'detail': 'Für personalisierte Statistik bitte eine Klassenleitung oder Fachklasse hinterlegen.',
@@ -1056,7 +1056,7 @@ def media_workplan_attachment(attachment_id):
     if not plan:
         abort(404)
 
-    if not _is_admin(current_user) and plan.created_by_user_id != current_user.id:
+    if not getattr(current_user, 'sieht_alle_kinder', False) and plan.created_by_user_id != current_user.id:
         abort(403)
 
     return _send_upload_or_404(

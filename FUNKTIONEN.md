@@ -34,6 +34,10 @@ Browser erreichbar, auch auf Tablet und Smartphone.
 ### Rollen
 
 - **Verwaltung (Admin):** sieht und bearbeitet alles, pflegt Stammdaten und Einstellungen.
+- **Schulleitung:** sieht alle Kinder mit allen Inhalten (ohne Klassenzuordnung) und hat
+  die **Schulübersicht der Diagnostik**; keine Verwaltungsrechte.
+- **Förderpädagogik:** sieht alle Kinder mit allen Inhalten (ohne Klassenzuordnung);
+  keine Verwaltungsrechte.
 - **Lehrkraft:** arbeitet mit den Kindern. Jede Lehrkraft kann einer Klasse als
   **Klassenleitung** und beliebig vielen Klassen als **Fachlehrkraft** zugeordnet sein.
 
@@ -46,7 +50,7 @@ Browser erreichbar, auch auf Tablet und Smartphone.
 | Diagnostik-Ergebnisse und Förderangaben | Klassenleitung und Fachlehrkräfte der Klasse des Kindes |
 | Elternkontakte (Notiz, Protokoll) und Elternberatungen | wer den Eintrag angelegt hat, dazu Klassenleitung und Fachlehrkräfte des Kindes |
 | Erzieherische Ereignisse | wer es angelegt hat, wer als zuständig eingetragen ist, Klassenleitung und Fachlehrkräfte des Kindes oder eines betroffenen Kindes |
-| Alles | Verwaltung |
+| Alles | Verwaltung, Schulleitung, Förderpädagogik |
 
 **Eintragen darf jede Lehrkraft für jedes Kind** – etwa bei Vertretungsunterricht oder
 Vorfällen in der Pause. Den eigenen Eintrag sieht sie danach immer.
@@ -149,8 +153,9 @@ mehrere Begriffe werden mit UND verknüpft; ein einzelner Treffer öffnet die Ak
   Protokoll ändern oder löschen.
 - **Elternberatung:** Vorbereitung und Dokumentation eines Elterngesprächs. Die Seite
   zeigt zum Kind automatisch:
-  - **Lernstand je Bogen und Bereich** in elternverständlicher Form mit Balken,
-    „Das klappt gut“ und „Daran arbeiten wir“
+  - **Lernstand je Bogen und Bereich** in elternverständlicher Form: Fächer und
+    Bereiche lassen sich auf- und zuklappen; schon eingeklappt zeigen Ampelfarbe und
+    Balken den Stand, aufgeklappt „Das klappt gut“ und „Daran arbeiten wir“
   - **Diagnostik-Ergebnisse** mit Verlauf
   - **Ereignisse** des laufenden Schuljahres
   - **aktiver Förderplan** und zuletzt evaluierter Förderplan
@@ -267,6 +272,10 @@ Hinterlegte Verfahren (von der Verwaltung als Katalog pflegbar, erweiterbar):
 - **Förderangaben je Kind und Schuljahr:** Nachteilsausgleich (NTA), Förderkurs (FK),
   externe Förderung (EF), Förderschwerpunkt, Anmerkungen. Ob ein aktiver Förderplan
   besteht, ergänzt die App selbst.
+- **Schulübersicht** (Schulleitung und Verwaltung): je Klasse, welche Tests im
+  Schuljahr eingetragen sind – eingetragen / erwartet laut Testplan –, und der
+  **Klassendurchschnitt** eines Kennwerts je Testzeitpunkt als Tabelle und
+  Verlaufsgrafik (gruppiert nach der heutigen Klasse der Kinder, filterbar nach Jahrgang).
 - **Stufenauswertung** für einen ganzen Jahrgang und Testzeitpunkt, als ODT/PDF mit
   Schullogo: Durchschnittswerte je Klasse und Jahrgang, Liste aller Kinder mit
   Risikostufe samt Werten, Tendenz und Förderangaben.

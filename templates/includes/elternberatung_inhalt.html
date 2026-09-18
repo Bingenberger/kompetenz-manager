@@ -17,6 +17,13 @@
     .lernstand-liste .wert { font-variant-numeric: tabular-nums; color: #5f7387; font-size: .8rem; white-space: nowrap; }
     .lernstand-trend { font-weight: 700; }
     .lernstand-spalte h5 { font-size: .8rem; letter-spacing: .04em; text-transform: uppercase; margin-bottom: .4rem; }
+    .ls-fach > summary, .ls-bereich > summary { list-style: none; cursor: pointer; }
+    .ls-fach > summary::-webkit-details-marker, .ls-bereich > summary::-webkit-details-marker { display: none; }
+    .ls-fach > summary:hover, .ls-bereich > summary:hover { background: rgba(39,125,161,0.04); }
+    .ls-fach > summary:focus-visible, .ls-bereich > summary:focus-visible { outline: 2px solid #277da1; outline-offset: 2px; }
+    .ls-pfeil { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 1.1rem; height: 1.1rem; font-size: 1.15rem; line-height: 1; font-weight: 700; color: #277da1; transition: transform .15s; }
+    details[open] > summary .ls-pfeil { transform: rotate(90deg); }
+    .ls-marke { font-size: .75rem; font-weight: 600; border-radius: 999px; padding: .1rem .55rem; }
     .ls-stark { background: #43aa8b; color: #fff; }
     .ls-sicher { background: #90be6d; color: #1f2933; }
     .ls-teils { background: #f9c74f; color: #1f2933; }
@@ -33,6 +40,10 @@
         <span class="small text-muted">Beobachtungen des laufenden Schuljahres, je Bogen und Bereich</span>
     </div>
     {% if uebersicht %}
+    <div class="d-flex flex-wrap justify-content-end gap-2 mb-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-ls-alle="auf">Alle aufklappen</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-ls-alle="zu">Alle zuklappen</button>
+    </div>
     <div class="d-flex flex-wrap gap-3 small text-muted mb-3">
         {% for key in ['stark', 'sicher', 'teils', 'schwach'] %}
         <span><span class="badge {{ level_farben[key] }}" style="width:.9rem;height:.9rem;padding:0;vertical-align:middle;">&nbsp;</span> {{ level_labels[key] }}</span>
@@ -40,26 +51,41 @@
         <span>↗ / ↘ Entwicklung gegenüber früheren Beobachtungen</span>
     </div>
     {% for b in uebersicht %}
-    <div class="border rounded-3 p-3 mb-3">
-        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
-            <h4 class="h5 mb-0">{{ b.bogen.titel }}</h4>
-            <div class="d-flex flex-wrap gap-2 align-items-center small">
-                {% if b.level %}<span class="badge {{ level_farben[b.level] }}">{{ level_labels[b.level] }}</span>{% endif %}
-                <span class="text-muted">{{ b.anzahl_items }} Kompetenzen · {{ b.anzahl_staerken }} sicher · {{ b.anzahl_potenzial }} mit Potenzial</span>
-            </div>
-        </div>
-        {% for bereich in b.bereiche %}
-        <div class="lernstand-bereich py-2">
-            <div class="row g-2 align-items-center mb-2">
-                <div class="col-md-3 fw-semibold">{{ bereich.name }}</div>
-                <div class="col-md-7">
-                    <div class="lernstand-balken" title="Mittelwert {{ bereich.mittel }} von 4">
-                        <span class="{{ level_farben[bereich.level] }}" style="width: {{ bereich.breite }}%"></span>
-                    </div>
+    <details class="ls-fach border rounded-3 mb-3">
+        <summary class="p-3">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <h4 class="h5 mb-0 d-flex align-items-center gap-2"><span class="ls-pfeil" aria-hidden="true">›</span>{{ b.bogen.titel }}</h4>
+                <div class="d-flex flex-wrap gap-2 align-items-center small">
+                    {% if b.level %}<span class="badge {{ level_farben[b.level] }}">{{ level_labels[b.level] }}</span>{% endif %}
+                    <span class="text-muted">{{ b.anzahl_items }} Kompetenzen · {{ b.anzahl_staerken }} sicher · {{ b.anzahl_potenzial }} mit Potenzial</span>
                 </div>
-                <div class="col-md-2 small text-md-end">{{ level_labels[bereich.level] }}</div>
             </div>
-            <div class="row g-3">
+            {% if b.level %}
+            <div class="lernstand-balken mt-2" title="Mittelwert {{ b.mittel }} von 4">
+                <span class="{{ level_farben[b.level] }}" style="width: {{ (b.mittel / 4 * 100)|round|int }}%"></span>
+            </div>
+            {% endif %}
+            <div class="d-flex flex-wrap gap-1 mt-2">
+                {% for bereich in b.bereiche %}
+                <span class="ls-marke {{ level_farben[bereich.level] }}" title="{{ bereich.name }}: {{ level_labels[bereich.level] }} (Mittelwert {{ bereich.mittel }})">{{ bereich.name }}</span>
+                {% endfor %}
+            </div>
+        </summary>
+        <div class="px-3 pb-2">
+        {% for bereich in b.bereiche %}
+        <details class="ls-bereich lernstand-bereich">
+            <summary class="py-2">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-3 fw-semibold d-flex align-items-center gap-2"><span class="ls-pfeil" aria-hidden="true">›</span>{{ bereich.name }}</div>
+                    <div class="col-md-7">
+                        <div class="lernstand-balken" title="Mittelwert {{ bereich.mittel }} von 4">
+                            <span class="{{ level_farben[bereich.level] }}" style="width: {{ bereich.breite }}%"></span>
+                        </div>
+                    </div>
+                    <div class="col-md-2 small text-md-end">{{ level_labels[bereich.level] }}</div>
+                </div>
+            </summary>
+            <div class="row g-3 pb-2">
                 <div class="col-md-6 lernstand-spalte">
                     <h5 class="text-success-emphasis">Das klappt gut</h5>
                     <ul class="lernstand-liste">
@@ -77,14 +103,26 @@
                     </ul>
                 </div>
             </div>
-        </div>
+        </details>
         {% endfor %}
-    </div>
+        </div>
+    </details>
     {% endfor %}
     {% else %}
     <div class="text-muted">Im laufenden Schuljahr gibt es noch keine bewerteten Beobachtungen.</div>
     {% endif %}
 </div>
+
+<script>
+(function () {
+    // Klappt alle Fächer und Bereiche auf oder zu; zum Drucken ist alles offen.
+    function alle(offen) { document.querySelectorAll('details.ls-fach, details.ls-bereich').forEach(function (d) { d.open = offen; }); }
+    document.querySelectorAll('[data-ls-alle]').forEach(function (knopf) {
+        knopf.addEventListener('click', function () { alle(knopf.getAttribute('data-ls-alle') === 'auf'); });
+    });
+    window.addEventListener('beforeprint', function () { alle(true); });
+})();
+</script>
 
 {# ---------------------------------------------------------------- Diagnostik #}
 <div class="{{ panel_class }} p-4 mb-4">

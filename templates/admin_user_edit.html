@@ -8,7 +8,7 @@
         <h2 class="h4 mt-2 mb-1">Benutzer bearbeiten: {{ user.display_name }}</h2>
         <p class="text-muted mb-0">
             Benutzername <strong>{{ user.username }}</strong>
-            <span class="badge {% if user.is_admin %}bg-primary{% else %}bg-secondary{% endif %} ms-1">{{ 'Admin' if user.is_admin else 'Lehrkraft' }}</span>
+            <span class="badge {% if user.is_admin %}bg-primary{% else %}bg-secondary{% endif %} ms-1">{{ user.rolle_label }}</span>
         </p>
     </div>
     <div class="toolbar-actions">
@@ -62,11 +62,12 @@
                         <div class="col-md-6">
                             <label class="form-label visually-hidden" for="user-rolle">Rolle</label>
                             <select name="role" id="user-rolle" class="form-select">
-                                <option value="teacher" {% if user.role != 'admin' %}selected{% endif %}>Lehrkraft</option>
-                                <option value="admin" {% if user.role == 'admin' %}selected{% endif %}>Admin</option>
+                                {% for schluessel, label in rollen.items() %}
+                                <option value="{{ schluessel }}" {% if user.rolle == schluessel %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
                             </select>
                         </div>
-                        <div class="col-md-6 form-text mt-md-3">Admins verwalten Kollegium, Kinder, Bögen und Einstellungen.</div>
+                        <div class="col-md-6 form-text mt-md-0">Förderpädagogik und Schulleitung sehen alle Kinder mit Förderplänen, Diagnostik, Elternkontakten und Ereignissen – ohne Klassenzuordnung. Die Schulleitung hat zusätzlich die Schulübersicht der Diagnostik. Admins verwalten außerdem Kollegium, Kinder, Bögen und Einstellungen.</div>
                     </div>
                 </fieldset>
 

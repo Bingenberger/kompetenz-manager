@@ -7,9 +7,11 @@ Zahnrad; ihre Seiten markieren keinen Bereich als aktiv.
 """
 
 from flask import request, url_for
+from flask_login import current_user
 
 # (Schlüssel, Beschriftung, Symbol, Endpunkt, Unterpunkte)
-# Unterpunkt: (Beschriftung, Endpunkt, Endpunkt-Präfixe, die dazugehören)
+# Unterpunkt: (Beschriftung, Endpunkt, Endpunkt-Präfixe, die dazugehören[, Recht])
+# Das optionale Recht ist eine Eigenschaft des Benutzers (etwa ist_schulleitung).
 BEREICHE = [
     ('start', 'Start', 'house', 'system.index', []),
     ('kinder', 'Kinder', 'people', 'system.schuelerakte', []),
@@ -38,6 +40,7 @@ BEREICHE = [
         ('Eintragen', 'diagnostik.erfassen', ('diagnostik.erfassen', 'diagnostik.ergebnis_')),
         ('Import', 'diagnostik.importieren', ('diagnostik.importieren',)),
         ('Stufenauswertung', 'diagnostik.stufenauswertung', ('diagnostik.stufenauswertung',)),
+        ('Schulübersicht', 'diagnostik.schuluebersicht', ('diagnostik.schuluebersicht',), 'ist_schulleitung'),
     ]),
 ]
 
@@ -84,9 +87,10 @@ def navigation():
         if schluessel == aktiv:
             unterpunkte = [
                 {
-                    'label': punkt_label, 'url': url_for(punkt_ziel),
-                    'aktiv': any(endpoint.startswith(p) for p in praefixe),
+                    'label': punkt[0], 'url': url_for(punkt[1]),
+                    'aktiv': any(endpoint.startswith(p) for p in punkt[2]),
                 }
-                for punkt_label, punkt_ziel, praefixe in punkte
+                for punkt in punkte
+                if len(punkt) < 4 or getattr(current_user, punkt[3], False)
             ]
     return {'bereiche': bereiche, 'unterpunkte': unterpunkte, 'aktiv': aktiv}

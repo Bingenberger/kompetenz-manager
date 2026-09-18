@@ -57,8 +57,9 @@
                 <div class="col-md-4">
                     <label class="form-label" for="neu-rolle">Rolle</label>
                     <select name="role" id="neu-rolle" class="form-select">
-                        <option value="teacher" {% if eingaben.get('role') != 'admin' %}selected{% endif %}>Lehrkraft</option>
-                        <option value="admin" {% if eingaben.get('role') == 'admin' %}selected{% endif %}>Admin</option>
+                        {% for schluessel, label in rollen.items() %}
+                        <option value="{{ schluessel }}" {% if eingaben.get('role', 'teacher') == schluessel %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
                     </select>
                 </div>
             </div>
@@ -105,12 +106,13 @@
                 {% set systemkonto = user.username == 'admin' %}
                 <tr class="kollegium-zeile"
                     data-suche="{{ [user.display_name, user.username, user.email or '', z.klassenleitung if z else '', (z.fachklassen|join(' ')) if z else '']|join(' ')|lower }}"
-                    data-ohne-klasse="{{ '1' if not z and not systemkonto else '' }}"
+                    data-ohne-klasse="{{ '1' if not z and not systemkonto and not user.sieht_alle_kinder else '' }}"
                     data-ohne-email="{{ '' if user.email else '1' }}"
                     data-admin="{{ '1' if user.is_admin else '' }}">
                     <td>
                         <a class="person-name" href="{{ url_for('admin.admin_user_edit', user_id=user.id, next=hier) }}">{{ user.display_name }}</a>
-                        {% if user.is_admin %}<span class="badge bg-primary ms-1">Admin</span>{% endif %}
+                        {% if user.is_admin %}<span class="badge bg-primary ms-1">Admin</span>
+                        {% elif user.rolle != 'teacher' %}<span class="badge bg-info-subtle text-info-emphasis border ms-1">{{ user.rolle_label }}</span>{% endif %}
                         <div class="small text-muted">
                             {{ user.username }}{% if systemkonto %} · Systemkonto{% endif %}
                             {% if user.email %}<span class="d-lg-none"> · {{ user.email }}</span>{% endif %}
