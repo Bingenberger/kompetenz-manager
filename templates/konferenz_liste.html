@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Förderung</span>
+        <h2 class="h4 mt-2 mb-1">Förderkonferenzen</h2>
+        <p class="text-muted mb-0">Ein Jahrgang, ein Durchgang: jedes Kind bekommt eine Handlungsstufe und – wo nötig – einen Beschluss.</p>
+    </div>
+</div>
+
+{% if aufgaben %}
+<div class="surface-panel p-3 mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div><strong>{{ aufgaben|length }} Beschluss/Beschlüsse</strong> aus Konferenzen warten auf Sie.</div>
+        <a href="{{ url_for('konferenz.aufgaben') }}" class="btn btn-sm btn-primary icon-btn">{{ bi('list-check', 'bi-icon-sm') }} <span>Meine Beschlüsse</span></a>
+    </div>
+</div>
+{% endif %}
+
+{% if darf_anlegen %}
+<div class="surface-panel p-4 mb-3">
+    <h3 class="h5 mb-3">Neue Konferenz</h3>
+    <form method="POST" action="{{ url_for('konferenz.neu') }}" class="row g-2 align-items-end">
+        {{ csrf_input() }}
+        <div class="col-sm-3 col-lg-2">
+            <label class="form-label small mb-1" for="k-schuljahr">Schuljahr</label>
+            <input type="text" class="form-control" id="k-schuljahr" name="schuljahr" value="{{ schuljahr or '' }}" required>
+        </div>
+        <div class="col-sm-3 col-lg-2">
+            <label class="form-label small mb-1" for="k-jahrgang">Jahrgangsstufe</label>
+            <select class="form-select" id="k-jahrgang" name="jahrgang" required>
+                {% for j in jahrgaenge %}<option value="{{ j }}">Jahrgang {{ j }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-sm-3 col-lg-2">
+            <label class="form-label small mb-1" for="k-termin">Termin</label>
+            <input type="date" class="form-control" id="k-termin" name="termin">
+        </div>
+        <div class="col-sm-6 col-lg-4">
+            <label class="form-label small mb-1" for="k-titel">Titel (optional)</label>
+            <input type="text" class="form-control" id="k-titel" name="titel" placeholder="z. B. Herbstkonferenz Jahrgang 3">
+        </div>
+        <div class="col-sm-3 col-lg-2">
+            <button type="submit" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('plus-circle', 'bi-icon-sm') }} <span>Anlegen</span></button>
+        </div>
+    </form>
+    <p class="small text-muted mt-2 mb-0">Beim Anlegen kommen alle aktiven Kinder des Jahrgangs in die Liste.</p>
+</div>
+{% endif %}
+
+<div class="table-panel">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr><th>Konferenz</th><th>Termin</th><th>Status</th><th>Kinder</th><th>Stufen</th><th class="text-end"></th></tr>
+            </thead>
+            <tbody>
+                {% for zeile in zeilen %}
+                {% set k = zeile.konferenz %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('konferenz.start', konferenz_id=k.id) }}" class="fw-semibold text-decoration-none">{{ k.titel }}</a>
+                        <div class="small text-muted">Jahrgang {{ k.jahrgang }} · {{ k.schuljahr }}</div>
+                    </td>
+                    <td class="text-nowrap">{{ k.termin.strftime('%d.%m.%Y') if k.termin else '–' }}</td>
+                    <td>
+                        {% if k.status == 'abgeschlossen' %}<span class="badge text-bg-success">abgeschlossen</span>
+                        {% elif k.status == 'laufend' %}<span class="badge text-bg-warning">läuft</span>
+                        {% else %}<span class="badge text-bg-secondary">in Vorbereitung</span>{% endif %}
+                    </td>
+                    <td>{{ zeile.anzahl }}</td>
+                    <td class="small">
+                        {% for s in ['A', 'B', 'C'] %}<span class="badge text-bg-{{ stufen[s][1] }} me-1">{{ s }} {{ zeile.zaehler[s] }}</span>{% endfor %}
+                        {% if zeile.zaehler['ohne'] %}<span class="badge text-bg-light">ohne {{ zeile.zaehler['ohne'] }}</span>{% endif %}
+                    </td>
+                    <td class="text-end text-nowrap">
+                        {% if zeile.eigene %}
+                        <a href="{{ url_for('konferenz.vorbereitung', konferenz_id=k.id) }}" class="btn btn-sm {% if zeile.eigene_offen %}btn-primary{% else %}btn-outline-secondary{% endif %} icon-btn">
+                            {{ bi('pencil-square', 'bi-icon-sm') }} <span>Vorbereitung{% if zeile.eigene_offen %} ({{ zeile.eigene_offen }} offen){% endif %}</span></a>
+                        {% endif %}
+                        <a href="{{ url_for('konferenz.start', konferenz_id=k.id) }}" class="btn btn-sm btn-outline-secondary icon-only-btn" title="Öffnen" aria-label="Konferenz öffnen">{{ bi('arrow-right-circle', 'bi-icon-sm') }}</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-4">Noch keine Förderkonferenz angelegt.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

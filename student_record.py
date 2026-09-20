@@ -18,6 +18,8 @@ Lehrkraft wann etwas bearbeitet hat, und ist damit Verfahrensdokumentation
 
 from extensions import db
 from klassenzugriff import sichtbare_elternkontakte, sichtbare_ereignisse
+from konferenz import MASSNAHMEN as KONFERENZ_MASSNAHMEN, eintraege_fuer_kind
+from models import KONFERENZ_STUFEN
 from models import (
     Beobachtung,
     Bogen,
@@ -161,6 +163,7 @@ def collect_record(schueler, user=None):
             .order_by(Elternberatung.datum.asc())
             .all()
         ),
+        'konferenzen': list(reversed(eintraege_fuer_kind(schueler, user))),
         'ereignisse': (
             ereignisse(ErziehungsEreignis.query)
             .filter(ErziehungsEreignis.student_id == schueler.id)
@@ -398,6 +401,52 @@ def _block_ereignisse(record):
     return blocks
 
 
+KONFERENZ_FELDER = [
+    ('vorschlag_frage', 'Vorschlag der Klassenleitung'),
+    ('staerke', 'Stärke'),
+    ('fragestellung', 'Fragestellung'),
+    ('daten_notiz', 'Daten'),
+    ('bisherige_massnahmen', 'Bisherige Maßnahmen'),
+    ('wirkung', 'Wirkung'),
+    ('beschluss', 'Beschluss'),
+    ('massnahmen_notiz', 'Notiz zu den Maßnahmen'),
+]
+
+
+def _block_konferenzen(record):
+    eintraege = record['konferenzen']
+    blocks = [{'type': 'heading', 'level': 1, 'text': 'Förderkonferenzen'}]
+    if not eintraege:
+        blocks.append({'type': 'paragraph', 'text': 'Keine Konferenzeinträge.'})
+        return blocks
+    for eintrag in eintraege:
+        konferenz = eintrag.konferenz
+        blocks.append({'type': 'heading', 'level': 2,
+                       'text': f'{_datum(konferenz.termin)} · {konferenz.titel}'})
+        zeilen = [
+            ('Handlungsstufe', KONFERENZ_STUFEN[eintrag.stufe][0] if eintrag.stufe else '–'),
+            ('Besondere Stärke', 'ja' if eintrag.stern else 'nein'),
+        ]
+        zeilen.extend(_gefuellte_felder(eintrag, KONFERENZ_FELDER))
+        if eintrag.verantwortlich:
+            zeilen.append(('Verantwortlich', eintrag.verantwortlich.display_name))
+        if eintrag.ueberpruefung_am:
+            zeilen.append(('Überprüfung am', _datum(eintrag.ueberpruefung_am)))
+        massnahmen = [label for feld, label in KONFERENZ_MASSNAHMEN if getattr(eintrag, feld)]
+        if massnahmen:
+            zeilen.append(('Maßnahmen', ', '.join(massnahmen)))
+        if eintrag.foerderkurs_name:
+            zeilen.append(('Förderkurs', eintrag.foerderkurs_name))
+        if eintrag.eval_umgesetzt or eintrag.eval_wirksam or eintrag.eval_notiz:
+            zeilen.append(('Evaluation', ', '.join(filter(None, [
+                f'umgesetzt: {eintrag.eval_umgesetzt}' if eintrag.eval_umgesetzt else '',
+                f'Wirkung: {eintrag.eval_wirksam}' if eintrag.eval_wirksam else '',
+                _text(eintrag.eval_notiz) if eintrag.eval_notiz else '',
+            ]))))
+        blocks.append({'type': 'fields', 'rows': zeilen})
+    return blocks
+
+
 def record_blocks(record, erzeugt_am):
     """Setzt die Abschnitte zu einem Dokument zusammen."""
     blocks = []
@@ -406,6 +455,7 @@ def record_blocks(record, erzeugt_am):
     blocks.extend(_block_beobachtungen(record))
     blocks.extend(_block_foerderplaene(record))
     blocks.extend(_block_arbeitsplaene(record))
+    blocks.extend(_block_konferenzen(record))
     blocks.extend(_block_elternkontakte(record))
     blocks.extend(_block_ereignisse(record))
     blocks.append({'type': 'heading', 'level': 1, 'text': 'Hinweise zu diesem Auszug'})

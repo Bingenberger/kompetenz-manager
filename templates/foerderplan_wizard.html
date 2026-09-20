@@ -58,10 +58,19 @@
     {% endif %}
 
     <div class="surface-panel p-4 mb-4">
-        <div class="card-body p-0">
-            <label class="form-label fw-bold">Titel des Förderplans</label>
-            <input type="text" name="titel" class="form-control"
-                value="{% if is_edit_mode and plan is defined %}{{ plan.titel }}{% else %}Förderplan {{ schueler.vorname }} - {{ now.strftime('%m/%Y') }}{% endif %}" required>
+        <div class="row g-3">
+            <div class="col-md-8">
+                <label class="form-label fw-bold" for="fp-titel">Titel des Förderplans</label>
+                <input type="text" name="titel" id="fp-titel" class="form-control"
+                    value="{% if is_edit_mode and plan is defined %}{{ plan.titel }}{% elif vorgabe is defined and vorgabe.titel %}{{ vorgabe.titel }}{% else %}Förderplan {{ schueler.vorname }} - {{ now.strftime('%m/%Y') }}{% endif %}" required>
+            </div>
+            {% if not is_edit_mode %}
+            <div class="col-md-4">
+                <label class="form-label fw-bold" for="fp-evaluation">Evaluation am (optional)</label>
+                <input type="date" name="datum_evaluation" id="fp-evaluation" class="form-control"
+                       value="{{ vorgabe.evaluation if vorgabe is defined else '' }}">
+            </div>
+            {% endif %}
         </div>
     </div>
 

@@ -1,0 +1,170 @@
+{#
+  Alles zu einem Kind, beamertauglich: großzügige Schrift, nur dieses Kind.
+  Erwartet: kontext (konferenz.kind_kontext), konferenz, url (Speicherziel).
+#}
+{% from "includes/icons.html" import bi %}
+{% from "includes/diagnostik_diagramm.html" import diagnostik_diagramm %}
+{% set kind = kontext.schueler %}
+{% set eintrag = kontext.eintrag %}
+<div class="beamer">
+    <div class="d-flex flex-wrap align-items-baseline gap-3 mb-3">
+        <h2 class="mb-0">{{ kind.vorname }} {{ kind.nachname }}</h2>
+        <span class="text-muted">Klasse {{ eintrag.klasse or kind.klasse or '–' }}</span>
+        {% if eintrag.vorschlag_stufe %}
+        <span class="badge text-bg-{{ stufen[eintrag.vorschlag_stufe][1] }}">Vorschlag {{ eintrag.vorschlag_stufe }}</span>
+        {% endif %}
+        {% if eintrag.stern or eintrag.vorschlag_stern %}<span class="badge text-bg-light">★ Stärke</span>{% endif %}
+        {% if eintrag.vorschlag_beratung %}<span class="badge text-bg-info">Wunsch: vertiefte Beratung</span>{% endif %}
+    </div>
+
+    {% if kontext.abgleich %}
+    <div class="warnung-abgleich mb-3">
+        <strong>{{ bi('exclamation-triangle', 'bi-icon-sm') }} Daten sprechen gegen „Weiterführen“:</strong>
+        {{ kontext.abgleich|join(' · ') }}
+    </div>
+    {% endif %}
+
+    <div class="row g-3">
+        <div class="col-xl-6">
+            <div class="karte">
+                <h3>Stärken und Vorschlag</h3>
+                {% if kontext.grundlage and kontext.grundlage.besondere_staerken %}
+                <p class="mb-2"><strong>Aus dem Grundlagenblatt:</strong> {{ kontext.grundlage.besondere_staerken }}</p>
+                {% endif %}
+                {% if kontext.grundlage and kontext.grundlage.vorrangiger_foerderbedarf %}
+                <p class="mb-2"><strong>Vorrangiger Förderbedarf:</strong> {{ kontext.grundlage.vorrangiger_foerderbedarf }}</p>
+                {% endif %}
+                {% if eintrag.vorschlag_frage %}
+                <p class="mb-0"><strong>Klassenleitung:</strong> {{ eintrag.vorschlag_frage }}</p>
+                {% elif not kontext.grundlage %}
+                <p class="text-muted mb-0">Kein Grundlagenblatt, kein Vorschlag hinterlegt.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-xl-6">
+            <div class="karte">
+                <h3>Lernstand</h3>
+                {% if kontext.uebersicht %}
+                {% for b in kontext.uebersicht %}
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                    <strong>{{ b.bogen.titel }}</strong>
+                    {% if b.level %}<span class="badge {{ kontext.level_farben[b.level] }}">{{ kontext.level_labels[b.level] }}</span>{% endif %}
+                    <span class="small text-muted">{{ b.anzahl_staerken }} sicher · {{ b.anzahl_potenzial }} mit Potenzial</span>
+                </div>
+                <div class="d-flex flex-wrap gap-1 mb-2">
+                    {% for bereich in b.bereiche %}
+                    <span class="badge {{ kontext.level_farben[bereich.level] }}" title="{{ bereich.name }}: {{ kontext.level_labels[bereich.level] }}">{{ bereich.name }}</span>
+                    {% endfor %}
+                </div>
+                {% endfor %}
+                {% else %}
+                <p class="text-muted mb-0">Im laufenden Schuljahr sind keine Beobachtungen bewertet.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-xl-6">
+            <div class="karte">
+                <h3>Diagnostik</h3>
+                {% if kontext.diagnostik %}
+                {% for bereich in kontext.diagnostik %}
+                {% set e = bereich.eintrag %}
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                    <strong>{{ e.bereich }}</strong>
+                    {% if e.aktuell and e.aktuell.schwaechster_leitwert %}<span>{{ e.aktuell.schwaechster_leitwert.anzeige }}</span>{% endif %}
+                    {% if e.aktuell and e.aktuell.stufe %}
+                    <span class="badge text-bg-{{ kontext.diagnostik_stufen[e.aktuell.stufe][1] }}">{{ kontext.diagnostik_stufen[e.aktuell.stufe][0] }}</span>
+                    {% endif %}
+                    {% if e.aktuell %}<span class="small text-muted">{{ e.aktuell.ergebnis.testform.name }}</span>{% endif %}
+                </div>
+                {% for d in bereich.diagramme %}
+                {{ diagnostik_diagramm(d.geometrie, d.baender, kontext.diagnostik_stufen, e.bereich) }}
+                {% endfor %}
+                {% endfor %}
+                {% else %}
+                <p class="text-muted mb-0">Keine Testergebnisse eingetragen.</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="col-xl-6">
+            <div class="karte">
+                <h3>Förderung bisher</h3>
+                <ul class="list-unstyled mb-0">
+                    {% if kontext.aktiver_plan %}
+                    <li><strong>Aktiver Förderplan:</strong> „{{ kontext.aktiver_plan.titel }}“
+                        (seit {{ kontext.aktiver_plan.datum_erstellung.strftime('%d.%m.%Y') if kontext.aktiver_plan.datum_erstellung else '–' }},
+                        {{ kontext.aktiver_plan.inhalte|length }} Ziel(e))</li>
+                    {% endif %}
+                    {% if kontext.letzter_plan %}
+                    <li><strong>Zuletzt evaluiert:</strong> „{{ kontext.letzter_plan.titel }}“ am
+                        {{ kontext.letzter_plan.datum_evaluation.strftime('%d.%m.%Y') if kontext.letzter_plan.datum_evaluation else '–' }} –
+                        {{ kontext.letzter_plan.inhalte|selectattr('status_id', 'equalto', 1)|list|length }} erreicht,
+                        {{ kontext.letzter_plan.inhalte|selectattr('status_id', 'equalto', 2)|list|length }} weiterführen</li>
+                    {% endif %}
+                    {% if kontext.arbeitsplaene %}
+                    <li><strong>Arbeitspläne:</strong>
+                        {% for plan in kontext.arbeitsplaene %}{{ plan.period_start.strftime('%d.%m.') }}–{{ plan.period_end.strftime('%d.%m.%Y') }}{% if not loop.last %}, {% endif %}{% endfor %}</li>
+                    {% endif %}
+                    {% if kontext.foerderangaben %}
+                    <li><strong>Förderangaben {{ konferenz.schuljahr }}:</strong>
+                        {% if kontext.foerderangaben.nachteilsausgleich %}NTA {% endif %}
+                        {% if kontext.foerderangaben.foerderkurs %}Förderkurs {% endif %}
+                        {% if kontext.foerderangaben.externe_foerderung %}externe Förderung {% endif %}
+                        {{ kontext.foerderangaben.foerderschwerpunkt or '' }}</li>
+                    {% endif %}
+                    {% if kontext.fruehere %}
+                    <li><strong>Frühere Konferenzen:</strong>
+                        {% for f in kontext.fruehere %}{{ f.konferenz.termin.strftime('%m/%Y') if f.konferenz.termin else f.konferenz.schuljahr }}: {{ f.stufe or '–' }}{% if f.eval_wirksam %} ({{ f.eval_wirksam }}){% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</li>
+                    {% endif %}
+                    {% if not (kontext.aktiver_plan or kontext.letzter_plan or kontext.arbeitsplaene or kontext.foerderangaben or kontext.fruehere) %}
+                    <li class="text-muted">Bisher keine Förderplanung dokumentiert.</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-xl-6">
+            <div class="karte">
+                <h3>Eltern und Ereignisse</h3>
+                <ul class="list-unstyled mb-0">
+                    {% for kontakt in kontext.elternkontakte %}
+                    <li>{{ kontakt.datum.strftime('%d.%m.%Y') if kontakt.datum else '' }} ·
+                        {{ 'Protokoll' if kontakt.eintrag_typ == 'protokoll' else 'Notiz' }}:
+                        {{ kontakt.betreff or kontakt.mitteilung|truncate(90) }}
+                        {% if kontakt.vereinbarungen_schule %}<br><span class="small text-muted">Vereinbarung: {{ kontakt.vereinbarungen_schule|truncate(120) }}</span>{% endif %}</li>
+                    {% endfor %}
+                    {% for ereignis in kontext.ereignisse %}
+                    <li>{{ ereignis.datum.strftime('%d.%m.%Y') }} · Ereignis:
+                        {{ ereignis.event_template.name if ereignis.event_template else '' }}
+                        <span class="small text-muted">{{ ereignis.beschreibung|truncate(90) }}</span></li>
+                    {% endfor %}
+                    {% if not kontext.elternkontakte and not kontext.ereignisse %}
+                    <li class="text-muted">Keine Elternkontakte oder Ereignisse hinterlegt.</li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-xl-6">
+            <div class="karte">
+                <h3>Folgeaktionen</h3>
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-sm btn-outline-primary icon-btn" target="_blank" rel="noopener"
+                       href="{{ url_for('foerderplan.foerderplan_neu', s_id=kind.id, ziel=eintrag.fragestellung or eintrag.vorschlag_frage or '', ist=eintrag.daten_notiz or '', soll=eintrag.beschluss or '', massnahme=eintrag.bisherige_massnahmen or '', evaluation=eintrag.ueberpruefung_am.isoformat() if eintrag.ueberpruefung_am else '', titel='Konferenz ' ~ (konferenz.termin.strftime('%d.%m.%Y') if konferenz.termin else konferenz.schuljahr)) }}">
+                        {{ bi('heart-pulse', 'bi-icon-sm') }} <span>Förderplan</span></a>
+                    <a class="btn btn-sm btn-outline-primary icon-btn" target="_blank" rel="noopener"
+                       href="{{ url_for('workplan.workplan_new_page', s_id=kind.id) }}">{{ bi('journal-text', 'bi-icon-sm') }} <span>Arbeitsplan</span></a>
+                    <a class="btn btn-sm btn-outline-primary icon-btn" target="_blank" rel="noopener"
+                       href="{{ url_for('system.schuelerakte', schueler_id=kind.id) }}#akte-diagnostik">{{ bi('clipboard-data', 'bi-icon-sm') }} <span>Förderangaben / Diagnostik</span></a>
+                    <a class="btn btn-sm btn-outline-primary icon-btn" target="_blank" rel="noopener"
+                       href="{{ url_for('erfassung.elternberatung', schueler_id=kind.id) }}">{{ bi('people', 'bi-icon-sm') }} <span>Elternberatung</span></a>
+                    <a class="btn btn-sm btn-outline-primary icon-btn" target="_blank" rel="noopener"
+                       href="{{ url_for('erfassung.elternkontakt_protokoll', schueler_id=kind.id) }}">{{ bi('chat-left-text', 'bi-icon-sm') }} <span>Gesprächsprotokoll</span></a>
+                </div>
+                <p class="small text-muted mt-2 mb-0">Öffnet sich in einem neuen Tab, vorbelegt aus Stärke, Frage und Beschluss. Die Konferenz bleibt offen.</p>
+            </div>
+        </div>
+    </div>
+</div>

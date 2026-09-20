@@ -13,7 +13,8 @@ from werkzeug.security import generate_password_hash
 from diagnostik import STUFEN as DIAGNOSTIK_STUFEN, diagramme as diagnostik_diagramme, risikogrenzen, verlauf as diagnostik_verlauf, werte_zeilen
 from extensions import db
 from klassenzugriff import darf_ereignis_sehen, sichtbare_elternkontakte, sichtbare_ereignisse
-from models import Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, ErziehungsEreignisAnhang, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan, WorkPlanTaskAttachment
+from konferenz import beschluss_label, eintraege_fuer_kind, offene_beschluesse
+from models import KONFERENZ_STUFEN, Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, ErziehungsEreignisAnhang, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan, WorkPlanTaskAttachment
 from odt_export import build_odt_document, convert_odt_bytes_to_pdf
 from school_year import observation_period_start
 from search import search as run_search
@@ -500,6 +501,19 @@ def index():
             'priority': 5,
         })
 
+    # Beschlüsse und Wiedervorlagen aus abgeschlossenen Förderkonferenzen.
+    for eintrag in offene_beschluesse(current_user)[:4]:
+        kind_name = f'{eintrag.schueler.vorname} {eintrag.schueler.nachname}'.strip()
+        frist = eintrag.ueberpruefung_am
+        todos.append({
+            'title': f'{beschluss_label(eintrag)}: {kind_name}',
+            'detail': (eintrag.beschluss or 'ohne Beschlusstext') + f" · bis {frist.strftime('%d.%m.%Y')}",
+            'variant': 'danger' if frist < heute else 'warning',
+            'url': url_for('konferenz.aufgaben'),
+            'priority': 12 if frist < heute else 20,
+            'due_date': frist,
+        })
+
     if not todos:
         todos.append({
             'title': 'Aktuell keine dringenden Aufgaben',
@@ -565,6 +579,7 @@ def schuelerakte():
     foerder_schuljahr = None
     foerderangaben = []
     foerderangaben_aktuell = None
+    konferenz_eintraege = []
 
     if selected_student:
         # Diagnostik: je Lernbereich Verlauf, Diagramm und Ergebnisliste.
@@ -594,6 +609,7 @@ def schuelerakte():
             .order_by(WorkPlan.created_at.desc())
             .all()
         )
+        konferenz_eintraege = eintraege_fuer_kind(selected_student, current_user)
         erziehungsereignisse = (
             sichtbare_ereignisse(ErziehungsEreignis.query, current_user)
             .filter(ErziehungsEreignis.student_id == selected_student.id)
@@ -662,6 +678,8 @@ def schuelerakte():
         foerder_schuljahr=foerder_schuljahr,
         foerderangaben=foerderangaben,
         foerderangaben_aktuell=foerderangaben_aktuell,
+        konferenz_eintraege=konferenz_eintraege,
+        konferenz_stufen=KONFERENZ_STUFEN,
     )
 
 

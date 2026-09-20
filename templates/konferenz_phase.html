@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% from "includes/konferenz_teile.html" import speicher_status, speicher_stile, stufenwahl, stern, textfeld, zeilenfeld, datumsfeld, personenfeld, schalter %}
+{% block content %}
+{{ speicher_stile() }}
+{% set konferenz_url = url_for('konferenz.konferenz_feld', konferenz_id=konferenz.id) %}
+
+<div class="konferenz-kopf">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+            <span class="section-label">Phase {{ phase }} von {{ letzte_phase }}</span>
+            <h2 class="h4 mt-1 mb-0">{{ phase_name }}</h2>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="badge text-bg-light">Richtzeit {{ richtzeit }} Min.</span>
+            <span class="badge text-bg-light">Uhr <span class="konferenz-uhr" id="konferenz-uhr">00:00</span></span>
+            {% if offen %}<span class="badge text-bg-warning">{{ offen }} offen</span>{% else %}<span class="badge text-bg-success">nichts offen</span>{% endif %}
+            {{ speicher_status() }}
+        </div>
+    </div>
+    <div class="phasenleiste mt-2">
+        {% for p in phasen %}
+        <a href="{{ url_for('konferenz.phase', konferenz_id=konferenz.id, phase=p.nummer) }}" class="{% if p.aktiv %}aktiv{% endif %}"
+           title="{{ p.beschreibung }} · Richtzeit {{ p.richtzeit }} Min.">
+            {{ p.nummer }}. {{ p.name }}{% if p.offen %}<span class="offen">{{ p.offen }}</span>{% endif %}
+        </a>
+        {% endfor %}
+        <a href="{{ url_for('konferenz.start', konferenz_id=konferenz.id) }}">Übersicht</a>
+    </div>
+</div>
+
+{% if not schreibbar %}
+<div class="alert alert-info">Diese Konferenz ist abgeschlossen und schreibgeschützt.</div>
+{% endif %}
+
+{# ---------------------------------------------------------------- Phase 1 #}
+{% if phase == 1 %}
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="surface-panel p-4 h-100">
+            <h3 class="h5 mb-3">Moderation und Protokoll</h3>
+            <div class="mb-3">
+                <label class="form-label" for="k-moderation">Moderation</label>
+                {{ personenfeld(konferenz, 'moderation_user_id', konferenz_url, lehrkraefte, schreibbar, '– offen –') }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="k-protokoll">Protokoll</label>
+                {{ personenfeld(konferenz, 'protokoll_user_id', konferenz_url, lehrkraefte, schreibbar, '– offen –') }}
+            </div>
+            <div class="mb-0">
+                <label class="form-label">Gäste (z. B. Schulsozialarbeit)</label>
+                {{ textfeld(konferenz, 'gaeste', konferenz_url, schreibbar, 2, 'Namen, eine pro Zeile') }}
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="surface-panel p-4 h-100">
+            <h3 class="h5 mb-3">Teilnehmende abhaken</h3>
+            <div class="row row-cols-1 row-cols-md-2 g-1">
+                {% for zeile in teilnehmende %}
+                <div class="col">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="teil-{{ zeile.user.id }}" value="1"
+                               {% if zeile.anwesend %}checked{% endif %}
+                               data-feld="teilnahme" data-user-id="{{ zeile.user.id }}"
+                               data-url="{{ url_for('konferenz.teilnahme', konferenz_id=konferenz.id) }}"
+                               {% if not schreibbar %}disabled{% endif %}>
+                        <label class="form-check-label" for="teil-{{ zeile.user.id }}">
+                            {{ zeile.user.display_name }}
+                            {% if zeile.klassenleitung %}<span class="badge bg-info-subtle text-info-emphasis border ms-1">KL {{ zeile.klassenleitung }}</span>{% endif %}
+                        </label>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{# ---------------------------------------------------------------- Phase 2 #}
+{% elif phase == 2 %}
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="surface-panel p-4 h-100">
+            <h3 class="h5 mb-2">Jahrgangsblick</h3>
+            <p class="small text-muted">Stufenauswertung und Klassenübersichten öffnen sich in eigenen Tabs – so bleibt die Konferenz stehen.</p>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                <a class="btn btn-sm btn-outline-primary icon-btn" target="_blank" rel="noopener"
+                   href="{{ url_for('diagnostik.stufenauswertung', jahrgang=konferenz.jahrgang, schuljahr=konferenz.schuljahr) }}">{{ bi('clipboard-data', 'bi-icon-sm') }} <span>Stufenauswertung Diagnostik</span></a>
+                <a class="btn btn-sm btn-outline-primary icon-btn" target="_blank" rel="noopener"
+                   href="{{ url_for('diagnostik.schuluebersicht', jahrgang=konferenz.jahrgang, schuljahr=konferenz.schuljahr) }}">{{ bi('graph-up', 'bi-icon-sm') }} <span>Langzeitwerte des Jahrgangs</span></a>
+                {% for klasse in alle_kinder|map(attribute='klasse')|select|unique|sort %}
+                <a class="btn btn-sm btn-outline-secondary icon-btn" target="_blank" rel="noopener"
+                   href="{{ url_for('report.report_matrix', klasse=klasse) }}">{{ bi('grid-3x3', 'bi-icon-sm') }} <span>Klassenübersicht {{ klasse }}</span></a>
+                <a class="btn btn-sm btn-outline-secondary icon-btn" target="_blank" rel="noopener"
+                   href="{{ url_for('diagnostik.uebersicht', klasse=klasse) }}">{{ bi('clipboard-data', 'bi-icon-sm') }} <span>Diagnostik {{ klasse }}</span></a>
+                {% endfor %}
+            </div>
+            <label class="form-label">Gemeinsame Muster im Jahrgang</label>
+            {{ textfeld(konferenz, 'notiz_muster', konferenz_url, schreibbar, 8, 'Was fällt über die Klassen hinweg auf?') }}
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="surface-panel p-4 h-100">
+            <h3 class="h5 mb-3">Vorschläge der Klassenleitungen</h3>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                {% for s in ['A', 'B', 'C'] %}
+                <span class="badge text-bg-{{ stufen[s][1] }}">{{ s }}: {{ alle_kinder|selectattr('vorschlag_stufe', 'equalto', s)|list|length }}</span>
+                {% endfor %}
+                <span class="badge text-bg-secondary">ohne Vorschlag: {{ alle_kinder|rejectattr('vorschlag_stufe')|list|length }}</span>
+            </div>
+            <ul class="list-unstyled small mb-0">
+                {% for e in alle_kinder if e.vorschlag_frage %}
+                <li class="mb-1"><strong>{{ e.schueler.vorname }} {{ e.schueler.nachname }}</strong>
+                    <span class="text-muted">({{ e.klasse }})</span>: {{ e.vorschlag_frage|truncate(120) }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+{# ---------------------------------------------------------------- Phase 3 #}
+{% elif phase == 3 %}
+<p class="text-muted">Alle Vorschläge „A – Weiterführen“. Die App gleicht sie mit Diagnostik, Beobachtungen und laufenden Förderplänen ab. Wo etwas dagegen spricht, steht eine Warnung – dann bitte prüfen und gegebenenfalls hochstufen.</p>
+{% for klasse, eintraege in a_block.klassen %}
+<div class="table-panel mb-3">
+    <div class="table-toolbar">
+        <div class="table-toolbar-title">Klasse {{ klasse }} · {{ eintraege|length }} Kind(er)</div>
+        {% if schreibbar %}
+        <form method="POST" action="{{ url_for('konferenz.a_block_bestaetigen', konferenz_id=konferenz.id) }}">
+            {{ csrf_input() }}<input type="hidden" name="klasse" value="{{ klasse }}">
+            <button type="submit" class="btn btn-sm btn-success icon-btn">{{ bi('check-circle', 'bi-icon-sm') }} <span>Alle als A bestätigen</span></button>
+        </form>
+        {% endif %}
+    </div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light"><tr><th>Kind</th><th>Stufe</th><th>★</th><th>Hinweis der Klassenleitung</th><th>Abgleich</th></tr></thead>
+            <tbody>
+                {% for e in eintraege %}
+                {% set url = url_for('konferenz.kind_feld', konferenz_id=konferenz.id, eintrag_id=e.id) %}
+                <tr class="{% if a_block.warnungen[e.id] %}table-warning{% endif %}">
+                    <td class="fw-semibold">{{ e.schueler.vorname }} {{ e.schueler.nachname }}
+                        {% if e.stufe %}<span class="badge text-bg-{{ stufen[e.stufe][1] }} ms-1">bestätigt {{ e.stufe }}</span>{% endif %}</td>
+                    <td>{{ stufenwahl(e, 'stufe', url, stufen, stufen_reihenfolge, schreibbar) }}</td>
+                    <td>{{ stern(e, 'stern', url, schreibbar) }}</td>
+                    <td class="small">{{ e.vorschlag_frage or '–' }}</td>
+                    <td class="small">
+                        {% if a_block.warnungen[e.id] %}
+                        <span class="text-warning-emphasis">{{ bi('exclamation-triangle', 'bi-icon-sm') }} {{ a_block.warnungen[e.id]|join(' · ') }}</span>
+                        {% else %}<span class="text-muted">ohne Auffälligkeit</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">Keine A-Vorschläge. Die Klassenleitungen tragen sie in der Vorbereitung ein.</div>
+{% endfor %}
+
+{# ---------------------------------------------------------------- Phase 4 und 5 #}
+{% elif phase in (4, 5) %}
+{% if not kinder %}
+<div class="alert alert-info">Keine Kinder in dieser Phase.</div>
+{% else %}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <span class="small text-muted">Kind {{ kinder.index(aktuelles) + 1 }} von {{ kinder|length }}</span>
+    {# Nummern statt Namen: auf dem Beamer ist nur das aktuelle Kind zu sehen. #}
+    <div class="kind-navigation">
+        {% for e in kinder %}
+        <a href="{{ url_for('konferenz.phase', konferenz_id=konferenz.id, phase=phase, kind=e.id) }}"
+           class="{% if aktuelles and e.id == aktuelles.id %}aktiv{% elif not e.beschluss_offen %}fertig{% endif %}"
+           aria-label="Kind {{ loop.index }}{% if not e.beschluss_offen %}, fertig{% endif %}">
+            {{ loop.index }}{% if not e.beschluss_offen %} ✓{% endif %}
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% set position = kinder.index(aktuelles) %}
+{% set url = url_for('konferenz.kind_feld', konferenz_id=konferenz.id, eintrag_id=aktuelles.id) %}
+<div class="row g-3">
+    <div class="col-xl-7">
+        {% include "includes/konferenz_kind.html" %}
+    </div>
+    <div class="col-xl-5">
+        <div class="surface-panel p-4">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                <h3 class="h5 mb-0">Entscheidung</h3>
+                <div class="d-flex align-items-center gap-2">
+                    {{ stufenwahl(aktuelles, 'stufe', url, stufen, stufen_reihenfolge, schreibbar, True) }}
+                    {{ stern(aktuelles, 'stern', url, schreibbar) }}
+                </div>
+            </div>
+
+            {% if phase == 5 %}
+            {% for feld, titel, hilfe in schritte %}
+            <div class="mb-3">
+                <label class="form-label mb-1"><strong>{{ loop.index }}. {{ titel }}</strong>
+                    <span class="small text-muted d-block">{{ hilfe }}</span></label>
+                {{ textfeld(aktuelles, feld, url, schreibbar, 3 if feld != 'beschluss' else 4) }}
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="mb-3">
+                <label class="form-label mb-1"><strong>Frage</strong></label>
+                {{ textfeld(aktuelles, 'fragestellung', url, schreibbar, 2, aktuelles.vorschlag_frage or 'Was wollen wir klären?') }}
+            </div>
+            <div class="mb-3">
+                <label class="form-label mb-1"><strong>Beschluss</strong></label>
+                {{ textfeld(aktuelles, 'beschluss', url, schreibbar, 4, 'Was tun wir bis zur Wiedervorlage?') }}
+            </div>
+            {% endif %}
+
+            <div class="row g-2 mb-3">
+                <div class="col-sm-7">
+                    <label class="form-label mb-1">Verantwortlich</label>
+                    {{ personenfeld(aktuelles, 'verantwortlich_user_id', url, lehrkraefte, schreibbar) }}
+                </div>
+                <div class="col-sm-5">
+                    <label class="form-label mb-1">{{ 'Wiedervorlage' if phase == 4 else 'Überprüfung' }}</label>
+                    {{ datumsfeld(aktuelles, 'ueberpruefung_am', url, schreibbar) }}
+                </div>
+            </div>
+
+            <div class="mb-2"><strong>Maßnahmen</strong></div>
+            <div class="row row-cols-1 row-cols-sm-2 g-1 mb-2">
+                {% for feld, label in massnahmen %}
+                <div class="col">{{ schalter(aktuelles, feld, url, label, schreibbar) }}</div>
+                {% endfor %}
+            </div>
+            <div class="row g-2 mb-3">
+                <div class="col-sm-8">
+                    <label class="form-label mb-1 small">Förderkurs (Bezeichnung)</label>
+                    {{ zeilenfeld(aktuelles, 'foerderkurs_name', url, schreibbar, 'z. B. Lesekurs Mo/Do') }}
+                </div>
+                <div class="col-sm-4 d-flex align-items-end">
+                    {{ schalter(aktuelles, 'foerderkurs_bestaetigt', url, 'bestätigt', schreibbar) }}
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label mb-1 small">Notiz zu den Maßnahmen</label>
+                {{ textfeld(aktuelles, 'massnahmen_notiz', url, schreibbar, 2) }}
+            </div>
+
+            <div class="d-flex flex-wrap justify-content-between gap-2">
+                {% if position > 0 %}
+                <a class="btn btn-outline-secondary icon-btn" data-voriges
+                   href="{{ url_for('konferenz.phase', konferenz_id=konferenz.id, phase=phase, kind=kinder[position - 1].id) }}">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Voriges Kind</span></a>
+                {% else %}<span></span>{% endif %}
+                {% if position + 1 < kinder|length %}
+                <a class="btn btn-primary icon-btn" data-naechstes
+                   href="{{ url_for('konferenz.phase', konferenz_id=konferenz.id, phase=phase, kind=kinder[position + 1].id) }}"><span>Nächstes Kind</span> {{ bi('arrow-right-circle', 'bi-icon-sm') }}</a>
+                {% else %}
+                <a class="btn btn-primary icon-btn" href="{{ url_for('konferenz.phase', konferenz_id=konferenz.id, phase=phase + 1) }}"><span>Nächste Phase</span> {{ bi('arrow-right-circle', 'bi-icon-sm') }}</a>
+                {% endif %}
+            </div>
+            <p class="small text-muted mt-2 mb-0">Tastatur: <kbd>A</kbd> <kbd>B</kbd> <kbd>C</kbd> setzen die Stufe, <kbd>←</kbd> <kbd>→</kbd> wechseln das Kind.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{# ---------------------------------------------------------------- Phase 6 #}
+{% elif phase == 6 %}
+<div class="row g-3">
+    <div class="col-lg-6">
+        <div class="surface-panel p-4 h-100">
+            <h3 class="h5 mb-3">Förderkurse bestätigen</h3>
+            {% if kurse %}
+            <table class="table table-sm align-middle mb-0">
+                <thead class="table-light"><tr><th>Kind</th><th>Klasse</th><th>Kurs</th><th>bestätigt</th></tr></thead>
+                <tbody>
+                    {% for e in kurse %}
+                    {% set url = url_for('konferenz.kind_feld', konferenz_id=konferenz.id, eintrag_id=e.id) %}
+                    <tr>
+                        <td>{{ e.schueler.vorname }} {{ e.schueler.nachname }}</td>
+                        <td>{{ e.klasse or '–' }}</td>
+                        <td>{{ zeilenfeld(e, 'foerderkurs_name', url, schreibbar) }}</td>
+                        <td>{{ schalter(e, 'foerderkurs_bestaetigt', url, 'ja', schreibbar) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p class="text-muted mb-0">In dieser Konferenz wurde noch kein Förderkurs als Maßnahme gewählt.</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="surface-panel p-4 h-100">
+            <h3 class="h5 mb-3">Ressourcen und Schulentwicklung</h3>
+            <label class="form-label">Jahrgangsweite Maßnahmen</label>
+            {{ textfeld(konferenz, 'massnahmen_jahrgang', konferenz_url, schreibbar, 4, 'Was nehmen wir für den ganzen Jahrgang mit?') }}
+            <label class="form-label mt-3">Ressourcen, Bedarf, Notizen</label>
+            {{ textfeld(konferenz, 'notiz_ressourcen', konferenz_url, schreibbar, 6) }}
+        </div>
+    </div>
+</div>
+
+{# ---------------------------------------------------------------- Phase 7 #}
+{% elif phase == 7 %}
+<div class="row g-3">
+    <div class="col-lg-8">
+        <div class="table-panel">
+            <div class="table-toolbar"><div class="table-toolbar-title">Beschlüsse zur Kontrolle ({{ beschluesse|length }})</div></div>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light"><tr><th>Kind</th><th>Stufe</th><th>Beschluss</th><th>Verantwortlich</th><th>Bis</th></tr></thead>
+                    <tbody>
+                        {% for e in beschluesse %}
+                        {% set url = url_for('konferenz.kind_feld', konferenz_id=konferenz.id, eintrag_id=e.id) %}
+                        <tr class="{% if e.beschluss_offen %}table-warning{% endif %}">
+                            <td>{{ e.schueler.vorname }} {{ e.schueler.nachname }}<div class="small text-muted">{{ e.klasse or '' }}</div></td>
+                            <td><span class="badge text-bg-{{ stufen[e.stufe][1] }}">{{ e.stufe }}</span></td>
+                            <td style="min-width: 16rem;">{{ textfeld(e, 'beschluss', url, schreibbar, 2) }}</td>
+                            <td style="min-width: 10rem;">{{ personenfeld(e, 'verantwortlich_user_id', url, lehrkraefte, schreibbar) }}</td>
+                            <td style="min-width: 9rem;">{{ datumsfeld(e, 'ueberpruefung_am', url, schreibbar) }}</td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center text-muted py-4">Keine B- oder C-Kinder.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="surface-panel p-4 h-100">
+            <h3 class="h5 mb-3">Abschluss</h3>
+            <div class="d-flex flex-wrap gap-2 mb-3">
+                {% for s in ['A', 'B', 'C'] %}<span class="badge text-bg-{{ stufen[s][1] }}">{{ s }}: {{ zaehler[s] }}</span>{% endfor %}
+                {% if zaehler['ohne'] %}<span class="badge text-bg-secondary">ohne Stufe: {{ zaehler['ohne'] }}</span>{% endif %}
+                <span class="badge text-bg-light">★ {{ zaehler['stern'] }}</span>
+            </div>
+            {% if hinweise %}
+            <div class="alert alert-warning py-2">
+                <strong>Hinweis:</strong>
+                <ul class="mb-0 small">{% for h in hinweise %}<li>{{ h }}</li>{% endfor %}</ul>
+                <div class="small mt-1">Der Abschluss ist trotzdem möglich.</div>
+            </div>
+            {% else %}
+            <div class="alert alert-success py-2 mb-3">Alles vollständig.</div>
+            {% endif %}
+            {% if schreibbar %}
+            <form method="POST" action="{{ url_for('konferenz.status', konferenz_id=konferenz.id) }}"
+                  data-confirm-title="Konferenz abschließen" data-confirm-message="Danach ist die Konferenz schreibgeschützt. Die Beschlüsse erscheinen als Aufgaben." data-confirm-button="Abschließen">
+                {{ csrf_input() }}<input type="hidden" name="aktion" value="abschliessen">
+                <button type="submit" class="btn btn-primary icon-btn">{{ bi('check-circle', 'bi-icon-sm') }} <span>Konferenz abschließen</span></button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="d-flex flex-wrap justify-content-between gap-2 mt-3">
+    {% if phase > 1 %}
+    <a class="btn btn-outline-secondary icon-btn" href="{{ url_for('konferenz.phase', konferenz_id=konferenz.id, phase=phase - 1) }}">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Phase zurück</span></a>
+    {% else %}<span></span>{% endif %}
+    {% if phase < letzte_phase %}
+    <a class="btn btn-outline-primary icon-btn" href="{{ url_for('konferenz.phase', konferenz_id=konferenz.id, phase=phase + 1) }}"><span>Phase überspringen / weiter</span> {{ bi('arrow-right-circle', 'bi-icon-sm') }}</a>
+    {% endif %}
+</div>
+
+<script src="{{ url_for('static', filename='js/konferenz.js') }}"></script>
+<script>
+(function () {
+    // Laufende Uhr ab dem Öffnen der Phase.
+    var start = Date.now();
+    var anzeige = document.getElementById('konferenz-uhr');
+    window.setInterval(function () {
+        var s = Math.floor((Date.now() - start) / 1000);
+        anzeige.textContent = String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
+    }, 1000);
+}());
+</script>
+{% endblock %}

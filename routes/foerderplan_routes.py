@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 import hashlib
 import json
 
@@ -314,12 +314,18 @@ def foerderplan_neu(s_id):
 
     if request.method == 'POST':
         titel = request.form.get('titel')
+        evaluation_roh = (request.form.get('datum_evaluation') or '').strip()
+        try:
+            datum_evaluation = date.fromisoformat(evaluation_roh) if evaluation_roh else None
+        except ValueError:
+            datum_evaluation = None
 
         neuer_plan = Foerderplan(
             schueler_id=schueler.id,
             creator_user_id=current_user.id,
             titel=titel,
             datum_erstellung=utc_now(),
+            datum_evaluation=datum_evaluation,
             status='aktiv'
         )
         db.session.add(neuer_plan)
@@ -431,6 +437,17 @@ def foerderplan_neu(s_id):
                     'source_label': 'Vorschlag aus Beobachtung',
                 })
 
+    # Vorbelegung aus einer Förderkonferenz: Ziel, Ist, Soll, Maßnahmen, Frist.
+    vorgabe = {feld: (request.args.get(feld) or '').strip() for feld in ('ziel', 'ist', 'soll', 'massnahme', 'titel', 'evaluation')}
+    if any(vorgabe[feld] for feld in ('ziel', 'ist', 'soll', 'massnahme')):
+        vorschlaege.insert(0, {
+            'bereich': vorgabe['ziel'] or 'Förderziel aus der Konferenz',
+            'ist': vorgabe['ist'],
+            'soll': vorgabe['soll'],
+            'massnahme': vorgabe['massnahme'],
+            'source_label': 'Übernahme aus der Förderkonferenz',
+        })
+
     all_boegen = Bogen.query.all()
 
     return render_template(
@@ -438,6 +455,7 @@ def foerderplan_neu(s_id):
         schueler=schueler,
         grundlage=schueler.foerdergrundlage,
         vorschlaege=vorschlaege,
+        vorgabe=vorgabe,
         all_boegen=all_boegen,
         now=utc_now(),
         is_edit_mode=False,

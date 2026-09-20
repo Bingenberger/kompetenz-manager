@@ -1,0 +1,106 @@
+{#
+  Bausteine der Förderkonferenz: Speicheranzeige, Stufenwahl, Feldhelfer.
+  Jedes Bedienelement trägt data-feld, data-url und data-bearbeitet-am -
+  static/js/konferenz.js speichert daraus jede Eingabe für sich.
+#}
+
+{% macro speicher_status() %}
+<span id="speicher-status" class="speicher-status fertig" aria-live="polite">Bereit</span>
+{% endmacro %}
+
+{% macro speicher_stile() %}
+<style>
+    .speicher-status { font-size: .85rem; border-radius: 999px; padding: .15rem .7rem; white-space: nowrap; }
+    .speicher-status.fertig { background: rgba(67,170,139,0.14); color: #1f6b56; }
+    .speicher-status.speichert { background: rgba(248,150,30,0.16); color: #8a5200; }
+    .speicher-status.fehler { background: rgba(249,65,68,0.14); color: #a11417; }
+    .stufenwahl .btn { font-weight: 700; min-width: 2.6rem; }
+    .konferenz-kopf { position: sticky; top: 0; z-index: 5; background: rgba(255,255,255,0.97);
+        border-bottom: 1px solid rgba(87,117,144,0.18); padding: .6rem 0; margin-bottom: 1rem; }
+    .phasenleiste { display: flex; flex-wrap: wrap; gap: .3rem; }
+    .phasenleiste a { border-radius: 999px; padding: .2rem .7rem; font-size: .85rem; text-decoration: none;
+        border: 1px solid rgba(87,117,144,0.3); color: #3b4a59; background: #fff; }
+    .phasenleiste a.aktiv { background: #277da1; border-color: #277da1; color: #fff; font-weight: 700; }
+    .phasenleiste a .offen { background: #f94144; color: #fff; border-radius: 999px; padding: 0 .4rem; margin-left: .3rem; font-size: .75rem; }
+    .konferenz-uhr { font-variant-numeric: tabular-nums; font-weight: 700; }
+    .beamer { font-size: 1.05rem; }
+    .beamer h2 { font-size: clamp(1.6rem, 3vw, 2.2rem); }
+    .beamer .karte { border: 1px solid rgba(87,117,144,0.18); border-radius: 14px; padding: .9rem 1.1rem; height: 100%; }
+    .beamer .karte h3 { font-size: 1rem; letter-spacing: .03em; text-transform: uppercase; color: #577590; margin-bottom: .5rem; }
+    .beamer .karte li, .beamer .karte p { font-size: 1.02rem; }
+    .kind-navigation { display: flex; flex-wrap: wrap; gap: .3rem; max-height: 9rem; overflow: auto; }
+    .kind-navigation a { border-radius: 999px; padding: .15rem .6rem; font-size: .85rem; text-decoration: none;
+        border: 1px solid rgba(87,117,144,0.3); color: #3b4a59; }
+    .kind-navigation a.aktiv { background: #277da1; border-color: #277da1; color: #fff; }
+    .kind-navigation a.fertig { border-color: #43aa8b; color: #1f6b56; }
+    .ls-stark { background: #43aa8b; color: #fff; }
+    .ls-sicher { background: #90be6d; color: #1f2933; }
+    .ls-teils { background: #f9c74f; color: #1f2933; }
+    .ls-schwach { background: #f94144; color: #fff; }
+    .warnung-abgleich { background: rgba(248,150,30,0.12); border: 1px solid rgba(248,150,30,0.4); border-radius: 10px; padding: .4rem .7rem; }
+</style>
+{% endmacro %}
+
+{% macro stand(eintrag) %}{{ eintrag.bearbeitet_am.isoformat() if eintrag.bearbeitet_am else '' }}{% endmacro %}
+
+{% macro stufenwahl(eintrag, feld, url, stufen, reihenfolge, schreibbar, tasten=False) %}
+<div class="btn-group btn-group-sm stufenwahl" role="group" aria-label="Handlungsstufe">
+    {% set aktuell = eintrag|attr(feld) %}
+    {% for s in reihenfolge %}
+    <input type="radio" class="btn-check" name="{{ feld }}-{{ eintrag.id }}" id="{{ feld }}-{{ eintrag.id }}-{{ s }}"
+           value="{{ s }}" autocomplete="off" {% if aktuell == s %}checked{% endif %}
+           data-feld="{{ feld }}" data-url="{{ url }}" data-bearbeitet-am="{{ stand(eintrag) }}"
+           {% if not schreibbar %}disabled{% endif %}>
+    <label class="btn btn-outline-{{ stufen[s][1] }}" for="{{ feld }}-{{ eintrag.id }}-{{ s }}"
+           title="{{ stufen[s][0] }}" {% if tasten %}data-stufe-taste="{{ s }}"{% endif %}>{{ s }}</label>
+    {% endfor %}
+</div>
+{% endmacro %}
+
+{% macro stern(eintrag, feld, url, schreibbar) %}
+<div class="form-check form-switch m-0">
+    <input class="form-check-input" type="checkbox" id="{{ feld }}-{{ eintrag.id }}" value="1"
+           {% if eintrag|attr(feld) %}checked{% endif %}
+           data-feld="{{ feld }}" data-url="{{ url }}" data-bearbeitet-am="{{ stand(eintrag) }}"
+           {% if not schreibbar %}disabled{% endif %}>
+    <label class="form-check-label" for="{{ feld }}-{{ eintrag.id }}" title="Besondere Stärke">★</label>
+</div>
+{% endmacro %}
+
+{% macro textfeld(objekt, feld, url, schreibbar, zeilen=3, platzhalter='') %}
+<textarea class="form-control" rows="{{ zeilen }}" placeholder="{{ platzhalter }}"
+          data-feld="{{ feld }}" data-url="{{ url }}" data-bearbeitet-am="{{ stand(objekt) }}"
+          {% if not schreibbar %}readonly{% endif %}>{{ objekt|attr(feld) or '' }}</textarea>
+{% endmacro %}
+
+{% macro zeilenfeld(objekt, feld, url, schreibbar, platzhalter='') %}
+<input type="text" class="form-control" placeholder="{{ platzhalter }}" value="{{ objekt|attr(feld) or '' }}"
+       data-feld="{{ feld }}" data-url="{{ url }}" data-bearbeitet-am="{{ stand(objekt) }}"
+       {% if not schreibbar %}readonly{% endif %}>
+{% endmacro %}
+
+{% macro datumsfeld(objekt, feld, url, schreibbar) %}
+<input type="date" class="form-control" value="{{ (objekt|attr(feld)).isoformat() if objekt|attr(feld) else '' }}"
+       data-feld="{{ feld }}" data-url="{{ url }}" data-bearbeitet-am="{{ stand(objekt) }}"
+       {% if not schreibbar %}disabled{% endif %}>
+{% endmacro %}
+
+{% macro personenfeld(objekt, feld, url, lehrkraefte, schreibbar, leer='– niemand –') %}
+<select class="form-select" data-feld="{{ feld }}" data-url="{{ url }}" data-bearbeitet-am="{{ stand(objekt) }}"
+        {% if not schreibbar %}disabled{% endif %}>
+    <option value="">{{ leer }}</option>
+    {% for person in lehrkraefte %}
+    <option value="{{ person.id }}" {% if objekt|attr(feld) == person.id %}selected{% endif %}>{{ person.display_name }}</option>
+    {% endfor %}
+</select>
+{% endmacro %}
+
+{% macro schalter(objekt, feld, url, label, schreibbar) %}
+<div class="form-check">
+    <input class="form-check-input" type="checkbox" id="{{ feld }}-{{ objekt.id }}" value="1"
+           {% if objekt|attr(feld) %}checked{% endif %}
+           data-feld="{{ feld }}" data-url="{{ url }}" data-bearbeitet-am="{{ stand(objekt) }}"
+           {% if not schreibbar %}disabled{% endif %}>
+    <label class="form-check-label" for="{{ feld }}-{{ objekt.id }}">{{ label }}</label>
+</div>
+{% endmacro %}

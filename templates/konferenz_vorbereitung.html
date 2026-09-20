@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% from "includes/konferenz_teile.html" import speicher_status, speicher_stile, stufenwahl, stern, textfeld, schalter %}
+{% block content %}
+{{ speicher_stile() }}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Förderkonferenz</span>
+        <h2 class="h4 mt-2 mb-1">Vorbereitung: {{ konferenz.titel }}</h2>
+        <p class="text-muted mb-0">Ihre Vorschläge für die Kinder Ihrer Klasse. Alles wird sofort gespeichert.</p>
+    </div>
+    <div class="toolbar-actions">
+        {{ speicher_status() }}
+        <a href="{{ url_for('konferenz.start', konferenz_id=konferenz.id) }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zur Konferenz</span></a>
+    </div>
+</div>
+
+{% if not schreibbar %}
+<div class="alert alert-info">Die Konferenz ist abgeschlossen. Sie sehen Ihre Vorschläge und die Beschlüsse, können aber nichts mehr ändern.</div>
+{% endif %}
+
+<div class="surface-panel p-3 mb-3 small text-muted">
+    <strong>A</strong> – Weiterführen, kein zusätzlicher Handlungsbedarf ·
+    <strong>B</strong> – Genauer hinsehen, offene Frage ·
+    <strong>C</strong> – Handeln, konkreter Förder- oder Beratungsbedarf ·
+    <strong>★</strong> – besondere Stärke, unabhängig von der Stufe
+</div>
+
+<div class="table-panel">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr><th style="min-width: 12rem;">Kind</th><th>Stufe</th><th>★</th><th style="min-width: 18rem;">Frage / Beobachtung</th><th>Vertiefte Beratung</th><th>Beschluss</th></tr>
+            </thead>
+            <tbody>
+                {% for e in eintraege %}
+                {% set url = url_for('konferenz.kind_feld', konferenz_id=konferenz.id, eintrag_id=e.id) %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('system.schuelerakte', schueler_id=e.schueler_id) }}" class="fw-semibold text-decoration-none">{{ e.schueler.nachname }}, {{ e.schueler.vorname }}</a>
+                        <div class="small text-muted">{{ e.klasse or '' }}</div>
+                    </td>
+                    <td>{{ stufenwahl(e, 'vorschlag_stufe', url, stufen, stufen_reihenfolge, schreibbar) }}</td>
+                    <td>{{ stern(e, 'vorschlag_stern', url, schreibbar) }}</td>
+                    <td>{{ textfeld(e, 'vorschlag_frage', url, schreibbar, 2, 'Was möchten Sie besprechen?') }}</td>
+                    <td>{{ schalter(e, 'vorschlag_beratung', url, 'gewünscht', schreibbar) }}</td>
+                    <td class="small">
+                        {% if e.stufe %}
+                        <span class="badge text-bg-{{ stufen[e.stufe][1] }}">{{ e.stufe }}</span>
+                        {{ e.beschluss or '' }}
+                        {% if e.ueberpruefung_am %}<div class="text-muted">bis {{ e.ueberpruefung_am.strftime('%d.%m.%Y') }}</div>{% endif %}
+                        {% else %}<span class="text-muted">–</span>{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/konferenz.js') }}"></script>
+{% endblock %}

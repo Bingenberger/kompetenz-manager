@@ -30,6 +30,7 @@ BEREICHE = [
     ('foerderung', 'Förderung', 'heart-pulse', 'foerderplan.foerderplan_list', [
         ('Förderpläne', 'foerderplan.foerderplan_list', ('foerderplan.',)),
         ('Arbeitspläne', 'workplan.workplan_list_page', ('workplan.',)),
+        ('Förderkonferenz', 'konferenz.liste', ('konferenz.',)),
     ]),
     ('ereignisse', 'Ereignisse', 'shield-exclamation', 'erziehung.erziehung_list', [
         ('Übersicht', 'erziehung.erziehung_list', ('erziehung.erziehung_list', 'erziehung.erziehung_view', 'erziehung.erziehung_edit')),
@@ -57,6 +58,7 @@ _BLUEPRINTS = {
     'report': 'auswertung',
     'foerderplan': 'foerderung',
     'workplan': 'foerderung',
+    'konferenz': 'foerderung',
     'erziehung': 'ereignisse',
     'diagnostik': 'diagnostik',
 }

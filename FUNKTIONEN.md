@@ -49,6 +49,9 @@ Browser erreichbar, auch auf Tablet und Smartphone.
 | Förderpläne, Grundlagenblatt, Arbeitspläne | Klassenleitung und Fachlehrkräfte der Klasse des Kindes |
 | Diagnostik-Ergebnisse und Förderangaben | Klassenleitung und Fachlehrkräfte der Klasse des Kindes |
 | Elternkontakte (Notiz, Protokoll) und Elternberatungen | wer den Eintrag angelegt hat, dazu Klassenleitung und Fachlehrkräfte des Kindes |
+| Förderkonferenz: anlegen, moderieren, abschließen, wieder öffnen | nur Schulleitung (und Verwaltung) |
+| Förderkonferenz: Vorschläge eintragen | Klassenleitung für die Kinder ihrer Klasse |
+| Förderkonferenz: lesen | wer das jeweilige Kind sehen darf |
 | Erzieherische Ereignisse | wer es angelegt hat, wer als zuständig eingetragen ist, Klassenleitung und Fachlehrkräfte des Kindes oder eines betroffenen Kindes |
 | Alles | Verwaltung, Schulleitung, Förderpädagogik |
 
@@ -206,6 +209,51 @@ Alle Elternkontakte führen ein **Änderungsprotokoll** (wer hat wann was geänd
 - Export als ODT/PDF, Änderungsprotokoll, Benachrichtigung der Klassenleitung bei
   neuem, geändertem oder evaluiertem Plan
 
+**Förderkonferenz** (Bereich Förderung → Förderkonferenz):
+
+- **Ablauf:** Die Schulleitung legt je Jahrgang und Schuljahr eine Konferenz an; alle
+  aktiven Kinder des Jahrgangs kommen automatisch in die Liste. Vor der Konferenz
+  tragen die Klassenleitungen für ihre Kinder einen Vorschlag ein: Handlungsstufe,
+  besondere Stärke, Frage und Wunsch nach vertiefter Beratung.
+- **Handlungsstufen:** **A** weiterführen, **B** genauer hinsehen (Wiedervorlage),
+  **C** handeln (Förder- oder Beratungsbedarf); **★** für besondere Stärken,
+  unabhängig von der Stufe.
+- **Sieben Phasen** mit Fortschritt, Richtzeit, laufender Uhr und der Zahl der noch
+  offenen Kinder: Einstieg (Teilnehmende, Moderation, Protokoll), Jahrgangsblick
+  (Stufenauswertung, Langzeitwerte, Klassenübersichten, Notiz zu Mustern), A-Block
+  (Sammelbestätigung je Klasse, einzelne Kinder hochstufbar), B-Kinder, vertiefte
+  Beratung der C-Kinder in sechs Schritten, Ressourcen (Förderkurse bestätigen,
+  jahrgangsweite Maßnahmen), Abschluss. Phasen lassen sich überspringen; beim
+  Wiederöffnen startet die Konferenz dort, wo sie verlassen wurde.
+- **Abgleich im A-Block:** Die App warnt, wenn ein Vorschlag „Weiterführen“ nicht zu
+  den Daten passt – Risikostufe in der Diagnostik, mindestens vier Kompetenzen mit
+  „reicht noch nicht“ oder ein laufender Förderplan.
+- **Ansicht je Kind (beamertauglich):** Stärken aus dem Grundlagenblatt, Vorschlag der
+  Klassenleitung, Lernstand je Bogen und Bereich, Diagnostik mit Verlauf, Förderpläne,
+  Arbeitspläne, Förderangaben, Elternkontakte, Ereignisse und frühere Konferenzen.
+  Sichtbar ist nur das aktuelle Kind; die Navigation nutzt Nummern statt Namen.
+- **Speichern:** Jede Eingabe wird einzeln gespeichert – entprellt nach kurzer Zeit und
+  zusätzlich bei Feldwechsel, Kindwechsel und Seitenwechsel. Der Status steht oben
+  („Speichert …“, „Gespeichert 14:32“, „Nicht gespeichert“). Fehlgeschlagene
+  Schreibvorgänge wandern in eine Warteschlange im Browser und werden erneut versucht;
+  wurde dieselbe Zeile gleichzeitig woanders geändert, erscheint ein Hinweis.
+- **Tastatur:** A, B und C setzen die Stufe, die Pfeiltasten wechseln das Kind.
+- **Folgeaktionen** je Kind, vorbelegt aus Stärke, Frage und Beschluss: Förderplan
+  (Evaluationsdatum = Überprüfung), Arbeitsplan, Förderangaben und Diagnostik,
+  Elternberatung, Gesprächsprotokoll.
+- **Abschluss:** Die App weist auf Kinder ohne Stufe und auf B-/C-Kinder ohne Beschluss,
+  Zuständigkeit oder Frist hin, lässt den Abschluss aber zu. Danach ist die Konferenz
+  schreibgeschützt; nur die Schulleitung kann sie wieder öffnen, was protokolliert wird.
+- **Nach der Konferenz:** Beschlüsse und Wiedervorlagen erscheinen ab sieben Tagen vor
+  der Frist als Aufgaben auf der Startseite der zuständigen Lehrkraft und der
+  Klassenleitung und lassen sich abhaken. Das Protokoll gibt es als ODT und PDF in zwei
+  Fassungen: intern mit Kindern (nur Schulleitung) und anonym mit Teilnehmenden,
+  Jahrgangszahlen und Förderkursen. Der Eintrag erscheint in der Schülerakte unter
+  Förderung und in der Gesamtakte.
+- **Zeugniskonferenz:** Ein schlanker Evaluationsmodus listet alle B- und C-Kinder der
+  Konferenz mit umgesetzt (ja/nein), Wirkung (wirksam/teilweise/nicht), neuer Stufe und
+  Notiz – ebenfalls mit sofortigem Speichern.
+
 **Arbeitspläne** (individuelle Wochen-/Zeitraumpläne für das Kind):
 
 - Zeitraum, Status (*in Planung* / *aktiv* / *geschlossen*), Hinweise für das Kind
@@ -342,11 +390,8 @@ Arten abbestellen. Wer etwas selbst tut, wird darüber nicht benachrichtigt.
 
 Diese Grenzen sind wichtig, wenn Abläufe um die App herum geplant werden:
 
-- **Keine eigene Förderkonferenz-Funktion:** Es gibt keinen Datensatz „Konferenz“,
-  keine Tagesordnung, keine Konferenzliste mit mehreren Kindern und kein
-  Konferenzprotokoll. Ergebnisse einer Konferenz lassen sich heute nur über
-  vorhandene Stellen festhalten (Förderplan, Förderangaben, Grundlagenblatt,
-  Protokoll, Ereignis).
+- **Keine Hospitationen:** Die Konferenz kann keine Einschätzung aus einer Hospitation
+  der Schulleitung anzeigen, weil die App Hospitationen nicht führt.
 - **Keine Terminplanung oder Kalender** (außer den zwei Elternsprechtagen und dem
   „nächsten Termin“ im Gesprächsprotokoll).
 - **Keine Aufgabenverwaltung zwischen Lehrkräften** (außer der Zuständigkeit bei Ereignissen).

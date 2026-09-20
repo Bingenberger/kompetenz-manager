@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Förderkonferenz</span>
+        <h2 class="h4 mt-2 mb-1">Beschlüsse und Wiedervorlagen</h2>
+        <p class="text-muted mb-0">Was aus den Konferenzen auf Sie wartet – als zuständige Lehrkraft oder als Klassenleitung.</p>
+    </div>
+    <div class="toolbar-actions">
+        <a href="{{ url_for('konferenz.aufgaben', alle='1' if not alle else None) }}" class="btn btn-outline-secondary icon-btn">
+            {{ bi('list-check', 'bi-icon-sm') }} <span>{{ 'Nur fällige zeigen' if alle else 'Auch spätere zeigen' }}</span></a>
+    </div>
+</div>
+
+<div class="table-panel">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light"><tr><th>Kind</th><th>Art</th><th>Beschluss</th><th>Verantwortlich</th><th>Bis</th><th class="text-end"></th></tr></thead>
+            <tbody>
+                {% for e in eintraege %}
+                <tr>
+                    <td>
+                        <a href="{{ url_for('system.schuelerakte', schueler_id=e.schueler_id) }}" class="fw-semibold text-decoration-none">{{ e.schueler.vorname }} {{ e.schueler.nachname }}</a>
+                        <div class="small text-muted">{{ e.klasse or '' }} ·
+                            <a href="{{ url_for('konferenz.start', konferenz_id=e.konferenz_id) }}" class="text-decoration-none">{{ e.konferenz.titel }}</a></div>
+                    </td>
+                    <td><span class="badge text-bg-{{ stufen[e.stufe][1] }}">{{ 'Wiedervorlage' if e.stufe == 'B' else 'Beschluss' }}</span></td>
+                    <td class="small">{{ e.beschluss or '–' }}</td>
+                    <td class="small">{{ e.verantwortlich.display_name if e.verantwortlich else '–' }}</td>
+                    <td class="text-nowrap {% if e.ueberpruefung_am and e.ueberpruefung_am < heute %}text-danger fw-semibold{% endif %}">
+                        {{ e.ueberpruefung_am.strftime('%d.%m.%Y') if e.ueberpruefung_am else '–' }}
+                    </td>
+                    <td class="text-end">
+                        <form method="POST" action="{{ url_for('konferenz.beschluss_erledigt', eintrag_id=e.id) }}" class="d-inline">
+                            {{ csrf_input() }}
+                            <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}">
+                            <button type="submit" class="btn btn-sm btn-outline-success icon-btn">{{ bi('check-circle', 'bi-icon-sm') }} <span>Erledigt</span></button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-4">Nichts offen.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

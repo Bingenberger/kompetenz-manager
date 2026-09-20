@@ -28,7 +28,7 @@ def register_csrf(app):
             token = get_csrf_token()
             return Markup(f'<input type="hidden" name="_csrf_token" value="{token}">')
 
-        return {'csrf_input': csrf_input}
+        return {'csrf_input': csrf_input, 'csrf_token': get_csrf_token}
 
     @app.before_request
     def validate_csrf_for_post():

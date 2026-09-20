@@ -787,3 +787,145 @@ class Foerderangaben(db.Model):
     def leer(self):
         return not (self.nachteilsausgleich or self.foerderkurs or self.externe_foerderung
                     or (self.foerderschwerpunkt or '').strip() or (self.anmerkungen or '').strip())
+
+
+# ----------------------------------------------------------------------
+# Förderkonferenz
+#
+# Zweimal im Schuljahr wird jeder Jahrgang durchgesprochen. Jedes Kind
+# bekommt eine Handlungsstufe (A weiterführen, B genauer hinsehen,
+# C handeln) und - unabhängig davon - ein Sternchen für besondere Stärken.
+# Die Klassenleitung schlägt vorab vor, die Schulleitung moderiert und
+# entscheidet in der Konferenz. Die Zeugniskonferenz evaluiert später auf
+# denselben Zeilen (eval_*).
+# ----------------------------------------------------------------------
+
+KONFERENZ_STUFEN = {
+    'A': ('A – Weiterführen', 'success'),
+    'B': ('B – Genauer hinsehen', 'warning'),
+    'C': ('C – Handeln', 'danger'),
+}
+
+
+class Foerderkonferenz(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    schuljahr = db.Column(db.String(20), nullable=False, index=True)
+    jahrgang = db.Column(db.Integer, nullable=False, index=True)
+    titel = db.Column(db.String(120), nullable=False)
+    termin = db.Column(db.Date, nullable=True)
+    # 'geplant' (Vorbereitung durch die Klassenleitungen) | 'laufend' | 'abgeschlossen'
+    status = db.Column(db.String(20), nullable=False, default='geplant')
+    # Wo die Moderation stehen geblieben ist - beim Öffnen geht es dort weiter.
+    aktuelle_phase = db.Column(db.Integer, nullable=False, default=1)
+    aktuelles_kind_id = db.Column(db.Integer, db.ForeignKey('schueler.id'), nullable=True)
+
+    moderation_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    protokoll_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    gaeste = db.Column(db.Text, nullable=True)
+
+    notiz_muster = db.Column(db.Text, nullable=True)          # Phase 2: gemeinsame Muster
+    notiz_ressourcen = db.Column(db.Text, nullable=True)      # Phase 6: Ressourcen
+    massnahmen_jahrgang = db.Column(db.Text, nullable=True)   # Phase 6: jahrgangsweite Maßnahmen
+
+    erstellt_von_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    bearbeitet_am = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+    abgeschlossen_am = db.Column(db.DateTime, nullable=True)
+
+    moderation = db.relationship('User', foreign_keys=[moderation_user_id])
+    protokoll = db.relationship('User', foreign_keys=[protokoll_user_id])
+    aktuelles_kind = db.relationship('Schueler', foreign_keys=[aktuelles_kind_id])
+
+    @property
+    def abgeschlossen(self):
+        return self.status == 'abgeschlossen'
+
+
+class FoerderkonferenzTeilnahme(db.Model):
+    konferenz_id = db.Column(db.Integer, db.ForeignKey('foerderkonferenz.id'), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), primary_key=True)
+    anwesend = db.Column(db.Boolean, nullable=False, default=False)
+
+    konferenz = db.relationship('Foerderkonferenz', backref=db.backref('teilnahmen', cascade='all, delete-orphan'))
+    user = db.relationship('User')
+
+
+class FoerderkonferenzKind(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    konferenz_id = db.Column(db.Integer, db.ForeignKey('foerderkonferenz.id'), nullable=False, index=True)
+    schueler_id = db.Column(db.Integer, db.ForeignKey('schueler.id'), nullable=False, index=True)
+    # Klasse zum Zeitpunkt der Konferenz.
+    klasse = db.Column(db.String(20), nullable=True)
+
+    # Vorschlag der Klassenleitung (vor der Konferenz)
+    vorschlag_stufe = db.Column(db.String(1), nullable=True)
+    vorschlag_stern = db.Column(db.Boolean, nullable=False, default=False)
+    vorschlag_frage = db.Column(db.Text, nullable=True)
+    vorschlag_beratung = db.Column(db.Boolean, nullable=False, default=False)
+    vorschlag_von_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    vorschlag_am = db.Column(db.DateTime, nullable=True)
+
+    # Beschluss der Konferenz
+    stufe = db.Column(db.String(1), nullable=True)
+    stern = db.Column(db.Boolean, nullable=False, default=False)
+    staerke = db.Column(db.Text, nullable=True)
+    fragestellung = db.Column(db.Text, nullable=True)
+    daten_notiz = db.Column(db.Text, nullable=True)
+    bisherige_massnahmen = db.Column(db.Text, nullable=True)
+    wirkung = db.Column(db.Text, nullable=True)
+    beschluss = db.Column(db.Text, nullable=True)
+    verantwortlich_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True, index=True)
+    ueberpruefung_am = db.Column(db.Date, nullable=True, index=True)
+    erledigt_am = db.Column(db.Date, nullable=True)
+
+    # Geplante Maßnahmen
+    massnahme_foerderkurs = db.Column(db.Boolean, nullable=False, default=False)
+    foerderkurs_name = db.Column(db.String(120), nullable=True)
+    foerderkurs_bestaetigt = db.Column(db.Boolean, nullable=False, default=False)
+    massnahme_nachteilsausgleich = db.Column(db.Boolean, nullable=False, default=False)
+    massnahme_externe_foerderung = db.Column(db.Boolean, nullable=False, default=False)
+    massnahme_foerderplan = db.Column(db.Boolean, nullable=False, default=False)
+    massnahme_elterngespraech = db.Column(db.Boolean, nullable=False, default=False)
+    massnahme_diagnostik = db.Column(db.Boolean, nullable=False, default=False)
+    massnahmen_notiz = db.Column(db.Text, nullable=True)
+
+    # Evaluation in der Zeugniskonferenz
+    eval_umgesetzt = db.Column(db.String(10), nullable=True)     # 'ja' | 'nein'
+    eval_wirksam = db.Column(db.String(12), nullable=True)       # 'ja' | 'teilweise' | 'nein'
+    eval_stufe_neu = db.Column(db.String(1), nullable=True)
+    eval_notiz = db.Column(db.Text, nullable=True)
+    eval_am = db.Column(db.DateTime, nullable=True)
+    eval_von_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    bearbeitet_am = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+    bearbeitet_von_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    konferenz = db.relationship('Foerderkonferenz', backref=db.backref('kinder', cascade='all, delete-orphan'))
+    schueler = db.relationship(
+        'Schueler', backref=db.backref('konferenz_eintraege', cascade='all, delete-orphan'),
+    )
+    verantwortlich = db.relationship('User', foreign_keys=[verantwortlich_user_id])
+
+    __table_args__ = (
+        db.UniqueConstraint('konferenz_id', 'schueler_id', name='uq_konferenz_kind'),
+    )
+
+    @property
+    def beschluss_offen(self):
+        """B- und C-Kinder ohne Beschluss, Zuständigkeit oder Frist."""
+        if self.stufe not in ('B', 'C'):
+            return False
+        return not ((self.beschluss or '').strip() and self.verantwortlich_user_id and self.ueberpruefung_am)
+
+
+class FoerderkonferenzLog(db.Model):
+    """Wer die Konferenz gestartet, abgeschlossen oder wieder geöffnet hat."""
+    id = db.Column(db.Integer, primary_key=True)
+    konferenz_id = db.Column(db.Integer, db.ForeignKey('foerderkonferenz.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    aktion = db.Column(db.String(50), nullable=False)
+    details = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    konferenz = db.relationship('Foerderkonferenz', backref=db.backref('logs', cascade='all, delete-orphan'))
+    user = db.relationship('User')
