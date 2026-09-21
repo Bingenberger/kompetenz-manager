@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% from "includes/konferenz_teile.html" import speicher_status, speicher_stile, stufenwahl, stern, textfeld %}
+{% block content %}
+{{ speicher_stile() }}
+<style>
+    .stufen-zeile:focus-within, .stufen-zeile:focus { outline: 3px solid rgba(39,125,161,0.45); outline-offset: -3px; }
+    .stufen-zeile.ohne td:first-child { border-left: 4px solid #f9c74f; }
+</style>
+
+<div class="konferenz-kopf">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <div>
+            <span class="section-label">{{ konferenz.titel }}</span>
+            <h2 class="h4 mt-1 mb-0">Stufen gemeinsam eintragen</h2>
+        </div>
+        <div class="d-flex flex-wrap align-items-center gap-2" id="stufen-zaehler">
+            {% for s in stufen_reihenfolge %}<span class="badge text-bg-{{ stufen[s][1] }}">{{ s }}: <span data-zaehler="{{ s }}">{{ zaehler[s] }}</span></span>{% endfor %}
+            <span class="badge text-bg-secondary">ohne: <span data-zaehler="ohne">{{ zaehler['ohne'] }}</span></span>
+            {{ speicher_status() }}
+        </div>
+    </div>
+    <div class="phasenleiste mt-2">
+        {% for p in phasen %}
+        <a href="{{ url_for('konferenz.phase', konferenz_id=konferenz.id, phase=p.nummer) }}">{{ p.nummer }}. {{ p.name }}{% if p.offen %}<span class="offen">{{ p.offen }}</span>{% endif %}</a>
+        {% if p.nummer == 2 %}<a href="{{ url_for('konferenz.stufen_erfassen', konferenz_id=konferenz.id) }}" class="aktiv">Stufen eintragen</a>{% endif %}
+        {% endfor %}
+        <a href="{{ url_for('konferenz.start', konferenz_id=konferenz.id) }}">Übersicht</a>
+    </div>
+</div>
+
+{% if not schreibbar %}
+<div class="alert alert-info">Diese Konferenz ist abgeschlossen und schreibgeschützt.</div>
+{% endif %}
+
+<p class="text-muted">
+    Für Stufen, die auf Papier vorbereitet wurden: Hier tragen Sie für alle Kinder des Jahrgangs gleich die
+    Konferenzstufe ein. Die B- und C-Kinder erscheinen danach in den Phasen 4 und 5, die A-Kinder im A-Block.
+    Tastatur: <kbd>↑</kbd> <kbd>↓</kbd> wechseln das Kind, <kbd>A</kbd> <kbd>B</kbd> <kbd>C</kbd> setzen die Stufe und springen weiter, <kbd>S</kbd> setzt den Stern.
+</p>
+
+{% for klasse, eintraege in klassen %}
+<div class="table-panel mb-3">
+    <div class="table-toolbar"><div class="table-toolbar-title">Klasse {{ klasse }} · {{ eintraege|length }} Kind(er)</div></div>
+    <div class="table-responsive">
+        <table class="table table-sm align-middle mb-0">
+            <thead class="table-light">
+                <tr><th style="min-width: 12rem;">Kind</th><th>Vorschlag</th><th>Stufe</th><th>★</th><th style="min-width: 18rem;">Frage / Notiz</th></tr>
+            </thead>
+            <tbody>
+                {% for e in eintraege %}
+                {% set url = url_for('konferenz.kind_feld', konferenz_id=konferenz.id, eintrag_id=e.id) %}
+                <tr class="stufen-zeile {% if not e.stufe %}ohne{% endif %}" data-zeile tabindex="0">
+                    <td class="fw-semibold">{{ e.schueler.nachname }}, {{ e.schueler.vorname }}</td>
+                    <td>{% if e.vorschlag_stufe %}<span class="badge text-bg-{{ stufen[e.vorschlag_stufe][1] }}">{{ e.vorschlag_stufe }}</span>{% else %}<span class="text-muted">–</span>{% endif %}</td>
+                    <td>{{ stufenwahl(e, 'stufe', url, stufen, stufen_reihenfolge, schreibbar, True) }}</td>
+                    <td>{{ stern(e, 'stern', url, schreibbar) }}</td>
+                    <td>{{ textfeld(e, 'fragestellung', url, schreibbar, 1, e.vorschlag_frage or 'Frage oder Notiz aus der Vorbereitung') }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info">In dieser Konferenz sind keine Kinder.</div>
+{% endfor %}
+
+<div class="d-flex flex-wrap justify-content-between gap-2 mt-3">
+    <a class="btn btn-outline-secondary icon-btn" href="{{ url_for('konferenz.phase', konferenz_id=konferenz.id, phase=2) }}">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Jahrgangsblick</span></a>
+    <a class="btn btn-primary icon-btn" href="{{ url_for('konferenz.phase', konferenz_id=konferenz.id, phase=3) }}"><span>Weiter zum A-Block</span> {{ bi('arrow-right-circle', 'bi-icon-sm') }}</a>
+</div>
+
+<script src="{{ url_for('static', filename='js/konferenz.js') }}"></script>
+<script>
+(function () {
+    // Zähler oben mitführen, ohne neu zu laden.
+    function zaehlen() {
+        var zahlen = {A: 0, B: 0, C: 0, ohne: 0};
+        document.querySelectorAll('tr[data-zeile]').forEach(function (zeile) {
+            var gewaehlt = zeile.querySelector('input[data-feld="stufe"]:checked');
+            zahlen[gewaehlt ? gewaehlt.value : 'ohne'] += 1;
+            zeile.classList.toggle('ohne', !gewaehlt);
+        });
+        Object.keys(zahlen).forEach(function (key) {
+            var feld = document.querySelector('[data-zaehler="' + key + '"]');
+            if (feld) { feld.textContent = zahlen[key]; }
+        });
+    }
+    document.addEventListener('change', function (ereignis) {
+        if (ereignis.target.matches('input[data-feld="stufe"]')) { zaehlen(); }
+    });
+}());
+</script>
+{% endblock %}

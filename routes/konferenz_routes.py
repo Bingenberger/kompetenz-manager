@@ -177,6 +177,42 @@ def start(konferenz_id):
     )
 
 
+@konferenz_bp.route('/konferenz/<int:konferenz_id>/loeschen', methods=['POST'])
+@login_required
+def loeschen(konferenz_id):
+    """Löscht die Konferenz mit allen Einträgen, Teilnahmen und dem Protokoll."""
+    konferenz = _moderieren_oder_403(konferenz_id)
+    if (request.form.get('bestaetigung') or '').strip() != 'LÖSCHEN':
+        flash('Zum Löschen bitte LÖSCHEN in das Feld eintragen.')
+        return redirect(url_for('konferenz.start', konferenz_id=konferenz.id))
+    titel = konferenz.titel
+    db.session.delete(konferenz)
+    db.session.commit()
+    flash(f'„{titel}“ wurde mit allen Einträgen gelöscht.')
+    return redirect(url_for('konferenz.liste'))
+
+
+@konferenz_bp.route('/konferenz/<int:konferenz_id>/stufen')
+@login_required
+def stufen_erfassen(konferenz_id):
+    """Alle Kinder auf einer Seite - für Stufen, die auf Papier vorbereitet wurden."""
+    konferenz = _moderieren_oder_403(konferenz_id)
+    eintraege = sortiere(konferenz.kinder)
+    klassen = {}
+    for eintrag in eintraege:
+        klassen.setdefault(eintrag.klasse or '–', []).append(eintrag)
+    return render_template(
+        'konferenz_stufen.html',
+        konferenz=konferenz,
+        klassen=sorted(klassen.items()),
+        phasen=phasen_uebersicht(konferenz),
+        zaehler=zaehle_stufen(konferenz),
+        stufen=STUFEN,
+        stufen_reihenfolge=STUFEN_REIHENFOLGE,
+        schreibbar=not konferenz.abgeschlossen,
+    )
+
+
 @konferenz_bp.route('/konferenz/<int:konferenz_id>/kinder-ergaenzen', methods=['POST'])
 @login_required
 def kinder_ergaenzen(konferenz_id):

@@ -225,6 +225,13 @@ Alle Elternkontakte führen ein **Änderungsprotokoll** (wer hat wann was geänd
   Beratung der C-Kinder in sechs Schritten, Ressourcen (Förderkurse bestätigen,
   jahrgangsweite Maßnahmen), Abschluss. Phasen lassen sich überspringen; beim
   Wiederöffnen startet die Konferenz dort, wo sie verlassen wurde.
+- **Stufen gemeinsam eintragen:** Wurde die Konferenz auf Papier vorbereitet, trägt die
+  Schulleitung auf einer Seite für alle Kinder des Jahrgangs Stufe, Stern und Frage ein –
+  nach Klassen geordnet, mit laufenden Zählern und Tastatur (Pfeil hoch/runter, A/B/C
+  mit Sprung zum nächsten Kind, S für den Stern). Die Kinder landen danach in den
+  passenden Phasen.
+- **Löschen:** Die Schulleitung kann eine Konferenz mit allen Einträgen, Beschlüssen,
+  Evaluationen und dem Protokoll endgültig löschen (Bestätigung durch Eintippen).
 - **Abgleich im A-Block:** Die App warnt, wenn ein Vorschlag „Weiterführen“ nicht zu
   den Daten passt – Risikostufe in der Diagnostik, mindestens vier Kompetenzen mit
   „reicht noch nicht“ oder ein laufender Förderplan.

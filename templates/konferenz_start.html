@@ -74,6 +74,7 @@
                 {% endif %}
                 <a href="{{ url_for('konferenz.export', konferenz_id=konferenz.id, format='odt', fassung='anonym') }}" class="btn btn-sm btn-outline-secondary icon-btn">{{ bi('download', 'bi-icon-sm') }} <span>anonyme Fassung</span></a>
                 {% if moderiert and konferenz.status != 'abgeschlossen' %}
+                <a href="{{ url_for('konferenz.stufen_erfassen', konferenz_id=konferenz.id) }}" class="btn btn-sm btn-outline-primary icon-btn">{{ bi('list-check', 'bi-icon-sm') }} <span>Stufen gemeinsam eintragen</span></a>
                 <form method="POST" action="{{ url_for('konferenz.kinder_ergaenzen', konferenz_id=konferenz.id) }}" class="d-inline">
                     {{ csrf_input() }}
                     <button type="submit" class="btn btn-sm btn-outline-secondary icon-btn">{{ bi('people', 'bi-icon-sm') }} <span>Neue Kinder ergänzen</span></button>
@@ -129,6 +130,17 @@
             </tbody>
         </table>
     </div>
+</div>
+
+<div class="surface-panel p-4 mt-3 border border-danger-subtle">
+    <h3 class="h6 text-danger-emphasis mb-2">Konferenz löschen</h3>
+    <p class="small text-muted mb-2">Löscht die Konferenz mit allen Vorschlägen, Stufen, Beschlüssen, Teilnahmen, Evaluationen und dem Protokoll. Die Aufgaben daraus verschwinden. Das lässt sich nicht rückgängig machen.</p>
+    <form method="POST" action="{{ url_for('konferenz.loeschen', konferenz_id=konferenz.id) }}" class="d-flex flex-wrap align-items-center gap-2">
+        {{ csrf_input() }}
+        <label class="small" for="k-loeschen">Zur Bestätigung <strong>LÖSCHEN</strong> eintragen:</label>
+        <input type="text" class="form-control form-control-sm" id="k-loeschen" name="bestaetigung" style="max-width: 10rem;" autocomplete="off" required>
+        <button type="submit" class="btn btn-sm btn-outline-danger icon-btn">{{ bi('trash', 'bi-icon-sm') }} <span>Endgültig löschen</span></button>
+    </form>
 </div>
 {% endif %}
 {% endblock %}

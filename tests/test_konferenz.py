@@ -386,6 +386,51 @@ class KonferenzTestCase(unittest.TestCase):
             self.assertEqual(('ja', 'teilweise', 'C'), (eintrag.eval_umgesetzt, eintrag.eval_wirksam, eintrag.eval_stufe_neu))
             self.assertEqual(self.user_ids['leitung'], eintrag.eval_von_user_id)
 
+    def test_conference_can_be_deleted_completely(self):
+        self._login('klara')
+        self.assertEqual(403, self.client.post(f'/konferenz/{self.konferenz_id}/loeschen',
+                                               data={'_csrf_token': self._token(), 'bestaetigung': 'LÖSCHEN'}).status_code)
+        self._beschluss_vorbereiten(utc_now().date() + timedelta(days=3))
+        # Ohne Bestätigung passiert nichts.
+        antwort = self.client.post(f'/konferenz/{self.konferenz_id}/loeschen',
+                                   data={'_csrf_token': self._token(), 'bestaetigung': 'ja'}, follow_redirects=True)
+        self.assertIn('LÖSCHEN in das Feld', antwort.get_data(as_text=True))
+        with self.app.app_context():
+            self.assertEqual(1, Foerderkonferenz.query.count())
+
+        antwort = self.client.post(f'/konferenz/{self.konferenz_id}/loeschen',
+                                   data={'_csrf_token': self._token(), 'bestaetigung': 'LÖSCHEN'}, follow_redirects=True)
+        self.assertIn('mit allen Einträgen gelöscht', antwort.get_data(as_text=True))
+        with self.app.app_context():
+            self.assertEqual(0, Foerderkonferenz.query.count())
+            self.assertEqual(0, FoerderkonferenzKind.query.count())
+            self.assertEqual(0, FoerderkonferenzLog.query.count())
+            self.assertEqual(4, Schueler.query.count())
+            klara = db.session.get(User, self.user_ids['klara'])
+            self.assertEqual([], offene_beschluesse(klara, alle=True))
+
+    def test_levels_can_be_entered_together_during_the_conference(self):
+        self._login('klara')
+        self.assertEqual(403, self.client.get(f'/konferenz/{self.konferenz_id}/stufen').status_code)
+
+        self._login('leitung')
+        html = self.client.get(f'/konferenz/{self.konferenz_id}/stufen').get_data(as_text=True)
+        for text in ('Stufen gemeinsam eintragen', 'Klasse 3a', 'Klasse 3b', 'Anna', 'Cem', 'data-zeile'):
+            self.assertIn(text, html)
+        # Ohne jeden Vorschlag: Stufe direkt setzen.
+        self._speichern(self.eintraege['Anna'], 'stufe', 'C')
+        self._speichern(self.eintraege['Ben'], 'stufe', 'B')
+        self._speichern(self.eintraege['Cem'], 'stufe', 'A')
+        self._speichern(self.eintraege['Ben'], 'fragestellung', 'Konzentration')
+        phase4 = self.client.get(f'/konferenz/{self.konferenz_id}/phase/4').get_data(as_text=True)
+        self.assertIn('Ben 3Akind', phase4)
+        phase5 = self.client.get(f'/konferenz/{self.konferenz_id}/phase/5').get_data(as_text=True)
+        self.assertIn('Anna 3Akind', phase5)
+        phase3 = self.client.get(f'/konferenz/{self.konferenz_id}/phase/3').get_data(as_text=True)
+        self.assertIn('Cem', phase3)
+        html = self.client.get(f'/konferenz/{self.konferenz_id}/stufen').get_data(as_text=True)
+        self.assertIn('data-zaehler="ohne">0<', html)
+
     def test_deleting_a_child_removes_its_conference_rows(self):
         with self.app.app_context():
             anna = db.session.get(Schueler, self.ids['Anna'])

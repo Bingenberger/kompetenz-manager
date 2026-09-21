@@ -24,6 +24,7 @@
            title="{{ p.beschreibung }} · Richtzeit {{ p.richtzeit }} Min.">
             {{ p.nummer }}. {{ p.name }}{% if p.offen %}<span class="offen">{{ p.offen }}</span>{% endif %}
         </a>
+        {% if p.nummer == 2 %}<a href="{{ url_for('konferenz.stufen_erfassen', konferenz_id=konferenz.id) }}" title="Alle Kinder auf einer Seite – für Stufen, die auf Papier vorbereitet wurden">Stufen eintragen</a>{% endif %}
         {% endfor %}
         <a href="{{ url_for('konferenz.start', konferenz_id=konferenz.id) }}">Übersicht</a>
     </div>
@@ -121,7 +122,8 @@
 
 {# ---------------------------------------------------------------- Phase 3 #}
 {% elif phase == 3 %}
-<p class="text-muted">Alle Vorschläge „A – Weiterführen“. Die App gleicht sie mit Diagnostik, Beobachtungen und laufenden Förderplänen ab. Wo etwas dagegen spricht, steht eine Warnung – dann bitte prüfen und gegebenenfalls hochstufen.</p>
+<p class="text-muted">Alle Vorschläge „A – Weiterführen“. Die App gleicht sie mit Diagnostik, Beobachtungen und laufenden Förderplänen ab. Wo etwas dagegen spricht, steht eine Warnung – dann bitte prüfen und gegebenenfalls hochstufen.
+    Stufen auf Papier vorbereitet? <a href="{{ url_for('konferenz.stufen_erfassen', konferenz_id=konferenz.id) }}">Alle Kinder gemeinsam eintragen</a>.</p>
 {% for klasse, eintraege in a_block.klassen %}
 <div class="table-panel mb-3">
     <div class="table-toolbar">
@@ -157,7 +159,8 @@
     </div>
 </div>
 {% else %}
-<div class="alert alert-info">Keine A-Vorschläge. Die Klassenleitungen tragen sie in der Vorbereitung ein.</div>
+<div class="alert alert-info">Keine A-Vorschläge. Die Klassenleitungen tragen sie in der Vorbereitung ein – oder Sie tragen die Stufen
+    <a href="{{ url_for('konferenz.stufen_erfassen', konferenz_id=konferenz.id) }}">für alle Kinder gemeinsam</a> ein.</div>
 {% endfor %}
 
 {# ---------------------------------------------------------------- Phase 4 und 5 #}

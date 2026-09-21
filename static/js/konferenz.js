@@ -209,18 +209,68 @@
     anzeigen();
 
     // ------------------------------------------------------------------
-    // Tastatur: A/B/C setzt die Stufe, Pfeile wechseln das Kind.
+    // Tastatur. In Listen (Zeilen mit data-zeile) wirkt sie auf die Zeile mit
+    // dem Fokus: A/B/C setzen die Stufe und springen zum nächsten Kind, S setzt
+    // den Stern, Pfeil hoch/runter wechselt die Zeile. Sonst (ein Kind je
+    // Seite) setzen A/B/C die Stufe und Pfeil links/rechts wechselt das Kind.
     // ------------------------------------------------------------------
+    function schreibfeld(element) {
+        var tag = (element.tagName || '').toLowerCase();
+        if (tag === 'textarea' || tag === 'select' || element.isContentEditable) { return true; }
+        if (tag !== 'input') { return false; }
+        return ['radio', 'checkbox', 'button', 'submit'].indexOf((element.type || '').toLowerCase()) === -1;
+    }
+
+    function zeilen() {
+        return Array.prototype.slice.call(document.querySelectorAll('[data-zeile]'));
+    }
+
+    function zeileFokussieren(zeile) {
+        if (!zeile) { return; }
+        zeile.focus();
+        zeile.scrollIntoView({block: 'nearest'});
+    }
+
     document.addEventListener('keydown', function (ereignis) {
-        var tag = (ereignis.target.tagName || '').toLowerCase();
-        if (tag === 'input' || tag === 'textarea' || tag === 'select' || ereignis.target.isContentEditable) { return; }
+        if (schreibfeld(ereignis.target)) { return; }
         if (ereignis.ctrlKey || ereignis.metaKey || ereignis.altKey) { return; }
         var taste = ereignis.key.toLowerCase();
-        if (['a', 'b', 'c'].indexOf(taste) !== -1) {
-            var knopf = document.querySelector('[data-stufe-taste="' + taste.toUpperCase() + '"]');
-            if (knopf) {
+        var liste = zeilen();
+        var zeile = ereignis.target.closest ? ereignis.target.closest('[data-zeile]') : null;
+
+        if (liste.length) {
+            var index = zeile ? liste.indexOf(zeile) : -1;
+            if (taste === 'arrowdown' || taste === 'arrowup') {
                 ereignis.preventDefault();
-                knopf.click();
+                var ziel = taste === 'arrowdown' ? index + 1 : index - 1;
+                zeileFokussieren(liste[Math.max(0, Math.min(liste.length - 1, ziel))]);
+                return;
+            }
+            if (!zeile) { return; }
+            if (['a', 'b', 'c'].indexOf(taste) !== -1) {
+                var knopf = zeile.querySelector('[data-stufe-taste="' + taste.toUpperCase() + '"]');
+                if (knopf) {
+                    ereignis.preventDefault();
+                    knopf.click();
+                    zeileFokussieren(liste[index + 1] || zeile);
+                }
+                return;
+            }
+            if (taste === 's') {
+                var stern = zeile.querySelector('input[type="checkbox"][data-feld$="stern"]');
+                if (stern && !stern.disabled) {
+                    ereignis.preventDefault();
+                    stern.click();
+                }
+            }
+            return;
+        }
+
+        if (['a', 'b', 'c'].indexOf(taste) !== -1) {
+            var einzel = document.querySelector('[data-stufe-taste="' + taste.toUpperCase() + '"]');
+            if (einzel) {
+                ereignis.preventDefault();
+                einzel.click();
             }
             return;
         }
