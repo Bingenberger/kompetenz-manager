@@ -6,6 +6,14 @@
     .stand-test { display: inline-flex; flex-direction: column; border-radius: .6rem; padding: .3rem .6rem; margin: 0 .35rem .35rem 0; font-size: .8rem; line-height: 1.25; }
     .stand-test .zahl { font-weight: 700; font-variant-numeric: tabular-nums; }
     .durchschnitt-tabelle td, .durchschnitt-tabelle th { white-space: nowrap; }
+    .stand-matrix { font-size: .8rem; }
+    .stand-matrix td, .stand-matrix th { vertical-align: top; min-width: 7.2rem; padding: .35rem .4rem; }
+    .stand-matrix th { font-size: .72rem; white-space: normal; }
+    .stand-matrix .stand-klasse { position: sticky; left: 0; background: #fff; min-width: 4.5rem; z-index: 1; }
+    .stand-matrix thead .stand-klasse { background: var(--bs-table-bg, #f8f9fa); }
+    .stand-matrix .stand-test { display: flex; flex-direction: row; justify-content: space-between; align-items: baseline; gap: .4rem;
+        margin: 0 0 .2rem 0; padding: .1rem .4rem; border-radius: .4rem; font-size: .75rem; white-space: nowrap; }
+    .stand-matrix .damals { font-size: .68rem; color: #6c7a89; margin-bottom: .1rem; }
     .durchschnitt-tabelle .anzahl { color: #6c7a89; font-size: .75rem; }
 </style>
 
@@ -19,52 +27,57 @@
 
 {# ---------------------------------------------------------------- Erfassungsstand #}
 <div class="surface-panel p-4 mb-4">
-    <div class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
-        <div>
-            <h3 class="h5 mb-1">Erfassungsstand</h3>
-            <div class="small text-muted">
-                {% if schuljahr == schuljahr_aktuell %}Eingetragen / erwartet laut Testplan – erwartet sind die Kinder des passenden Jahrgangs.
-                {% else %}Früheres Schuljahr: Anzahl eingetragener Ergebnisse nach der Klasse zum Testzeitpunkt.{% endif %}
-            </div>
-        </div>
-        <form method="GET" class="d-flex align-items-center gap-2">
-            {% for feld in ['verfahren_id', 'kennwert', 'jahrgang'] %}{% if request.args.get(feld) %}<input type="hidden" name="{{ feld }}" value="{{ request.args.get(feld) }}">{% endif %}{% endfor %}
-            <label class="small text-muted" for="stand-schuljahr">Schuljahr</label>
-            <select name="schuljahr" id="stand-schuljahr" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
-                {% for j in schuljahre %}<option value="{{ j }}" {% if j == schuljahr %}selected{% endif %}>{{ j }}</option>{% endfor %}
-            </select>
-        </form>
-    </div>
+    <h3 class="h5 mb-1">Erfassungsstand aller Klassen</h3>
+    <p class="small text-muted mb-3">
+        Welche Tests bisher in welcher Klasse gelaufen und eingetragen sind – über alle Schuljahre.
+        Die Zahl zeigt eingetragen / erwartet laut Testplan. Die Zeilen sind die heutigen Klassen; frühere
+        Zeitpunkte zählen dieselben Kinder, als die Klasse noch anders hieß.
+    </p>
     <div class="d-flex flex-wrap gap-2 small mb-3">
-        {% for key in ['vollstaendig', 'teilweise', 'offen', 'zusaetzlich'] %}
-        {% if schuljahr == schuljahr_aktuell or key == 'zusaetzlich' %}<span class="badge text-bg-{{ status[key][1] }}">{{ status[key][0] }}</span>{% endif %}
+        {% for key in ['vollstaendig', 'teilweise', 'offen', 'fehlt', 'geplant', 'zusaetzlich'] %}
+        <span class="badge bg-{{ status[key][1] }}-subtle text-{{ status[key][1] }}-emphasis border border-{{ status[key][1] }}-subtle">{{ status[key][0] }} · {{ status_zaehler[key] }}</span>
         {% endfor %}
     </div>
-    {% if stand %}
+    {% if stand and zeiten %}
     <div class="table-responsive">
-        <table class="table align-middle mb-0">
-            <thead class="table-light"><tr><th>Klasse</th>{% if schuljahr == schuljahr_aktuell %}<th class="text-end">Kinder</th>{% endif %}<th>Tests</th></tr></thead>
+        <table class="table align-middle mb-0 stand-matrix">
+            <thead class="table-light">
+                <tr>
+                    <th class="stand-klasse">Klasse (heute)</th>
+                    {% for s, label in zeiten %}<th class="text-nowrap">{{ label }}</th>{% endfor %}
+                </tr>
+            </thead>
             <tbody>
                 {% for zeile in stand %}
                 <tr>
-                    <td class="fw-semibold"><a href="{{ url_for('diagnostik.uebersicht', klasse=zeile.klasse) }}" class="text-decoration-none">{{ zeile.klasse }}</a></td>
-                    {% if schuljahr == schuljahr_aktuell %}<td class="text-end">{{ zeile.kinder if zeile.kinder is not none else '–' }}</td>{% endif %}
+                    <td class="stand-klasse fw-semibold">
+                        <a href="{{ url_for('diagnostik.uebersicht', klasse=zeile.klasse) }}" class="text-decoration-none">{{ zeile.klasse }}</a>
+                        <div class="damals fw-normal">{{ zeile.kinder }} Kinder</div>
+                    </td>
+                    {% for s, label in zeiten %}
+                    {% set tests = zeile.zellen.get(s) %}
                     <td>
-                        {% for t in zeile.tests %}
+                        {% if tests %}
+                        {% if zeile.damals.get(s) %}<div class="damals">als {{ zeile.damals[s] }}</div>{% endif %}
+                        {% for t in tests %}
                         {% set farbe = status[t.status][1] %}
-                        <span class="stand-test bg-{{ farbe }}-subtle text-{{ farbe }}-emphasis border border-{{ farbe }}-subtle" title="{{ t.testform.name }} · {{ halbjahre[t.halbjahr] }}: {{ status[t.status][0] }}{% if t.datum_bis %}, zuletzt am {{ t.datum_bis.strftime('%d.%m.%Y') }}{% endif %}">
-                            <span>{{ t.testform.name }} · {{ halbjahre[t.halbjahr] }}</span>
+                        <span class="stand-test bg-{{ farbe }}-subtle text-{{ farbe }}-emphasis border border-{{ farbe }}-subtle"
+                              title="{{ t.testform.name }} · {{ label }}: {{ status[t.status][0] }}{% if t.datum_bis %}, zuletzt am {{ t.datum_bis.strftime('%d.%m.%Y') }}{% endif %}">
+                            <span>{{ t.testform.name }}</span>
                             <span class="zahl">{{ t.anzahl }}{% if t.erwartet %} / {{ t.erwartet }}{% endif %}</span>
                         </span>
-                        {% else %}<span class="text-muted small">keine Tests</span>{% endfor %}
+                        {% endfor %}
+                        {% else %}<span class="text-muted small">–</span>{% endif %}
                     </td>
+                    {% endfor %}
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
+    <p class="small text-muted mt-2 mb-0">„jetzt fällig“: Der Testzeitraum läuft (Mitte: Januar bis März, Ende: Mai bis Juli). „nicht eingetragen“: Der Zeitraum ist vorbei, es fehlt jedes Ergebnis. Kinder, die die Schule verlassen haben, sind nicht mitgezählt.</p>
     {% else %}
-    <div class="text-muted">Für dieses Schuljahr gibt es keine Klassen oder Ergebnisse.</div>
+    <div class="text-muted">Es sind noch keine Klassen oder Tests eingetragen.</div>
     {% endif %}
 </div>
 
@@ -79,7 +92,6 @@
     <div class="text-muted">Es sind noch keine Diagnostik-Ergebnisse eingetragen.</div>
     {% else %}
     <form method="GET" class="row g-2 align-items-end mb-3">
-        <input type="hidden" name="schuljahr" value="{{ schuljahr or '' }}">
         <div class="col-sm-4 col-lg-3">
             <label class="form-label small mb-1" for="d-verfahren">Verfahren</label>
             <select name="verfahren_id" id="d-verfahren" class="form-select form-select-sm" onchange="this.form.kennwert.value=''; this.form.submit()">

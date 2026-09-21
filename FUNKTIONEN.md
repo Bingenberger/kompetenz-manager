@@ -327,10 +327,15 @@ Hinterlegte Verfahren (von der Verwaltung als Katalog pflegbar, erweiterbar):
 - **Förderangaben je Kind und Schuljahr:** Nachteilsausgleich (NTA), Förderkurs (FK),
   externe Förderung (EF), Förderschwerpunkt, Anmerkungen. Ob ein aktiver Förderplan
   besteht, ergänzt die App selbst.
-- **Schulübersicht** (Schulleitung und Verwaltung): je Klasse, welche Tests im
-  Schuljahr eingetragen sind – eingetragen / erwartet laut Testplan –, und der
-  **Klassendurchschnitt** eines Kennwerts je Testzeitpunkt als Tabelle und
-  Verlaufsgrafik (gruppiert nach der heutigen Klasse der Kinder, filterbar nach Jahrgang).
+- **Schulübersicht** (Schulleitung und Verwaltung):
+  - **Erfassungsstand aller Klassen** über alle Schuljahre auf einen Blick: Zeilen sind
+    die heutigen Klassen, Spalten alle Testzeitpunkte (Mitte/Ende je Schuljahr). Je Zelle
+    steht, welche Tests laut Testplan anstanden und eingetragen sind (eingetragen /
+    erwartet), farbig nach vollständig, teilweise, jetzt fällig, nicht eingetragen,
+    geplant und nicht im Testplan. Frühere Zeitpunkte zählen dieselben Kinder unter
+    ihrem damaligen Klassennamen („als 2a“).
+  - **Klassendurchschnitt** eines Kennwerts je Testzeitpunkt als Tabelle und
+    Verlaufsgrafik (gruppiert nach der heutigen Klasse der Kinder, filterbar nach Jahrgang).
 - **Stufenauswertung** für einen ganzen Jahrgang und Testzeitpunkt, als ODT/PDF mit
   Schullogo: Durchschnittswerte je Klasse und Jahrgang, Liste aller Kinder mit
   Risikostufe samt Werten, Tendenz und Förderangaben.

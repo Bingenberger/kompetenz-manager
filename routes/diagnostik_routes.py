@@ -37,7 +37,8 @@ from odt_export import build_odt_document, convert_odt_bytes_to_pdf
 from stufenauswertung import erstelle_auswertung, legende
 from schuluebersicht import (
     STATUS,
-    erfassungsstand,
+    erfassungsmatrix,
+    zaehle_status,
     jahrgaenge_mit_klassen,
     kennwert_auswahl,
     klassendurchschnitt,
@@ -684,11 +685,7 @@ def schuluebersicht():
         return redirect(url_for('diagnostik.uebersicht'))
     config = SystemKonfiguration.query.first()
     aktuell = config.schuljahr if config else None
-    schuljahre = schuljahr_auswahl(aktuell)
-    schuljahr = (request.args.get('schuljahr') or '').strip()
-    if schuljahr not in schuljahre:
-        schuljahr = aktuell
-    stand = erfassungsstand(schuljahr, aktuell) if schuljahr else []
+    zeiten, stand = erfassungsmatrix(aktuell)
 
     verfahren_liste = verfahren_mit_ergebnissen()
     verfahren_id = request.args.get('verfahren_id', type=int)
@@ -711,10 +708,10 @@ def schuluebersicht():
 
     return render_template(
         'diagnostik_schule.html',
-        schuljahr=schuljahr,
         schuljahr_aktuell=aktuell,
-        schuljahre=schuljahre,
+        zeiten=zeiten,
         stand=stand,
+        status_zaehler=zaehle_status(stand),
         status=STATUS,
         halbjahre=HALBJAHRE,
         verfahren_liste=verfahren_liste,

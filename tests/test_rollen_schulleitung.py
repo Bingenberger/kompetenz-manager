@@ -27,7 +27,7 @@ from models import (
     User,
     UserKlassenzuordnung,
 )
-from schuluebersicht import erfassungsstand, kennwert_auswahl, klassendurchschnitt
+from schuluebersicht import erfassungsmatrix, kennwert_auswahl, klassendurchschnitt, zaehle_status
 
 CSRF_RE = re.compile(r'name="_csrf_token"\s+value="([^"]+)"')
 
@@ -193,22 +193,41 @@ class RollenTestCase(unittest.TestCase):
             self.assertIn('Schulübersicht', self.client.get('/diagnostik').get_data(as_text=True))
             self.assertEqual(200, self.client.get('/diagnostik/schule').status_code)
 
-    def test_capture_status_per_class(self):
+    def test_capture_matrix_spans_all_school_years(self):
         with self.app.app_context():
-            stand = {z['klasse']: z for z in erfassungsstand('2025/2026', '2025/2026')}
+            zeiten, zeilen = erfassungsmatrix('2025/2026', heute=date(2026, 2, 15))
+            labels = [label for _, label in zeiten]
+            self.assertEqual(['Mitte 2023/2024', 'Ende 2023/2024', 'Mitte 2024/2025', 'Ende 2024/2025',
+                              'Mitte 2025/2026', 'Ende 2025/2026'], labels)
+            stand = {z['klasse']: z for z in zeilen}
             self.assertEqual(['1a', '3a', '3b'], list(stand))
-            tests_3a = {(t['testform'].name, t['halbjahr']): (t['anzahl'], t['erwartet'], t['status']) for t in stand['3a']['tests']}
-            self.assertEqual((1, 2, 'teilweise'), tests_3a[('HSP 3', 'mitte')])
-            self.assertEqual((0, 2, 'offen'), tests_3a[('HSP 3', 'ende')])
-            self.assertEqual((1, 0, 'zusaetzlich'), tests_3a[('SLS 1-4', 'mitte')])
-            tests_3b = {(t['testform'].name, t['halbjahr']): t['status'] for t in stand['3b']['tests']}
-            self.assertEqual('vollstaendig', tests_3b[('HSP 3', 'mitte')])
             self.assertEqual(2, stand['3a']['kinder'])
+            schluessel = {label: s for s, label in zeiten}
 
-            # Früheres Schuljahr: nur gezählt, nach der Klasse zum Testzeitpunkt.
-            frueher = {z['klasse']: z for z in erfassungsstand('2024/2025', '2025/2026')}
-            self.assertEqual({'2a', '0a'} & set(frueher), {'2a'})
-            self.assertEqual([(2, None, 'erfasst')], [(t['anzahl'], t['erwartet'], t['status']) for t in frueher['2a']['tests']])
+            def tests(klasse, label):
+                return {t['testform'].name: (t['anzahl'], t['erwartet'], t['status'])
+                        for t in stand[klasse]['zellen'].get(schluessel[label], [])}
+
+            # Laufendes Schuljahr: Mitte läuft, Ende ist noch geplant.
+            self.assertEqual((1, 2, 'teilweise'), tests('3a', 'Mitte 2025/2026')['HSP 3'])
+            self.assertEqual((1, 0, 'zusaetzlich'), tests('3a', 'Mitte 2025/2026')['SLS 1-4'])
+            self.assertEqual((0, 2, 'geplant'), tests('3a', 'Ende 2025/2026')['HSP 3'])
+            self.assertEqual((0, 2, 'geplant'), tests('3a', 'Ende 2025/2026')['ELFE II'])
+            self.assertEqual('vollstaendig', tests('3b', 'Mitte 2025/2026')['HSP 3'][2])
+            # Vorjahre: dieselben Kinder als 2a und 1a, nach dem damaligen Testplan.
+            self.assertEqual((2, 2, 'vollstaendig'), tests('3a', 'Ende 2024/2025')['HSP 2'])
+            self.assertEqual((0, 2, 'fehlt'), tests('3a', 'Mitte 2024/2025')['HSP 2'])
+            self.assertEqual((0, 2, 'fehlt'), tests('3a', 'Mitte 2024/2025')['SLS 1-4'])
+            self.assertEqual((0, 2, 'fehlt'), tests('3a', 'Ende 2023/2024')['SLS 1-4'])
+            self.assertEqual('2a', stand['3a']['damals'][schluessel['Ende 2024/2025']])
+            self.assertEqual('1a', stand['3a']['damals'][schluessel['Mitte 2023/2024']])
+            self.assertNotIn(schluessel['Mitte 2025/2026'], stand['3a']['damals'])
+            # Jahrgang 1 hat in den Vorjahren nichts erwartet.
+            self.assertEqual({}, tests('1a', 'Mitte 2024/2025'))
+            self.assertEqual((0, 1, 'geplant'), tests('1a', 'Ende 2025/2026')['SLS 1-4'])
+
+            zaehler = zaehle_status(zeilen)
+            self.assertTrue(zaehler['fehlt'] > 0 and zaehler['vollstaendig'] > 0)
 
     def test_class_average_follows_todays_class(self):
         with self.app.app_context():
@@ -231,13 +250,13 @@ class RollenTestCase(unittest.TestCase):
     def test_school_overview_page_renders_status_and_chart(self):
         self._login('leitung')
         html = self.client.get('/diagnostik/schule').get_data(as_text=True)
-        for text in ('Erfassungsstand', 'HSP 3 · Mitte', '1 / 2', 'nicht im Testplan', 'Klassendurchschnitt im Verlauf', '<svg', '50,0', '12,0'):
+        for text in ('Erfassungsstand aller Klassen', 'Mitte 2025/2026', 'Ende 2024/2025', 'als 2a', '1 / 2',
+                     'nicht im Testplan', 'nicht eingetragen', 'Klassendurchschnitt im Verlauf', '<svg', '50,0', '12,0'):
             self.assertIn(text, html)
+        self.assertNotIn('name="schuljahr"', html)
         html = self.client.get(f'/diagnostik/schule?verfahren_id={self.sls_id}&jahrgang=1').get_data(as_text=True)
         self.assertIn('des Lesequotienten', html)
         self.assertIn('95,0', html)
-        html = self.client.get('/diagnostik/schule?schuljahr=2024/2025').get_data(as_text=True)
-        self.assertIn('Früheres Schuljahr', html)
 
 
 if __name__ == '__main__':
