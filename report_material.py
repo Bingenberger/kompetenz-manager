@@ -17,7 +17,8 @@ geschlichtet" ist das, woraus ein Zeugnissatz wird.
 from competency_trend import compute_trend
 from extensions import db
 from models import Beobachtung, Bogen, Foerderplan, Item, Schueler
-from school_year import active_school_year_start, observation_period_start
+from school_year import active_school_year_start
+from beobachtungszeitraum import zaehlt, zeitgrenze_fuer
 
 WERT_SYMBOLE = {1: '-', 2: 'o', 3: '+', 4: '++'}
 
@@ -32,10 +33,8 @@ def _mittel(werte):
 
 def collect_material(schueler):
     """Traegt die Beobachtungen des laufenden Schuljahres nach Bogen und Bereich zusammen."""
-    # Fuer die Spaltenabfrage die Zeitgrenze, fuer den Datumsvergleich der
-    # Foerderplaene das Datum - Beobachtung.datum ist DateTime, datum_erstellung Date.
+    # Fuer den Datumsvergleich der Foerderplaene das Datum des Schuljahresbeginns.
     grenze = active_school_year_start()
-    zeitgrenze = observation_period_start()
 
     query = (
         db.session.query(Beobachtung, Item, Bogen)
@@ -43,12 +42,22 @@ def collect_material(schueler):
         .join(Bogen, Item.bogen_id == Bogen.id)
         .filter(Beobachtung.schueler_id == schueler.id)
     )
-    if zeitgrenze:
-        query = query.filter(Beobachtung.datum >= zeitgrenze)
+    # Schuljahresübergreifende Bögen reichen weiter zurück - deshalb erst
+    # alles laden und je Bogen mit seiner eigenen Grenze filtern.
+    grenzen = {}
 
-    zeilen = query.order_by(
-        Bogen.titel.asc(), Item.bereich.asc(), Item.text.asc(), Beobachtung.datum.asc(),
-    ).all()
+    def im_zeitraum(beobachtung, bogen):
+        if bogen.id not in grenzen:
+            grenzen[bogen.id] = zeitgrenze_fuer(bogen, schueler)
+        return zaehlt(beobachtung, bogen, grenze=grenzen[bogen.id])
+
+    zeilen = [
+        (beobachtung, item, bogen)
+        for beobachtung, item, bogen in query.order_by(
+            Bogen.titel.asc(), Item.bereich.asc(), Item.text.asc(), Beobachtung.datum.asc(),
+        ).all()
+        if im_zeitraum(beobachtung, bogen)
+    ]
 
     # Nach Bogen, darin nach Bereich, darin nach Kompetenz buendeln.
     struktur = {}

@@ -1070,6 +1070,7 @@ def admin_bogen_edit(b_id):
     if request.method == 'POST':
         bogen.titel = request.form.get('titel')
         bogen.pflicht = request.form.get('pflicht') == '1'
+        bogen.schuljahresuebergreifend = request.form.get('schuljahresuebergreifend') == '1'
 
         if not b_id:
             db.session.add(bogen)

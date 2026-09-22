@@ -74,6 +74,12 @@ lesbar, bis die Verwaltung sie nach Ablauf der Aufbewahrungsfrist löscht.
   Bereiche. Beispiel: Bogen „Deutsch“, Bereich „Lesen“, Item „liest kurze Sätze
   sinnentnehmend“. Bögen können bestimmten Jahrgängen zugeordnet und als
   **Pflichtbogen** oder **optionaler Bogen** markiert sein.
+- **Schuljahresübergreifende Bögen:** Normalerweise zählen Beobachtungen nur im laufenden
+  Schuljahr. Ein Bogen kann als *schuljahresübergreifend* markiert werden, etwa ein Bogen
+  zum Übergang in Klasse 5 für die Jahrgänge 3 und 4. Dann zählen seine Einträge seit dem
+  Schuljahr, in dem das Kind im ersten Jahrgang des Bogens war – in Klasse 4 also auch die
+  aus Klasse 3. Das gilt für Elternberatung, Bericht je Kind, Klassenübersicht,
+  Zeugnismaterial und Förderkonferenz.
 - **Bewertungsskala** für Beobachtungen:
 
   | Wert | Symbol | Bedeutung |

@@ -24,6 +24,7 @@ from competency_matrix import (
 )
 from models import Beobachtung, Bogen, Item, Schueler
 from school_year import active_school_year_start
+from beobachtungszeitraum import beginn_fuer
 from student_selection import (
     get_grouped_student_choices_for_user,
     get_prioritized_students_for_user,
@@ -69,8 +70,9 @@ def report_schueler():
     color_map = {1: 'danger', 2: 'warning', 3: 'success', 4: 'success'}
 
     # Eine Abfrage für alle Kompetenzen statt einer je Kompetenz, und das
-    # Schuljahr einmal statt in jedem Schleifendurchlauf.
-    school_year_start = active_school_year_start()
+    # Schuljahr einmal statt in jedem Schleifendurchlauf. Schuljahresübergreifende
+    # Bögen zählen länger (beobachtungszeitraum.py).
+    school_year_start = beginn_fuer(bogen, schueler)
     alle_eintraege = (
         Beobachtung.query
         .filter(

@@ -31,6 +31,11 @@ class Bogen(db.Model):
     # Bestehende Boegen sind optional - solange es keinen Pflichtbogen gibt,
     # bleibt die Auswahl eine einfache Liste wie bisher.
     pflicht = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    # Schuljahresuebergreifend: Beobachtungen zaehlen nicht nur im laufenden
+    # Schuljahr, sondern seit dem Schuljahr, in dem das Kind den ersten Jahrgang
+    # des Bogens besuchte - etwa ein Bogen zum Uebergang in Klasse 5 fuer die
+    # Jahrgaenge 3 und 4 (siehe beobachtungszeitraum.py).
+    schuljahresuebergreifend = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
     items = db.relationship('Item', backref='bogen', lazy=True)
     # Ohne Zuordnung gilt ein Bogen fuer alle Jahrgaenge - so bleiben
     # bestehende Boegen nach der Einfuehrung unveraendert nutzbar.

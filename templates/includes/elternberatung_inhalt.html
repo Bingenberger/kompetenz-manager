@@ -54,7 +54,8 @@
     <details class="ls-fach border rounded-3 mb-3">
         <summary class="p-3">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                <h4 class="h5 mb-0 d-flex align-items-center gap-2"><span class="ls-pfeil" aria-hidden="true">›</span>{{ b.bogen.titel }}</h4>
+                <h4 class="h5 mb-0 d-flex align-items-center gap-2"><span class="ls-pfeil" aria-hidden="true">›</span>{{ b.bogen.titel }}
+                    {% if b.bogen.schuljahresuebergreifend %}<span class="badge bg-info-subtle text-info-emphasis border fw-normal" title="Einträge gelten über das Schuljahr hinaus">{% if b.bogen.jahrgaenge %}seit Klasse {{ b.bogen.jahrgaenge[0] }}{% else %}alle Schuljahre{% endif %}</span>{% endif %}</h4>
                 <div class="d-flex flex-wrap gap-2 align-items-center small">
                     {% if b.level %}<span class="badge {{ level_farben[b.level] }}">{{ level_labels[b.level] }}</span>{% endif %}
                     <span class="text-muted">{{ b.anzahl_items }} Kompetenzen · {{ b.anzahl_staerken }} sicher · {{ b.anzahl_potenzial }} mit Potenzial</span>

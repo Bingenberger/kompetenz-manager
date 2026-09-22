@@ -14,6 +14,7 @@ from sqlalchemy import func
 from extensions import db
 from models import Beobachtung, Item, Schueler
 from school_year import observation_period_start
+from beobachtungszeitraum import zeitgrenze_fuer
 
 
 # Dieselben Schwellen wie im Einzelbericht (templates/report_view.html), damit
@@ -124,26 +125,31 @@ def build_matrix(klasse, bogen, include_archived=False):
     gesamt = [0, 0]
 
     if students and items:
-        query = (
-            db.session.query(
-                Beobachtung.schueler_id,
-                Beobachtung.item_id,
-                func.sum(Beobachtung.wert),
-                func.count(Beobachtung.id),
+        # Die Zeitgrenze kann je Kind verschieden sein (schuljahresübergreifende
+        # Bögen in jahrgangsgemischten Klassen) - eine Abfrage je Grenze.
+        gruppen = {}
+        for student in students:
+            gruppen.setdefault(zeitgrenze_fuer(bogen, student), []).append(student.id)
+        zeilen = []
+        for grenze, ids in gruppen.items():
+            query = (
+                db.session.query(
+                    Beobachtung.schueler_id,
+                    Beobachtung.item_id,
+                    func.sum(Beobachtung.wert),
+                    func.count(Beobachtung.id),
+                )
+                .filter(
+                    Beobachtung.schueler_id.in_(ids),
+                    Beobachtung.item_id.in_([item.id for item in items]),
+                    Beobachtung.wert.isnot(None),
+                )
             )
-            .filter(
-                Beobachtung.schueler_id.in_([student.id for student in students]),
-                Beobachtung.item_id.in_([item.id for item in items]),
-                Beobachtung.wert.isnot(None),
-            )
-        )
-        grenze = observation_period_start()
-        if grenze:
-            query = query.filter(Beobachtung.datum >= grenze)
+            if grenze:
+                query = query.filter(Beobachtung.datum >= grenze)
+            zeilen.extend(query.group_by(Beobachtung.schueler_id, Beobachtung.item_id).all())
 
-        for schueler_id, item_id, summe, anzahl in query.group_by(
-            Beobachtung.schueler_id, Beobachtung.item_id,
-        ).all():
+        for schueler_id, item_id, summe, anzahl in zeilen:
             if not anzahl:
                 continue
             summe = float(summe or 0)

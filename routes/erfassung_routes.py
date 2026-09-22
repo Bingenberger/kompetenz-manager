@@ -24,6 +24,7 @@ from models import (
 from odt_export import convert_odt_bytes_to_pdf, render_odt_from_ott_template
 from jahrgang import boegen_fuer_jahrgang, klassen_jahrgaenge
 from school_year import active_school_year_start
+from beobachtungszeitraum import beginn_fuer
 from student_selection import (
     get_distinct_klassen,
     get_grouped_student_choices_for_user,
@@ -154,9 +155,12 @@ def _build_bogen_entries_for_student(student_id):
     symbol_map = {1: '-', 2: 'o', 3: '+', 4: '++'}
     color_map = {1: 'danger', 2: 'warning', 3: 'success', 4: 'success'}
     bogen_rows = []
+    schueler = db.session.get(Schueler, student_id)
 
     for bogen in boegen:
         item_rows = []
+        # Laufendes Schuljahr - bei schuljahresübergreifenden Bögen länger.
+        school_year_start = beginn_fuer(bogen, schueler)
         items = Item.query.filter_by(bogen_id=bogen.id).order_by(Item.bereich.asc(), Item.text.asc()).all()
         for item in items:
             eintraege = (
@@ -167,7 +171,6 @@ def _build_bogen_entries_for_student(student_id):
             )
             if not eintraege:
                 continue
-            school_year_start = active_school_year_start()
             aktuelle_eintraege = [
                 entry for entry in eintraege
                 if not school_year_start or (entry.datum and entry.datum.date() >= school_year_start)
