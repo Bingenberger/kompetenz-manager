@@ -21,6 +21,7 @@ from hospitation import empfehlungen as hospitation_empfehlungen, sichtbare_eint
 from klassenzugriff import darf_kind_sehen, sichtbare_elternkontakte, sichtbare_ereignisse
 from models import (
     Beobachtung,
+    Bogen,
     Elternkontakt,
     ErziehungsEreignis,
     Foerderangaben,
@@ -406,7 +407,10 @@ def abgleich(eintrag, grenzen=None):
     beginn = active_school_year_start()
     query = (
         db.session.query(Beobachtung.item_id)
-        .filter(Beobachtung.schueler_id == schueler.id, Beobachtung.wert == 1)
+        .join(Item, Beobachtung.item_id == Item.id)
+        .join(Bogen, Item.bogen_id == Bogen.id)
+        .filter(Beobachtung.schueler_id == schueler.id, Beobachtung.wert == 1,
+                Bogen.foerderempfehlung.is_(True))
     )
     if beginn:
         query = query.filter(Beobachtung.datum >= beginn)

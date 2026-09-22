@@ -413,7 +413,7 @@ def foerderplan_neu(s_id):
         avg_rating = sum(entry.wert for entry in item_observations) / len(item_observations)
         if avg_rating < 1.2:
             item = db.session.get(Item, int(item_id))
-            if not item or not item.bogen:
+            if not item or not item.bogen or not item.bogen.foerderempfehlung:
                 continue
 
             ist_text = (

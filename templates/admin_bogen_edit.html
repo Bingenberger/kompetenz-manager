@@ -60,6 +60,19 @@
                         </div>
                     </div>
 
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" name="foerderempfehlung" value="1"
+                                   id="bogen-foerderempfehlung" {% if bogen.foerderempfehlung is none or bogen.foerderempfehlung %}checked{% endif %}>
+                            <label class="form-check-label" for="bogen-foerderempfehlung">Für Förderplan-Empfehlungen auswerten</label>
+                        </div>
+                        <div class="form-text">
+                            Schwache Einschätzungen (−) dieses Bogens führen zu Vorschlägen beim Anlegen eines Förderplans,
+                            zu Förderplan-Kandidaten auf der Startseite und zu Warnungen im A-Block der Förderkonferenz.
+                            Ausschalten, wenn der Bogen dafür nicht gedacht ist – etwa ein Bogen zum Übergang in Klasse 5.
+                        </div>
+                    </div>
+
                     <div class="d-grid gap-2">
                         <button type="submit" class="btn btn-primary icon-btn justify-content-center">{{ bi('floppy', 'bi-icon') }} <span>Speichern</span></button>
                         <a href="{{ next_url if next_url else url_for('admin.admin_boegen') }}" class="btn btn-outline-secondary icon-btn justify-content-center">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>

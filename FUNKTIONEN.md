@@ -80,6 +80,10 @@ lesbar, bis die Verwaltung sie nach Ablauf der Aufbewahrungsfrist löscht.
   Schuljahr, in dem das Kind im ersten Jahrgang des Bogens war – in Klasse 4 also auch die
   aus Klasse 3. Das gilt für Elternberatung, Bericht je Kind, Klassenübersicht,
   Zeugnismaterial und Förderkonferenz.
+- **Förderplan-Empfehlungen je Bogen abschaltbar:** Schwache Einschätzungen (−) führen
+  normalerweise zu Vorschlägen beim Anlegen eines Förderplans, zu Förderplan-Kandidaten
+  auf der Startseite und zu Warnungen im A-Block der Förderkonferenz. Für einzelne Bögen –
+  etwa einen Übergangsbogen – lässt sich das in der Verwaltung ausschalten.
 - **Bewertungsskala** für Beobachtungen:
 
   | Wert | Symbol | Bedeutung |

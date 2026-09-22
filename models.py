@@ -36,6 +36,10 @@ class Bogen(db.Model):
     # des Bogens besuchte - etwa ein Bogen zum Uebergang in Klasse 5 fuer die
     # Jahrgaenge 3 und 4 (siehe beobachtungszeitraum.py).
     schuljahresuebergreifend = db.Column(db.Boolean, nullable=False, default=False, server_default=db.false())
+    # Schwache Einschaetzungen (-) dieses Bogens fuehren zu Foerderplan-
+    # Empfehlungen: Vorschlaege beim Anlegen, Foerderplan-Kandidaten, Warnung
+    # im A-Block der Foerderkonferenz. Abschaltbar etwa fuer einen Uebergangsbogen.
+    foerderempfehlung = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
     items = db.relationship('Item', backref='bogen', lazy=True)
     # Ohne Zuordnung gilt ein Bogen fuer alle Jahrgaenge - so bleiben
     # bestehende Boegen nach der Einfuehrung unveraendert nutzbar.

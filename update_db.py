@@ -406,6 +406,9 @@ def _sqlite_add_school_year_columns():
         if "schuljahresuebergreifend" not in bogen_columns:
             conn.execute(text("ALTER TABLE bogen ADD COLUMN schuljahresuebergreifend BOOLEAN NOT NULL DEFAULT 0"))
             print("Spalte 'bogen.schuljahresuebergreifend' wurde ergänzt.")
+        if "foerderempfehlung" not in bogen_columns:
+            conn.execute(text("ALTER TABLE bogen ADD COLUMN foerderempfehlung BOOLEAN NOT NULL DEFAULT 1"))
+            print("Spalte 'bogen.foerderempfehlung' wurde ergänzt.")
         conn.commit()
 
 
@@ -486,6 +489,11 @@ def _postgres_add_school_year_columns():
                 "ALTER TABLE public.bogen ADD COLUMN schuljahresuebergreifend BOOLEAN NOT NULL DEFAULT FALSE"
             ))
             print("Spalte 'bogen.schuljahresuebergreifend' wurde für PostgreSQL ergänzt.")
+        if "foerderempfehlung" not in bogen_columns:
+            conn.execute(text(
+                "ALTER TABLE public.bogen ADD COLUMN foerderempfehlung BOOLEAN NOT NULL DEFAULT TRUE"
+            ))
+            print("Spalte 'bogen.foerderempfehlung' wurde für PostgreSQL ergänzt.")
         conn.commit()
 
 def _add_new_columns():

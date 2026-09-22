@@ -313,9 +313,11 @@ def index():
                 )
                 .join(Schueler, Beobachtung.schueler_id == Schueler.id)
                 .join(Item, Beobachtung.item_id == Item.id)
+                .join(Bogen, Item.bogen_id == Bogen.id)
                 .filter(
                     Schueler.klasse == fokus_klasse,
                     Schueler.is_active.is_(True),
+                    Bogen.foerderempfehlung.is_(True),
                     Beobachtung.wert == 1,
                     Beobachtung.datum >= in_12_wochen_datetime,
                 )
@@ -850,9 +852,11 @@ def todo_foerderplan_kandidaten():
         )
         .join(Schueler, Beobachtung.schueler_id == Schueler.id)
         .join(Item, Beobachtung.item_id == Item.id)
+        .join(Bogen, Item.bogen_id == Bogen.id)
         .filter(
             Schueler.klasse == fokus_klasse,
-                    Schueler.is_active.is_(True),
+            Schueler.is_active.is_(True),
+            Bogen.foerderempfehlung.is_(True),
             Beobachtung.wert == 1,
             Beobachtung.datum >= in_12_wochen_datetime,
         )

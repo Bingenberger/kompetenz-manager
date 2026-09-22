@@ -32,7 +32,7 @@
             {% for b in boegen %}
             <tr>
                 <td class="fw-bold">{{ b.titel }}</td>
-                <td>{% if b.pflicht %}<span class="badge bg-primary">Pflicht</span>{% else %}<span class="badge bg-light text-secondary border">optional</span>{% endif %}{% if b.schuljahresuebergreifend %} <span class="badge bg-info-subtle text-info-emphasis border" title="Einträge gelten über das Schuljahr hinaus">übergreifend</span>{% endif %}</td>
+                <td>{% if b.pflicht %}<span class="badge bg-primary">Pflicht</span>{% else %}<span class="badge bg-light text-secondary border">optional</span>{% endif %}{% if b.schuljahresuebergreifend %} <span class="badge bg-info-subtle text-info-emphasis border" title="Einträge gelten über das Schuljahr hinaus">übergreifend</span>{% endif %}{% if not b.foerderempfehlung %} <span class="badge bg-light text-secondary border" title="Schwache Einschätzungen führen nicht zu Förderplan-Empfehlungen">ohne Förderempfehlung</span>{% endif %}</td>
                 <td class="text-muted small">{{ b.jahrgaenge|join(', ') if b.jahrgaenge else 'alle' }}</td>
                 <td class="text-end">
                     <a href="{{ url_for('admin.admin_items', b_id=b.id) }}" class="btn btn-sm btn-info text-white me-2 icon-btn">{{ bi('card-checklist', 'bi-icon-sm') }} <span>Items verwalten</span></a>
