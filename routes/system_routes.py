@@ -14,6 +14,7 @@ from diagnostik import STUFEN as DIAGNOSTIK_STUFEN, diagramme as diagnostik_diag
 from extensions import db
 from klassenzugriff import darf_ereignis_sehen, sichtbare_elternkontakte, sichtbare_ereignisse
 from konferenz import beschluss_label, eintraege_fuer_kind, offene_beschluesse
+from hospitation import sichtbare_eintraege as hospitation_eintraege
 from models import KONFERENZ_STUFEN, Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, ErziehungsEreignisAnhang, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan, WorkPlanTaskAttachment
 from odt_export import build_odt_document, convert_odt_bytes_to_pdf
 from school_year import observation_period_start
@@ -580,6 +581,7 @@ def schuelerakte():
     foerderangaben = []
     foerderangaben_aktuell = None
     konferenz_eintraege = []
+    hospitationen = []
 
     if selected_student:
         # Diagnostik: je Lernbereich Verlauf, Diagramm und Ergebnisliste.
@@ -610,6 +612,7 @@ def schuelerakte():
             .all()
         )
         konferenz_eintraege = eintraege_fuer_kind(selected_student, current_user)
+        hospitationen = hospitation_eintraege(selected_student, current_user)
         erziehungsereignisse = (
             sichtbare_ereignisse(ErziehungsEreignis.query, current_user)
             .filter(ErziehungsEreignis.student_id == selected_student.id)
@@ -679,6 +682,7 @@ def schuelerakte():
         foerderangaben=foerderangaben,
         foerderangaben_aktuell=foerderangaben_aktuell,
         konferenz_eintraege=konferenz_eintraege,
+        hospitationen=hospitationen,
         konferenz_stufen=KONFERENZ_STUFEN,
     )
 

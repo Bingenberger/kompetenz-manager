@@ -261,6 +261,19 @@ Alle Elternkontakte führen ein **Änderungsprotokoll** (wer hat wann was geänd
   Konferenz mit umgesetzt (ja/nein), Wirkung (wirksam/teilweise/nicht), neuer Stufe und
   Notiz – ebenfalls mit sofortigem Speichern.
 
+**Hospitationen der Schulleitung** (Bereich Förderung → Hospitationen, nur Schulleitung):
+
+- Anlassbezogen, meist im Vorfeld der Förderkonferenz – auch vor der Einschätzung der
+  Klassenleitung. Eine Hospitation hat Datum, Klasse, Anlass und eine Notiz zur Klasse.
+- Beobachtet werden nur die ausgewählten Kinder der Klasse; je Kind Beobachtung,
+  Stufen-Empfehlung (A/B/C) und Stern. Alles wird sofort gespeichert.
+- Sichtbar zunächst nur für Schulleitung und Verwaltung; per Freigabe auch für
+  Klassenleitung, Fachlehrkräfte und Förderpädagogik.
+- In der Förderkonferenz erscheint die Hospitation in der Ansicht des Kindes, in der
+  Schnellerfassung der Stufen und – wenn freigegeben – in der Vorbereitung der
+  Klassenleitung. Der A-Block warnt, wenn die Hospitation B oder C empfiehlt.
+- Außerdem in der Schülerakte (Reiter Förderung) und in der Gesamtakte.
+
 **Arbeitspläne** (individuelle Wochen-/Zeitraumpläne für das Kind):
 
 - Zeitraum, Status (*in Planung* / *aktiv* / *geschlossen*), Hinweise für das Kind
@@ -402,8 +415,6 @@ Arten abbestellen. Wer etwas selbst tut, wird darüber nicht benachrichtigt.
 
 Diese Grenzen sind wichtig, wenn Abläufe um die App herum geplant werden:
 
-- **Keine Hospitationen:** Die Konferenz kann keine Einschätzung aus einer Hospitation
-  der Schulleitung anzeigen, weil die App Hospitationen nicht führt.
 - **Keine Terminplanung oder Kalender** (außer den zwei Elternsprechtagen und dem
   „nächsten Termin“ im Gesprächsprotokoll).
 - **Keine Aufgabenverwaltung zwischen Lehrkräften** (außer der Zuständigkeit bei Ereignissen).

@@ -17,6 +17,7 @@ from competency_matrix import LEVEL_LABELS
 from diagnostik import STUFEN as DIAGNOSTIK_STUFEN, risikogrenzen, verlauf as diagnostik_verlauf
 from elternberatung import LEVEL_FARBEN, diagnostik_kontext, kompetenz_uebersicht
 from extensions import db
+from hospitation import empfehlungen as hospitation_empfehlungen, sichtbare_eintraege as hospitation_eintraege
 from klassenzugriff import darf_kind_sehen, sichtbare_elternkontakte, sichtbare_ereignisse
 from models import (
     Beobachtung,
@@ -419,6 +420,11 @@ def abgleich(eintrag, grenzen=None):
 
     if Foerderplan.query.filter_by(schueler_id=schueler.id, status='aktiv').first():
         hinweise.append('Es läuft ein Förderplan.')
+
+    hospitation = hospitation_empfehlungen({schueler.id}, eintrag.konferenz.schuljahr).get(schueler.id)
+    if hospitation and hospitation.empfehlung_stufe in ('B', 'C'):
+        hinweise.append(f'Hospitation am {hospitation.hospitation.datum.strftime("%d.%m.%Y")}: '
+                        f'Empfehlung {hospitation.empfehlung_stufe}')
     return hinweise
 
 
@@ -475,6 +481,7 @@ def kind_kontext(eintrag, user):
             .order_by(ErziehungsEreignis.datum.desc()).limit(4).all()
         ),
         'fruehere': fruehere_eintraege(eintrag),
+        'hospitationen': hospitation_eintraege(schueler, user, eintrag.konferenz.schuljahr),
         'abgleich': abgleich(eintrag),
     }
 

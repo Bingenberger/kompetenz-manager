@@ -30,7 +30,7 @@
     <div class="table-responsive">
         <table class="table align-middle mb-0">
             <thead class="table-light">
-                <tr><th style="min-width: 12rem;">Kind</th><th>Stufe</th><th>★</th><th style="min-width: 18rem;">Frage / Beobachtung</th><th>Vertiefte Beratung</th><th>Beschluss</th></tr>
+                <tr><th style="min-width: 12rem;">Kind</th><th>Hospitation</th><th>Stufe</th><th>★</th><th style="min-width: 18rem;">Frage / Beobachtung</th><th>Vertiefte Beratung</th><th>Beschluss</th></tr>
             </thead>
             <tbody>
                 {% for e in eintraege %}
@@ -40,6 +40,7 @@
                         <a href="{{ url_for('system.schuelerakte', schueler_id=e.schueler_id) }}" class="fw-semibold text-decoration-none">{{ e.schueler.nachname }}, {{ e.schueler.vorname }}</a>
                         <div class="small text-muted">{{ e.klasse or '' }}</div>
                     </td>
+                    <td>{% for h in hospitationen.get(e.id, []) %}<div class="small" title="{{ h.beobachtung or '' }}">{{ h.hospitation.datum.strftime('%d.%m.') }}{% if h.empfehlung_stufe %} <span class="badge text-bg-{{ stufen[h.empfehlung_stufe][1] }}">{{ h.empfehlung_stufe }}</span>{% endif %}{% if h.stern %} ★{% endif %}</div>{% else %}<span class="text-muted">–</span>{% endfor %}</td>
                     <td>{{ stufenwahl(e, 'vorschlag_stufe', url, stufen, stufen_reihenfolge, schreibbar) }}</td>
                     <td>{{ stern(e, 'vorschlag_stern', url, schreibbar) }}</td>
                     <td>{{ textfeld(e, 'vorschlag_frage', url, schreibbar, 2, 'Was möchten Sie besprechen?') }}</td>

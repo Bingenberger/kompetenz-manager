@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Förderung</span>
+        <h2 class="h4 mt-2 mb-1">Hospitationen</h2>
+        <p class="text-muted mb-0">Anlassbezogene Beobachtungen der Schulleitung, etwa im Vorfeld der Förderkonferenz.</p>
+    </div>
+</div>
+
+<div class="surface-panel p-4 mb-3">
+    <h3 class="h5 mb-3">Neue Hospitation</h3>
+    <form method="POST" action="{{ url_for('hospitation.neu') }}" class="row g-2 align-items-end">
+        {{ csrf_input() }}
+        <div class="col-sm-3 col-lg-2">
+            <label class="form-label small mb-1" for="h-datum">Datum</label>
+            <input type="date" class="form-control" id="h-datum" name="datum" value="{{ heute.isoformat() }}" required>
+        </div>
+        <div class="col-sm-3 col-lg-2">
+            <label class="form-label small mb-1" for="h-klasse">Klasse</label>
+            <select class="form-select" id="h-klasse" name="klasse" required>
+                {% for k in klassen %}<option value="{{ k }}">{{ k }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="col-sm-6 col-lg-6">
+            <label class="form-label small mb-1" for="h-anlass">Anlass</label>
+            <input type="text" class="form-control" id="h-anlass" name="anlass" placeholder="z. B. Mathematik, Blick auf Arbeitsverhalten einzelner Kinder">
+        </div>
+        <div class="col-sm-3 col-lg-2">
+            <button type="submit" class="btn btn-primary w-100 icon-btn justify-content-center">{{ bi('plus-circle', 'bi-icon-sm') }} <span>Anlegen</span></button>
+        </div>
+    </form>
+</div>
+
+<div class="table-panel">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light"><tr><th>Datum</th><th>Klasse</th><th>Anlass</th><th>Kinder</th><th>Freigabe</th><th class="text-end"></th></tr></thead>
+            <tbody>
+                {% for h in hospitationen %}
+                <tr>
+                    <td class="text-nowrap">{{ h.datum.strftime('%d.%m.%Y') }}</td>
+                    <td>{{ h.klasse }}</td>
+                    <td class="small">{{ h.anlass or '–' }}</td>
+                    <td class="small">
+                        {% for e in h.kinder %}{{ e.schueler.vorname }}{% if e.empfehlung_stufe %} <span class="badge text-bg-{{ stufen[e.empfehlung_stufe][1] }}">{{ e.empfehlung_stufe }}</span>{% endif %}{% if not loop.last %}, {% endif %}{% else %}–{% endfor %}
+                    </td>
+                    <td>{% if h.freigegeben %}<span class="badge text-bg-success">für Klassenleitung</span>{% else %}<span class="badge text-bg-secondary">nur Schulleitung</span>{% endif %}</td>
+                    <td class="text-end"><a href="{{ url_for('hospitation.bearbeiten', hospitation_id=h.id) }}" class="btn btn-sm btn-outline-secondary icon-only-btn" title="Öffnen" aria-label="Hospitation öffnen">{{ bi('pencil-square', 'bi-icon-sm') }}</a></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-4">Noch keine Hospitation festgehalten.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

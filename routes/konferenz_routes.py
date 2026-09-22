@@ -52,6 +52,7 @@ from konferenz import (
     teilnehmende,
     zaehle_stufen,
 )
+from hospitation import sichtbare_eintraege as hospitation_eintraege
 from models import Foerderkonferenz, FoerderkonferenzKind, SystemKonfiguration, User
 from odt_export import build_odt_document, convert_odt_bytes_to_pdf
 from school_year import normalize_school_year
@@ -85,6 +86,14 @@ def _aktuelles_schuljahr():
 
 def _lehrkraefte():
     return User.query.order_by(User.nachname, User.vorname, User.username).all()
+
+
+def _hospitationen_je_eintrag(eintraege, konferenz):
+    """Eintrag-ID -> Hospitationsnotizen des Schuljahres, die die Person sehen darf."""
+    return {
+        eintrag.id: hospitation_eintraege(eintrag.schueler, current_user, konferenz.schuljahr)
+        for eintrag in eintraege
+    }
 
 
 def _safe_next_url(candidate, fallback_url):
@@ -205,6 +214,7 @@ def stufen_erfassen(konferenz_id):
         'konferenz_stufen.html',
         konferenz=konferenz,
         klassen=sorted(klassen.items()),
+        hospitationen=_hospitationen_je_eintrag(eintraege, konferenz),
         phasen=phasen_uebersicht(konferenz),
         zaehler=zaehle_stufen(konferenz),
         stufen=STUFEN,
@@ -243,6 +253,7 @@ def vorbereitung(konferenz_id):
         'konferenz_vorbereitung.html',
         konferenz=konferenz,
         eintraege=eintraege,
+        hospitationen=_hospitationen_je_eintrag(eintraege, konferenz),
         stufen=STUFEN,
         stufen_reihenfolge=STUFEN_REIHENFOLGE,
         schreibbar=not konferenz.abgeschlossen,

@@ -19,6 +19,7 @@ Lehrkraft wann etwas bearbeitet hat, und ist damit Verfahrensdokumentation
 from extensions import db
 from klassenzugriff import sichtbare_elternkontakte, sichtbare_ereignisse
 from konferenz import MASSNAHMEN as KONFERENZ_MASSNAHMEN, eintraege_fuer_kind
+from hospitation import sichtbare_eintraege as hospitation_eintraege
 from models import KONFERENZ_STUFEN
 from models import (
     Beobachtung,
@@ -164,6 +165,9 @@ def collect_record(schueler, user=None):
             .all()
         ),
         'konferenzen': list(reversed(eintraege_fuer_kind(schueler, user))),
+        'hospitationen': list(reversed(
+            hospitation_eintraege(schueler, user) if user is not None else list(schueler.hospitationen)
+        )),
         'ereignisse': (
             ereignisse(ErziehungsEreignis.query)
             .filter(ErziehungsEreignis.student_id == schueler.id)
@@ -447,6 +451,27 @@ def _block_konferenzen(record):
     return blocks
 
 
+def _block_hospitationen(record):
+    eintraege = record.get('hospitationen') or []
+    if not eintraege:
+        return []
+    blocks = [{'type': 'heading', 'level': 1, 'text': 'Hospitationen der Schulleitung'}]
+    for eintrag in eintraege:
+        hospitation = eintrag.hospitation
+        zeilen = [('Klasse', hospitation.klasse)]
+        if hospitation.anlass:
+            zeilen.append(('Anlass', hospitation.anlass))
+        if eintrag.empfehlung_stufe:
+            zeilen.append(('Empfehlung', KONFERENZ_STUFEN[eintrag.empfehlung_stufe][0]))
+        if eintrag.stern:
+            zeilen.append(('Besondere Stärke', 'ja'))
+        if eintrag.beobachtung:
+            zeilen.append(('Beobachtung', eintrag.beobachtung))
+        blocks.append({'type': 'heading', 'level': 2, 'text': _datum(hospitation.datum)})
+        blocks.append({'type': 'fields', 'rows': zeilen})
+    return blocks
+
+
 def record_blocks(record, erzeugt_am):
     """Setzt die Abschnitte zu einem Dokument zusammen."""
     blocks = []
@@ -455,6 +480,7 @@ def record_blocks(record, erzeugt_am):
     blocks.extend(_block_beobachtungen(record))
     blocks.extend(_block_foerderplaene(record))
     blocks.extend(_block_arbeitsplaene(record))
+    blocks.extend(_block_hospitationen(record))
     blocks.extend(_block_konferenzen(record))
     blocks.extend(_block_elternkontakte(record))
     blocks.extend(_block_ereignisse(record))

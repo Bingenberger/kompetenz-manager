@@ -317,6 +317,20 @@
                 </div>
 
                 <div class="tab-pane fade" id="akte-foerder-pane" role="tabpanel" aria-labelledby="akte-foerder-tab" tabindex="0">
+                    {% if hospitationen %}
+                    <div class="border rounded-3 p-3 mb-3">
+                        <strong class="d-block mb-2">Hospitationen der Schulleitung</strong>
+                        {% for h in hospitationen %}
+                        <div class="small mb-2">
+                            <strong>{{ h.hospitation.datum.strftime('%d.%m.%Y') }}</strong> · Klasse {{ h.hospitation.klasse }}{% if h.hospitation.anlass %} · {{ h.hospitation.anlass }}{% endif %}
+                            {% if h.empfehlung_stufe %}<span class="badge text-bg-{{ konferenz_stufen[h.empfehlung_stufe][1] }}">Empfehlung {{ h.empfehlung_stufe }}</span>{% endif %}
+                            {% if h.stern %}<span class="badge text-bg-light">★</span>{% endif %}
+                            {% if not h.hospitation.freigegeben %}<span class="badge text-bg-secondary">nur Schulleitung</span>{% endif %}
+                            {% if h.beobachtung %}<div>{{ h.beobachtung }}</div>{% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
                     {% if konferenz_eintraege %}
                     <div class="border rounded-3 p-3 mb-3">
                         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">

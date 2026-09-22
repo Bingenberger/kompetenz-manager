@@ -929,3 +929,45 @@ class FoerderkonferenzLog(db.Model):
 
     konferenz = db.relationship('Foerderkonferenz', backref=db.backref('logs', cascade='all, delete-orphan'))
     user = db.relationship('User')
+
+
+# ----------------------------------------------------------------------
+# Hospitation der Schulleitung
+#
+# Anlassbezogen, meist im Vorfeld der Förderkonferenz: Die Schulleitung
+# besucht eine Klasse und hält zu einzelnen Kindern fest, was sie beobachtet
+# hat - mit einer Empfehlung für die Handlungsstufe. Die Notizen sieht nur die
+# Schulleitung, bis sie sie für Klassenleitung und Fachlehrkräfte freigibt.
+# ----------------------------------------------------------------------
+
+class Hospitation(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    datum = db.Column(db.Date, nullable=False)
+    klasse = db.Column(db.String(20), nullable=False, index=True)
+    anlass = db.Column(db.Text, nullable=True)
+    notiz = db.Column(db.Text, nullable=True)
+    freigegeben = db.Column(db.Boolean, nullable=False, default=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    bearbeitet_am = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+
+    user = db.relationship('User')
+
+
+class HospitationKind(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    hospitation_id = db.Column(db.Integer, db.ForeignKey('hospitation.id'), nullable=False, index=True)
+    schueler_id = db.Column(db.Integer, db.ForeignKey('schueler.id'), nullable=False, index=True)
+    beobachtung = db.Column(db.Text, nullable=True)
+    empfehlung_stufe = db.Column(db.String(1), nullable=True)
+    stern = db.Column(db.Boolean, nullable=False, default=False)
+    bearbeitet_am = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+
+    hospitation = db.relationship('Hospitation', backref=db.backref('kinder', cascade='all, delete-orphan'))
+    schueler = db.relationship(
+        'Schueler', backref=db.backref('hospitationen', cascade='all, delete-orphan'),
+    )
+
+    __table_args__ = (
+        db.UniqueConstraint('hospitation_id', 'schueler_id', name='uq_hospitation_kind'),
+    )

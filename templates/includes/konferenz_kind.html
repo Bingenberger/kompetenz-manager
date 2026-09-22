@@ -35,10 +35,17 @@
                 <p class="mb-2"><strong>Vorrangiger Förderbedarf:</strong> {{ kontext.grundlage.vorrangiger_foerderbedarf }}</p>
                 {% endif %}
                 {% if eintrag.vorschlag_frage %}
-                <p class="mb-0"><strong>Klassenleitung:</strong> {{ eintrag.vorschlag_frage }}</p>
-                {% elif not kontext.grundlage %}
+                <p class="mb-2"><strong>Klassenleitung:</strong> {{ eintrag.vorschlag_frage }}</p>
+                {% elif not kontext.grundlage and not kontext.hospitationen %}
                 <p class="text-muted mb-0">Kein Grundlagenblatt, kein Vorschlag hinterlegt.</p>
                 {% endif %}
+                {% for h in kontext.hospitationen %}
+                <p class="mb-2"><strong>Hospitation {{ h.hospitation.datum.strftime('%d.%m.%Y') }}</strong>
+                    {% if h.empfehlung_stufe %}<span class="badge text-bg-{{ stufen[h.empfehlung_stufe][1] }}">Empfehlung {{ h.empfehlung_stufe }}</span>{% endif %}
+                    {% if h.stern %}<span class="badge text-bg-light">★</span>{% endif %}
+                    {% if not h.hospitation.freigegeben %}<span class="badge text-bg-secondary">nur Schulleitung</span>{% endif %}
+                    {% if h.beobachtung %}<br>{{ h.beobachtung }}{% endif %}</p>
+                {% endfor %}
             </div>
         </div>
 

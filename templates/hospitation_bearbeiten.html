@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% from "includes/konferenz_teile.html" import speicher_status, speicher_stile, stufenwahl, stern, textfeld, datumsfeld, schalter %}
+{% block content %}
+{{ speicher_stile() }}
+{% set h_url = url_for('hospitation.feld', hospitation_id=hospitation.id) %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Hospitation · Klasse {{ hospitation.klasse }}</span>
+        <h2 class="h4 mt-2 mb-1">{{ hospitation.anlass or 'Hospitation' }}</h2>
+        <p class="text-muted mb-0">Alles wird sofort gespeichert.</p>
+    </div>
+    <div class="toolbar-actions">
+        {{ speicher_status() }}
+        <a href="{{ url_for('hospitation.liste') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Alle Hospitationen</span></a>
+    </div>
+</div>
+
+<div class="row g-3 mb-3">
+    <div class="col-lg-7">
+        <div class="surface-panel p-4 h-100">
+            <div class="row g-2 mb-3">
+                <div class="col-sm-4">
+                    <label class="form-label small mb-1">Datum</label>
+                    {{ datumsfeld(hospitation, 'datum', h_url, True) }}
+                </div>
+                <div class="col-sm-8">
+                    <label class="form-label small mb-1">Anlass</label>
+                    {{ textfeld(hospitation, 'anlass', h_url, True, 1) }}
+                </div>
+            </div>
+            <label class="form-label small mb-1">Beobachtungen zur Klasse</label>
+            {{ textfeld(hospitation, 'notiz', h_url, True, 3, 'Was fiel in der Stunde insgesamt auf?') }}
+            <div class="mt-3">
+                {{ schalter(hospitation, 'freigegeben', h_url, 'Für Klassenleitung und Fachlehrkräfte freigeben', True) }}
+                <div class="small text-muted">Ohne Freigabe sehen nur Schulleitung und Verwaltung diese Notizen – auch in der Förderkonferenz.</div>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="surface-panel p-4 h-100">
+            <h3 class="h6 mb-2">Kinder beobachten</h3>
+            {% if weitere %}
+            <form method="POST" action="{{ url_for('hospitation.kinder', hospitation_id=hospitation.id) }}">
+                {{ csrf_input() }}
+                <div class="d-flex flex-wrap gap-2 mb-2" style="max-height: 12rem; overflow: auto;">
+                    {% for kind in weitere %}
+                    <label class="btn btn-sm btn-outline-secondary">
+                        <input type="checkbox" class="form-check-input me-1" name="schueler_id" value="{{ kind.id }}"> {{ kind.vorname }} {{ kind.nachname }}
+                    </label>
+                    {% endfor %}
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary icon-btn">{{ bi('plus-circle', 'bi-icon-sm') }} <span>Ausgewählte hinzufügen</span></button>
+            </form>
+            {% else %}
+            <p class="small text-muted mb-0">Alle Kinder der Klasse sind in der Beobachtung.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% for e in eintraege %}
+{% set url = url_for('hospitation.kind_feld', hospitation_id=hospitation.id, eintrag_id=e.id) %}
+<div class="surface-panel p-4 mb-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+        <h3 class="h5 mb-0">{{ e.schueler.vorname }} {{ e.schueler.nachname }}</h3>
+        <div class="d-flex align-items-center gap-3">
+            <span class="small text-muted">Empfehlung</span>
+            {{ stufenwahl(e, 'empfehlung_stufe', url, stufen, stufen_reihenfolge, True) }}
+            {{ stern(e, 'stern', url, True) }}
+            <form method="POST" action="{{ url_for('hospitation.kinder', hospitation_id=hospitation.id) }}" class="d-inline"
+                  data-confirm-title="Kind entfernen" data-confirm-message="Die Beobachtung zu {{ e.schueler.vorname }} wird gelöscht." data-confirm-button="Entfernen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
+                {{ csrf_input() }}<input type="hidden" name="entfernen" value="{{ e.id }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger icon-only-btn" title="Entfernen" aria-label="Beobachtung entfernen">{{ bi('trash', 'bi-icon-sm') }}</button>
+            </form>
+        </div>
+    </div>
+    {{ textfeld(e, 'beobachtung', url, True, 3, 'Was haben Sie beobachtet? Stärken, Auffälligkeiten, Fragen für die Konferenz') }}
+</div>
+{% else %}
+<div class="alert alert-info">Noch kein Kind ausgewählt. Wählen Sie oben die Kinder, um die es bei dieser Hospitation geht.</div>
+{% endfor %}
+
+<form method="POST" action="{{ url_for('hospitation.loeschen', hospitation_id=hospitation.id) }}" class="mt-3"
+      data-confirm-title="Hospitation löschen" data-confirm-message="Die Hospitation mit allen Beobachtungen wird gelöscht." data-confirm-button="Löschen" data-confirm-button-class="btn-danger" data-confirm-variant="delete">
+    {{ csrf_input() }}
+    <button type="submit" class="btn btn-sm btn-outline-danger icon-btn">{{ bi('trash', 'bi-icon-sm') }} <span>Hospitation löschen</span></button>
+</form>
+<script src="{{ url_for('static', filename='js/konferenz.js') }}"></script>
+{% endblock %}
