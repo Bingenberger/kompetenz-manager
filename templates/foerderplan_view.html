@@ -97,7 +97,7 @@
     <div class="col-6 text-end">
         <p>
             <strong>Erstellt am:</strong> {{ plan.datum_erstellung.strftime('%d.%m.%Y') }}<br>
-            <strong>Status:</strong> {{ plan.status|capitalize }}{% if plan.fach %} · <strong>Fach:</strong> {{ plan.fach.name }}{% endif %}
+            <strong>Status:</strong> {{ plan.status|capitalize }}{% if plan.faecher %} · <strong>{% if plan.faecher|length > 1 %}Fächer{% else %}Fach{% endif %}:</strong> {{ plan.fach_namen|join(', ') }}{% endif %}
             {% if plan.datum_evaluation %}
             <br><strong>Evaluiert am:</strong> {{ plan.datum_evaluation.strftime('%d.%m.%Y') }}
             {% endif %}

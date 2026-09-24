@@ -100,11 +100,17 @@ def darf_zuweisen(user, schueler):
 # ----------------------------------------------------------------------
 
 def aktiver_plan_im_fach(schueler_id, fach_id):
+    """Laufender Plan des Kindes, der dieses Fach umfasst.
+
+    Ein Plan kann mehrere Faecher betreffen (foerderplan_fach.py) - ein Plan
+    mit Zielen aus Deutsch und Mathe deckt beide Foerderkurse ab.
+    """
+    from foerderplan_fach import plan_query_im_fach
+
     return (
-        Foerderplan.query
+        plan_query_im_fach(fach_id)
         .filter(Foerderplan.schueler_id == schueler_id,
-                Foerderplan.status == 'aktiv',
-                Foerderplan.fach_id == fach_id)
+                Foerderplan.status == 'aktiv')
         .order_by(Foerderplan.datum_erstellung.desc(), Foerderplan.id.desc())
         .first()
     )

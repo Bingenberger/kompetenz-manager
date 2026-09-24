@@ -29,6 +29,20 @@
                         </div>
                     </div>
 
+                    <div class="mb-3">
+                        <label class="form-label" for="bogen-fach">Fach</label>
+                        <select class="form-select" id="bogen-fach" name="fach_id">
+                            <option value="">– kein Fach –</option>
+                            {% for fach in faecher %}
+                            <option value="{{ fach.id }}" {% if bogen.fach_id == fach.id %}selected{% endif %}>{{ fach.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">
+                            Ein Förderplan mit einem Ziel aus diesem Bogen zählt automatisch für dieses Fach –
+                            wichtig für die Regel „Kind im Förderkurs braucht einen Förderplan im Fach“.
+                        </div>
+                    </div>
+
                     <fieldset class="mb-3">
                         <legend class="form-label fs-6 mb-1">Jahrgänge</legend>
                         <div class="d-flex flex-wrap gap-3">

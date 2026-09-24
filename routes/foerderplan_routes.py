@@ -33,6 +33,7 @@ from student_selection import (
     get_user_klassenkontext,
 )
 from foerderkurs import faecher
+import foerderplan_fach
 from school_year import observation_period_start
 from time_utils import utc_now
 
@@ -46,6 +47,16 @@ PLAN_FELDER = (
     ('status', 'Status'),
     ('datum_evaluation', 'Evaluationsdatum'),
 )
+
+
+def _item_id(item_ids, index):
+    """Kompetenz-ID einer Zeile im Assistenten - leer bei freien Zielen."""
+    if index >= len(item_ids):
+        return None
+    try:
+        return int(item_ids[index]) or None
+    except (TypeError, ValueError):
+        return None
 
 
 def _notify_plan_changed(plan, was):
@@ -327,7 +338,6 @@ def foerderplan_neu(s_id):
             titel=titel,
             datum_erstellung=utc_now(),
             datum_evaluation=datum_evaluation,
-            fach_id=request.form.get('fach_id', type=int) or None,
             status='aktiv'
         )
         db.session.add(neuer_plan)
@@ -337,11 +347,15 @@ def foerderplan_neu(s_id):
         ist_zustaende = request.form.getlist('ist_zustand')
         soll_zustaende = request.form.getlist('soll_zustand')
         massnahmen = request.form.getlist('massnahmen')
+        item_ids = request.form.getlist('item_id')
 
+        genutzte_items = []
         for i in range(len(ziele)):
             if ziele[i].strip():
+                item_id = _item_id(item_ids, i)
                 inhalt = Foerderinhalt(
                     plan_id=neuer_plan.id,
+                    item_id=item_id,
                     foerderziel=ziele[i],
                     ist_zustand=ist_zustaende[i],
                     soll_zustand=soll_zustaende[i],
@@ -349,6 +363,13 @@ def foerderplan_neu(s_id):
                     status_id=0
                 )
                 db.session.add(inhalt)
+                if item_id:
+                    genutzte_items.append(item_id)
+
+        # Faecher: Handauswahl plus die Faecher der Boegen, aus denen die
+        # gewaehlten Kompetenzen stammen.
+        foerderplan_fach.aktualisiere(
+            neuer_plan, request.form.getlist('fach_id'), genutzte_items)
 
         db.session.flush()
         _plan_log(neuer_plan, 'created', '; '.join(filter(None, [
@@ -395,6 +416,7 @@ def foerderplan_neu(s_id):
         for inhalt in letzter_eval_plan.inhalte:
             if inhalt.status_id == 2:
                 altes_ziel = {
+                    'item_id': inhalt.item_id,
                     'bereich': inhalt.foerderziel or '',
                     'soll': inhalt.soll_zustand or '',
                     'ist': f"Alter Ist-Zustand:\n{inhalt.ist_zustand or ''}",
@@ -432,6 +454,7 @@ def foerderplan_neu(s_id):
                 vorschlaege[idx]['ist'] += f"\n\n--- Aktuelle Beobachtung ---\n{ist_text}"
             else:
                 vorschlaege.append({
+                    'item_id': item.id,
                     'bereich': titel_generated,
                     'soll': '',
                     'ist': ist_text,
@@ -442,6 +465,7 @@ def foerderplan_neu(s_id):
     # Vorbelegung aus einer Förderkonferenz: Ziel, Ist, Soll, Maßnahmen, Frist.
     vorgabe = {feld: (request.args.get(feld) or '').strip() for feld in ('ziel', 'ist', 'soll', 'massnahme', 'titel', 'evaluation')}
     vorgabe['fach_id'] = request.args.get('fach_id', type=int)
+    gewaehlte_faecher = {vorgabe['fach_id']} if vorgabe['fach_id'] else set()
     if any(vorgabe[feld] for feld in ('ziel', 'ist', 'soll', 'massnahme')):
         vorschlaege.insert(0, {
             'bereich': vorgabe['ziel'] or 'Förderziel aus der Konferenz',
@@ -460,6 +484,7 @@ def foerderplan_neu(s_id):
         vorschlaege=vorschlaege,
         vorgabe=vorgabe,
         faecher=faecher(),
+        gewaehlte_faecher=gewaehlte_faecher,
         all_boegen=all_boegen,
         now=utc_now(),
         is_edit_mode=False,
@@ -668,7 +693,6 @@ def foerderplan_edit(p_id):
         vorher_inhalte = _inhalte_beschreibung(plan)
 
         plan.titel = request.form.get('titel')
-        plan.fach_id = request.form.get('fach_id', type=int) or None
 
         Foerderinhalt.query.filter_by(plan_id=plan.id).delete()
 
@@ -676,20 +700,33 @@ def foerderplan_edit(p_id):
         ist_zustaende = request.form.getlist('ist_zustand')
         soll_zustaende = request.form.getlist('soll_zustand')
         massnahmen = request.form.getlist('massnahmen')
+        item_ids = request.form.getlist('item_id')
 
+        genutzte_items = []
         for i in range(len(ziele)):
             if (ziele[i] or '').strip():
+                item_id = _item_id(item_ids, i)
                 db.session.add(Foerderinhalt(
                     plan_id=plan.id,
+                    item_id=item_id,
                     foerderziel=ziele[i],
                     ist_zustand=ist_zustaende[i] if i < len(ist_zustaende) else '',
                     soll_zustand=soll_zustaende[i] if i < len(soll_zustaende) else '',
                     massnahmen=massnahmen[i] if i < len(massnahmen) else '',
                     status_id=0,
                 ))
+                if item_id:
+                    genutzte_items.append(item_id)
+
+        vorher_faecher = ', '.join(plan.fach_namen) or '-'
+        foerderplan_fach.aktualisiere(
+            plan, request.form.getlist('fach_id'), genutzte_items)
 
         db.session.flush()
         teile = [describe(vorher, snapshot(plan, PLAN_FELDER), PLAN_FELDER)]
+        nachher_faecher = ', '.join(plan.fach_namen) or '-'
+        if vorher_faecher != nachher_faecher:
+            teile.append(f'Fächer: {vorher_faecher} → {nachher_faecher}')
         nachher_inhalte = _inhalte_beschreibung(plan)
         if vorher_inhalte != nachher_inhalte:
             teile.append(f'Förderbereiche: {vorher_inhalte} → {nachher_inhalte}')
@@ -704,6 +741,7 @@ def foerderplan_edit(p_id):
     vorschlaege = []
     for inhalt in plan.inhalte:
         vorschlaege.append({
+            'item_id': inhalt.item_id,
             'bereich': inhalt.foerderziel or '',
             'ist': inhalt.ist_zustand or '',
             'soll': inhalt.soll_zustand or '',
@@ -720,6 +758,7 @@ def foerderplan_edit(p_id):
         grundlage=schueler.foerdergrundlage,
         vorschlaege=vorschlaege,
         faecher=faecher(),
+        gewaehlte_faecher={fach.id for fach in plan.faecher},
         all_boegen=Bogen.query.all(),
         now=utc_now(),
         is_edit_mode=True,

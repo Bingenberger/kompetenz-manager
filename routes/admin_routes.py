@@ -11,6 +11,7 @@ from mail_versand import mail_konfiguration, sende_mail
 from routes.auth_routes import normalize_email
 from authz import admin_required
 from db_utils import get_or_404_session
+from foerderkurs import faecher
 from extensions import db
 from models import ROLLEN
 from models import (
@@ -1072,6 +1073,9 @@ def admin_bogen_edit(b_id):
         bogen.pflicht = request.form.get('pflicht') == '1'
         bogen.schuljahresuebergreifend = request.form.get('schuljahresuebergreifend') == '1'
         bogen.foerderempfehlung = request.form.get('foerderempfehlung') == '1'
+        # Fach des Bogens: Foerderplaene mit Zielen aus diesem Bogen zaehlen
+        # automatisch fuer dieses Fach.
+        bogen.fach_id = request.form.get('fach_id', type=int) or None
 
         if not b_id:
             db.session.add(bogen)
@@ -1088,7 +1092,7 @@ def admin_bogen_edit(b_id):
 
     return render_template(
         'admin_bogen_edit.html', bogen=bogen, titel_prefix=titel_prefix, next_url=next_url,
-        jahrgaenge=JAHRGAENGE,
+        jahrgaenge=JAHRGAENGE, faecher=faecher(),
     )
 
 

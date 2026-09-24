@@ -84,6 +84,9 @@ lesbar, bis die Verwaltung sie nach Ablauf der Aufbewahrungsfrist löscht.
   normalerweise zu Vorschlägen beim Anlegen eines Förderplans, zu Förderplan-Kandidaten
   auf der Startseite und zu Warnungen im A-Block der Förderkonferenz. Für einzelne Bögen –
   etwa einen Übergangsbogen – lässt sich das in der Verwaltung ausschalten.
+- **Fach je Bogen:** Ein Bogen kann in der Verwaltung einem Fach zugeordnet werden
+  (Deutsch, Mathematik …). Ein Förderplan mit einem Ziel aus diesem Bogen zählt dann
+  automatisch für dieses Fach – wichtig für die Regel „Förderkurs braucht Förderplan“.
 - **Bewertungsskala** für Beobachtungen:
 
   | Wert | Symbol | Bedeutung |
@@ -211,6 +214,9 @@ Alle Elternkontakte führen ein **Änderungsprotokoll** (wer hat wann was geänd
     (mit altem Ist-Zustand und alten Maßnahmen)
   - Kompetenzen, die in den letzten rund vier Monaten fast durchgehend mit „−“
     beobachtet wurden (mit Beobachtungsdatum, Durchschnitt und Kommentar als Ist-Text)
+- **Fächer:** Ein Plan kann **mehrere Fächer** umfassen (Mehrfachauswahl im Assistenten).
+  Stammt ein Ziel aus einem Bogen, dem ein Fach zugeordnet ist, ergänzt die App das Fach
+  beim Speichern von selbst; die Handauswahl bleibt daneben bestehen.
 - **Pro Kind nur ein aktiver Förderplan.** Ein neuer Plan setzt voraus, dass der
   bestehende evaluiert und geschlossen ist.
 - **Evaluation:** je Ziel Status *erreicht*, *nicht erreicht / weiterführen* oder
@@ -279,7 +285,8 @@ Alle Elternkontakte führen ein **Änderungsprotokoll** (wer hat wann was geänd
   passenden Jahrgänge. Eintragen darf, wer das Kind ohnehin sehen darf. Eine Teilnahme
   lässt sich beenden und bleibt dann als frühere Teilnahme stehen.
 - **Regel:** Wer in einem Förderkurs ist, braucht im **selben Fach** einen aktiven Förderplan.
-  Der Förderplan hat dafür ein Feld „Fach“.
+  Ein Plan kann mehrere Fächer umfassen und damit mehrere Kurse abdecken; die Fächer
+  ergeben sich aus der Auswahl im Assistenten und aus den Bögen der gewählten Kompetenzen.
 - **Erinnerung:** Fehlt der Plan, steht das als Aufgabe auf der Startseite der Klassenleitung
   und der Kursleitung, in der Liste „Förderkurs ohne Förderplan“ und in der Schülerakte.
   Zusätzlich erinnert die App alle 14 Tage per Benachrichtigung, bis der Plan da ist oder

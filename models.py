@@ -40,7 +40,11 @@ class Bogen(db.Model):
     # Empfehlungen: Vorschlaege beim Anlegen, Foerderplan-Kandidaten, Warnung
     # im A-Block der Foerderkonferenz. Abschaltbar etwa fuer einen Uebergangsbogen.
     foerderempfehlung = db.Column(db.Boolean, nullable=False, default=True, server_default=db.true())
+    # Fach des Bogens: Ziele aus diesem Bogen ordnen den Foerderplan automatisch
+    # diesem Fach zu (foerderplan_fach.py). Ohne Zuordnung passiert nichts.
+    fach_id = db.Column(db.Integer, db.ForeignKey('fach.id'), nullable=True, index=True)
     items = db.relationship('Item', backref='bogen', lazy=True)
+    fach = db.relationship('Fach')
     # Ohne Zuordnung gilt ein Bogen fuer alle Jahrgaenge - so bleiben
     # bestehende Boegen nach der Einfuehrung unveraendert nutzbar.
     jahrgang_zuordnungen = db.relationship(
@@ -184,6 +188,15 @@ class UserKlassenzuordnung(db.Model):
     user = db.relationship('User', backref='klassenzuordnungen')
 
 
+# Ein Foerderplan kann mehrere Faecher betreffen: ein Plan mit Zielen aus dem
+# Deutsch- und dem Mathebogen zaehlt fuer beide Foerderkurse.
+foerderplan_fach = db.Table(
+    'foerderplan_fach',
+    db.Column('foerderplan_id', db.Integer, db.ForeignKey('foerderplan.id'), primary_key=True),
+    db.Column('fach_id', db.Integer, db.ForeignKey('fach.id'), primary_key=True),
+)
+
+
 class Foerderplan(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     schueler_id = db.Column(db.Integer, db.ForeignKey('schueler.id'))
@@ -192,19 +205,32 @@ class Foerderplan(db.Model):
     datum_erstellung = db.Column(db.Date, default=lambda: utc_now().date())
     datum_evaluation = db.Column(db.Date, nullable=True)
     status = db.Column(db.String(20), default='aktiv')
-    # Fach des Plans - noetig fuer die Regel "wer im Foerderkurs Deutsch ist,
-    # braucht einen aktiven Foerderplan im Fach Deutsch" (foerderkurs.py).
-    fach_id = db.Column(db.Integer, db.ForeignKey('fach.id'), nullable=True, index=True)
 
     inhalte = db.relationship('Foerderinhalt', backref='plan', lazy=True, cascade="all, delete-orphan")
-    fach = db.relationship('Fach')
+    # Faecher des Plans - noetig fuer die Regel "wer im Foerderkurs Deutsch ist,
+    # braucht einen aktiven Foerderplan im Fach Deutsch" (foerderkurs.py).
+    # Sie ergeben sich aus den Boegen der gewaehlten Kompetenzen und lassen sich
+    # von Hand ergaenzen (foerderplan_fach.py).
+    faecher = db.relationship('Fach', secondary=foerderplan_fach, lazy='selectin',
+                              order_by='Fach.sort_order, Fach.name',
+                              backref=db.backref('foerderplaene', lazy='dynamic'))
     schueler = db.relationship('Schueler', backref=db.backref('foerderplaene', cascade='all, delete-orphan'))
     creator = db.relationship('User', backref='erstellte_foerderplaene', foreign_keys=[creator_user_id])
+
+    @property
+    def fach_namen(self):
+        return [fach.name for fach in self.faecher]
+
+    def betrifft_fach(self, fach_id):
+        return any(fach.id == fach_id for fach in self.faecher)
 
 
 class Foerderinhalt(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     plan_id = db.Column(db.Integer, db.ForeignKey('foerderplan.id'))
+    # Kompetenz, aus der das Ziel stammt - daraus leitet sich das Fach des Plans
+    # ab (Bogen -> Fach). Leer bei frei formulierten Zielen.
+    item_id = db.Column(db.Integer, db.ForeignKey('item.id'), nullable=True, index=True)
 
     foerderziel = db.Column(db.String(200))
     ist_zustand = db.Column(db.Text)
@@ -213,6 +239,8 @@ class Foerderinhalt(db.Model):
 
     evaluation_text = db.Column(db.Text)
     status_id = db.Column(db.Integer, default=0)
+
+    item = db.relationship('Item')
 
 
 class FoerderplanLog(db.Model):

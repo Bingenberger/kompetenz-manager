@@ -14,7 +14,7 @@ from diagnostik import STUFEN as DIAGNOSTIK_STUFEN, diagramme as diagnostik_diag
 from extensions import db
 from klassenzugriff import darf_ereignis_sehen, sichtbare_elternkontakte, sichtbare_ereignisse
 from konferenz import beschluss_label, eintraege_fuer_kind, offene_beschluesse
-from foerderkurs import laufende_teilnahmen, offene_plaene as foerderkurse_ohne_plan
+from foerderkurs import aktiver_plan_im_fach, laufende_teilnahmen, offene_plaene as foerderkurse_ohne_plan
 from hospitation import sichtbare_eintraege as hospitation_eintraege
 from models import KONFERENZ_STUFEN, Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, ErziehungsEreignisAnhang, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan, WorkPlanTaskAttachment
 from odt_export import build_odt_document, convert_odt_bytes_to_pdf
@@ -700,6 +700,7 @@ def schuelerakte():
         konferenz_eintraege=konferenz_eintraege,
         hospitationen=hospitationen,
         kurs_teilnahmen=kurs_teilnahmen,
+        plan_im_fach=aktiver_plan_im_fach,
         konferenz_stufen=KONFERENZ_STUFEN,
     )
 

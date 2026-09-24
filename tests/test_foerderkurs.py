@@ -99,8 +99,10 @@ class FoerderkursTestCase(unittest.TestCase):
 
     def _plan(self, kind='Anna', fach='deutsch', status='aktiv'):
         with self.app.app_context():
-            db.session.add(Foerderplan(schueler_id=self.ids[kind], titel='Lesen üben', status=status,
-                                       fach_id=self.fach_ids[fach], datum_erstellung=utc_now().date()))
+            plan = Foerderplan(schueler_id=self.ids[kind], titel='Lesen üben', status=status,
+                               datum_erstellung=utc_now().date())
+            plan.faecher = [db.session.get(Fach, self.fach_ids[fach])]
+            db.session.add(plan)
             db.session.commit()
 
     # ------------------------------------------------------------------ Katalog
@@ -211,7 +213,7 @@ class FoerderkursTestCase(unittest.TestCase):
         })
         with self.app.app_context():
             plan = Foerderplan.query.one()
-            self.assertEqual(self.fach_ids['deutsch'], plan.fach_id)
+            self.assertEqual([self.fach_ids['deutsch']], [fach.id for fach in plan.faecher])
 
     # ------------------------------------------------------------------ Konferenz
 
