@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Nachteilsausgleich · {{ schuljahr }}</span>
+        <h2 class="h4 mt-2 mb-1">{{ schueler.vorname }} {{ schueler.nachname }}</h2>
+        <p class="text-muted mb-0">Klasse {{ schueler.klasse or '–' }}{% if eintrag and not eintrag.laeuft %} · beendet am {{ eintrag.beendet_am.strftime('%d.%m.%Y') }}{% endif %}</p>
+    </div>
+    <div class="toolbar-actions">
+        <a href="{{ next_url if next_url else url_for('nachteilsausgleich.liste') }}" class="btn btn-outline-secondary icon-btn">
+            {{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span></a>
+    </div>
+</div>
+
+<form method="POST">
+    {{ csrf_input() }}
+    <input type="hidden" name="schuljahr" value="{{ schuljahr }}">
+    {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+    <div class="surface-panel p-4 mb-3">
+        <h3 class="h5 mb-3">Beschluss</h3>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label" for="nta-beschluss">Beschluss der Klassenkonferenz am</label>
+                <input type="date" class="form-control" id="nta-beschluss" name="beschluss_am"
+                       value="{{ eintrag.beschluss_am.isoformat() if eintrag and eintrag.beschluss_am else '' }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="nta-eltern">Eltern informiert am</label>
+                <input type="date" class="form-control" id="nta-eltern" name="eltern_informiert_am"
+                       value="{{ eintrag.eltern_informiert_am.isoformat() if eintrag and eintrag.eltern_informiert_am else '' }}">
+            </div>
+            <div class="col-12">
+                <label class="form-label" for="nta-grundlage">Grundlage</label>
+                <textarea class="form-control" rows="2" id="nta-grundlage" name="grundlage"
+                          placeholder="z. B. LRS laut HSP vom 09/2026, Attest, AO-SF-Verfahren">{{ eintrag.grundlage if eintrag and eintrag.grundlage else '' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="surface-panel p-4 mb-3">
+        <h3 class="h5 mb-1">Maßnahmen</h3>
+        <p class="text-muted small">Was konkret gilt – leere Felder erscheinen später nicht.</p>
+        {% set vorhanden = {} %}
+        {% for massnahme in (eintrag.massnahmen if eintrag else []) %}{% set _ = vorhanden.update({massnahme.typ: massnahme.beschreibung}) %}{% endfor %}
+        <div class="row g-3">
+            {% for typ, label, beispiel in typen %}
+            <div class="col-md-6">
+                <label class="form-label fw-semibold" for="nta-{{ typ }}">{{ label }}</label>
+                <textarea class="form-control" rows="3" id="nta-{{ typ }}" name="massnahme_{{ typ }}"
+                          placeholder="{{ beispiel }}">{{ vorhanden.get(typ, '') }}</textarea>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <div class="surface-panel p-4 mb-3">
+        <h3 class="h5 mb-1">Notenschutz</h3>
+        <p class="text-muted small">In diesen Teilbereichen wird die Note ausgesetzt. Das ist mehr als ein
+            Nachteilsausgleich und braucht einen eigenen Beschluss.</p>
+        <div class="d-flex flex-wrap gap-4 mb-3">
+            {% for feld, label in notenschutz %}
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" value="1" name="{{ feld }}" id="nta-{{ feld }}"
+                       {% if eintrag and eintrag[feld] %}checked{% endif %}>
+                <label class="form-check-label" for="nta-{{ feld }}">{{ label }}</label>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label" for="nta-ns-beschluss">Beschluss zum Notenschutz am</label>
+                <input type="date" class="form-control" id="nta-ns-beschluss" name="notenschutz_beschluss_am"
+                       value="{{ eintrag.notenschutz_beschluss_am.isoformat() if eintrag and eintrag.notenschutz_beschluss_am else '' }}">
+            </div>
+            <div class="col-md-8">
+                <label class="form-label" for="nta-notiz">Notiz</label>
+                <textarea class="form-control" rows="2" id="nta-notiz" name="notiz">{{ eintrag.notiz if eintrag and eintrag.notiz else '' }}</textarea>
+            </div>
+        </div>
+    </div>
+
+    <div class="surface-panel p-3 mb-3 d-flex flex-wrap gap-2 justify-content-between align-items-center">
+        <button type="submit" class="btn btn-primary icon-btn">{{ bi('floppy', 'bi-icon') }} <span>Speichern</span></button>
+        <span class="text-muted small">Sind alle Felder leer, wird der Eintrag entfernt.</span>
+    </div>
+</form>
+
+{% if eintrag and eintrag.id %}
+<div class="surface-panel p-4 mb-3">
+    <h3 class="h5 mb-3">Weiteres</h3>
+    <div class="d-flex flex-wrap gap-2">
+        <form method="POST" action="{{ url_for('nachteilsausgleich.aktion', eintrag_id=eintrag.id) }}">
+            {{ csrf_input() }}<input type="hidden" name="next" value="{{ request.path }}?schuljahr={{ schuljahr }}">
+            {% if eintrag.laeuft %}
+            <input type="hidden" name="aktion" value="beenden">
+            <button type="submit" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon-sm') }} <span>Beenden</span></button>
+            {% else %}
+            <input type="hidden" name="aktion" value="fortsetzen">
+            <button type="submit" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-clockwise', 'bi-icon-sm') }} <span>Weiterlaufen lassen</span></button>
+            {% endif %}
+        </form>
+        <form method="POST" action="{{ url_for('nachteilsausgleich.aktion', eintrag_id=eintrag.id) }}">
+            {{ csrf_input() }}<input type="hidden" name="aktion" value="uebernehmen">
+            <button type="submit" class="btn btn-outline-primary icon-btn">{{ bi('arrow-right-circle', 'bi-icon-sm') }} <span>Ins nächste Schuljahr übernehmen</span></button>
+        </form>
+        <form method="POST" action="{{ url_for('nachteilsausgleich.aktion', eintrag_id=eintrag.id) }}"
+              data-confirm-title="Nachteilsausgleich löschen"
+              data-confirm-message="Der Eintrag {{ schuljahr }} für {{ schueler.vorname }} wird vollständig gelöscht."
+              data-confirm-button="Löschen">
+            {{ csrf_input() }}<input type="hidden" name="aktion" value="loeschen">
+            <input type="hidden" name="next" value="{{ next_url if next_url else url_for('nachteilsausgleich.liste') }}">
+            <button type="submit" class="btn btn-outline-danger icon-btn">{{ bi('trash', 'bi-icon-sm') }} <span>Löschen</span></button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% if frueher %}
+<div class="surface-panel p-4">
+    <h3 class="h5 mb-2">Frühere Schuljahre</h3>
+    <ul class="list-unstyled mb-0 small">
+        {% for alt in frueher %}
+        <li class="mb-1">
+            <strong>{{ alt.schuljahr }}:</strong> {{ kurzfassung(alt) }}
+            <a href="{{ url_for('nachteilsausgleich.bearbeiten', schueler_id=schueler.id, schuljahr=alt.schuljahr) }}" class="text-decoration-none">ansehen</a>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+{% endblock %}

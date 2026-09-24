@@ -19,6 +19,11 @@ from extensions import db
 from models import Beobachtung, Bogen, Foerderplan, Item, Schueler
 from school_year import active_school_year_start
 from beobachtungszeitraum import zaehlt, zeitgrenze_fuer
+from nachteilsausgleich import (
+    TYP_LABEL,
+    aktiver as nta_aktiver,
+    notenschutz_von as nta_notenschutz,
+)
 
 WERT_SYMBOLE = {1: '-', 2: 'o', 3: '+', 4: '++'}
 
@@ -141,6 +146,8 @@ def collect_material(schueler):
         'grundlage': schueler.foerdergrundlage,
         'boegen': boegen,
         'foerderplaene': foerderplaene,
+        # Fuer das Zeugnis wichtig: Notenschutz setzt die Note im Teilbereich aus.
+        'nachteilsausgleich': nta_aktiver(schueler.id),
         'schuljahr_ab': grenze,
         'beobachtungen_anzahl': len(zeilen),
         'kommentare_anzahl': sum(
@@ -229,6 +236,18 @@ def material_blocks(material, erzeugt_am, mit_seitenumbruch=False):
                         'type': 'paragraph',
                         'text': f"{datum} [{kommentar['symbol']}]{zusatz}: {kommentar['text']}",
                     })
+
+    ausgleich = material.get('nachteilsausgleich')
+    if ausgleich:
+        blocks.append({'type': 'heading', 'level': 1, 'text': 'Nachteilsausgleich'})
+        zeilen = [(TYP_LABEL[massnahme.typ], (massnahme.beschreibung or '').strip())
+                  for massnahme in ausgleich.massnahmen]
+        faecher = nta_notenschutz(ausgleich)
+        if faecher:
+            zeilen.append(('Note ausgesetzt', ', '.join(faecher)))
+        if ausgleich.beschluss_am:
+            zeilen.append(('Beschluss der Klassenkonferenz', f'{ausgleich.beschluss_am:%d.%m.%Y}'))
+        blocks.append({'type': 'fields', 'rows': zeilen or [('Eingetragen', 'ohne nähere Angaben')]})
 
     if material['foerderplaene']:
         blocks.append({'type': 'heading', 'level': 1, 'text': 'Förderziele dieses Schuljahres'})

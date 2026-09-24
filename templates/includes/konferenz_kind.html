@@ -114,6 +114,9 @@
                     <li><strong>Arbeitspläne:</strong>
                         {% for plan in kontext.arbeitsplaene %}{{ plan.period_start.strftime('%d.%m.') }}–{{ plan.period_end.strftime('%d.%m.%Y') }}{% if not loop.last %}, {% endif %}{% endfor %}</li>
                     {% endif %}
+                    {% if kontext.nachteilsausgleich %}
+                    <li><strong>Nachteilsausgleich:</strong> {{ kontext.nta_kurzfassung(kontext.nachteilsausgleich) }}</li>
+                    {% endif %}
                     {% if kontext.foerderangaben %}
                     <li><strong>Förderangaben {{ konferenz.schuljahr }}:</strong>
                         {% if kontext.foerderangaben.nachteilsausgleich %}NTA {% endif %}

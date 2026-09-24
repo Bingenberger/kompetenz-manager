@@ -8,6 +8,7 @@ from flask_login import current_user, login_required
 from extensions import db
 from competency_trend import compute_trend, summarize
 from odt_export import build_odt_document, convert_odt_bytes_to_pdf
+from nachteilsausgleich import TYP_LABEL as NTA_TYP_LABEL, notenschutz_von as nta_notenschutz
 from report_material import (
     class_filename_stem,
     collect_material,
@@ -214,6 +215,8 @@ def report_material_view():
         kinder=kinder,
         selected_student=selected_student,
         material=material,
+        nta_typ_label=NTA_TYP_LABEL,
+        nta_notenschutz=nta_notenschutz,
     )
 
 

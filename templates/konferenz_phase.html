@@ -250,6 +250,12 @@
                     {{ schalter(aktuelles, 'foerderkurs_bestaetigt', url, 'bestätigt', schreibbar) }}
                 </div>
             </div>
+            <div class="mb-3 small">
+                <strong>Nachteilsausgleich:</strong>
+                {% if kontext and kontext.nachteilsausgleich %}{{ kontext.nta_kurzfassung(kontext.nachteilsausgleich) }}{% else %}nicht eingetragen{% endif %}
+                <a href="{{ url_for('nachteilsausgleich.bearbeiten', schueler_id=aktuelles.schueler_id) }}"
+                   target="_blank" rel="noopener" class="text-decoration-none">in eigenem Tab eintragen</a>
+            </div>
             <div class="mb-3">
                 <label class="form-label mb-1 small">Notiz zu den Maßnahmen</label>
                 {{ textfeld(aktuelles, 'massnahmen_notiz', url, schreibbar, 2) }}

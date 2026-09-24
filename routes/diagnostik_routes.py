@@ -49,6 +49,7 @@ from extensions import db
 from jahrgang import JAHRGAENGE, klassen_jahrgaenge
 from school_year import normalize_school_year
 from klassenzugriff import darf_kind_sehen, zugaengliche_klassen
+from nachteilsausgleich import hat_nachteilsausgleich
 from student_selection import get_user_klassenkontext, merke_kind
 from transition_plan import effective_jahrgang
 from models import (
@@ -983,7 +984,9 @@ def foerderangaben_speichern(schueler_id):
         flash('Bitte ein gültiges Schuljahr angeben.')
         return redirect(ziel)
     speichere_foerderangaben(schueler.id, schuljahr, {
-        'nachteilsausgleich': request.form.get('nachteilsausgleich') == '1',
+        # Der Haken folgt dem strukturierten Eintrag (nachteilsausgleich.py),
+        # nicht dem Formular - sonst gaebe es zwei Wahrheiten.
+        'nachteilsausgleich': hat_nachteilsausgleich(schueler.id, schuljahr),
         'foerderkurs': request.form.get('foerderkurs') == '1',
         'externe_foerderung': request.form.get('externe_foerderung') == '1',
         'foerderschwerpunkt': request.form.get('foerderschwerpunkt'),

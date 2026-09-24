@@ -76,11 +76,11 @@ class FoerderangabenTestCase(unittest.TestCase):
 
     def test_saving_updating_and_clearing(self):
         self._login()
-        antwort = self._speichern(nachteilsausgleich='1', foerderschwerpunkt='Lautgetreues Schreiben')
+        antwort = self._speichern(externe_foerderung='1', foerderschwerpunkt='Lautgetreues Schreiben')
         self.assertIn('Förderangaben 2025/2026 für Anna Abt gespeichert', antwort.get_data(as_text=True))
         with self.app.app_context():
             eintrag = Foerderangaben.query.one()
-            self.assertEqual((True, False, False, 'Lautgetreues Schreiben'),
+            self.assertEqual((False, False, True, 'Lautgetreues Schreiben'),
                              (eintrag.nachteilsausgleich, eintrag.foerderkurs, eintrag.externe_foerderung, eintrag.foerderschwerpunkt))
 
         self._speichern(foerderkurs='1', anmerkungen='Brille')
@@ -106,10 +106,12 @@ class FoerderangabenTestCase(unittest.TestCase):
                                           externe_foerderung=True, foerderschwerpunkt='Lesen'))
             db.session.commit()
         self._login()
-        self._speichern(nachteilsausgleich='1')
+        self._speichern(foerderkurs='1')
         html = self.client.get(f'/schuelerakte?schueler_id={self.kind_id}').get_data(as_text=True)
         self.assertIn('Förderangaben 2025/2026', html)
-        self.assertRegex(html, r'name="nachteilsausgleich" value="1" id="fa-nta"\s+checked')
+        # Der Nachteilsausgleich wird nicht mehr angehakt, sondern eingetragen.
+        self.assertNotIn('name="nachteilsausgleich"', html)
+        self.assertIn('/nachteilsausgleich/kind/', html)
         self.assertIn('<strong>2024/2025:</strong>', html)
         self.assertIn('externe Förderung', html)
 

@@ -19,6 +19,7 @@ from elternberatung import LEVEL_FARBEN, diagnostik_kontext, kompetenz_uebersich
 from extensions import db
 from hospitation import empfehlungen as hospitation_empfehlungen, sichtbare_eintraege as hospitation_eintraege
 from klassenzugriff import darf_kind_sehen, sichtbare_elternkontakte, sichtbare_ereignisse
+from nachteilsausgleich import aktiver as nta_aktiver, kurzfassung as nta_kurzfassung
 from models import (
     Beobachtung,
     Bogen,
@@ -492,6 +493,8 @@ def kind_kontext(eintrag, user):
         ),
         'foerderangaben': Foerderangaben.query.filter_by(
             schueler_id=schueler.id, schuljahr=config_schuljahr).first(),
+        'nachteilsausgleich': nta_aktiver(schueler.id, config_schuljahr),
+        'nta_kurzfassung': nta_kurzfassung,
         'elternkontakte': (
             sichtbare_elternkontakte(Elternkontakt.query, user)
             .filter(Elternkontakt.schueler_id == schueler.id)

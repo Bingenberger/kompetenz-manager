@@ -317,6 +317,37 @@
                 </div>
 
                 <div class="tab-pane fade" id="akte-foerder-pane" role="tabpanel" aria-labelledby="akte-foerder-tab" tabindex="0">
+                    <div class="border rounded-3 p-3 mb-3">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                            <strong>Nachteilsausgleich {{ foerder_schuljahr or '' }}</strong>
+                            {% if foerder_schuljahr and diagnostik_bearbeitbar %}
+                            <a href="{{ url_for('nachteilsausgleich.bearbeiten', schueler_id=selected_student.id, schuljahr=foerder_schuljahr, next=request.full_path if request.query_string else request.path) }}"
+                               class="btn btn-sm btn-outline-primary icon-btn">{{ bi('pencil-square', 'bi-icon-sm') }} <span>{{ 'Bearbeiten' if nta_aktuell else 'Eintragen' }}</span></a>
+                            {% endif %}
+                        </div>
+                        {% if nta_aktuell %}
+                        <ul class="list-unstyled mb-2 small">
+                            {% for massnahme in nta_aktuell.massnahmen %}
+                            <li><strong>{{ nta_typ_label[massnahme.typ] }}:</strong> {{ massnahme.beschreibung }}</li>
+                            {% endfor %}
+                        </ul>
+                        {% if nta_aktuell.notenschutz %}
+                        <div class="small mb-1"><span class="badge text-bg-warning">Note ausgesetzt</span>
+                            {{ nta_notenschutz(nta_aktuell)|join(', ') }}
+                            {% if nta_aktuell.notenschutz_beschluss_am %}· Beschluss {{ nta_aktuell.notenschutz_beschluss_am.strftime('%d.%m.%Y') }}{% endif %}
+                        </div>
+                        {% endif %}
+                        <div class="small text-muted">
+                            {% if nta_aktuell.beschluss_am %}Beschluss der Klassenkonferenz am {{ nta_aktuell.beschluss_am.strftime('%d.%m.%Y') }}{% endif %}
+                            {% if nta_aktuell.grundlage %} · {{ nta_aktuell.grundlage }}{% endif %}
+                        </div>
+                        {% else %}
+                        <div class="small text-muted">Für {{ foerder_schuljahr or 'dieses Schuljahr' }} ist kein Nachteilsausgleich eingetragen.</div>
+                        {% endif %}
+                        {% for alt in nta_frueher %}
+                        <div class="small mt-2"><strong>{{ alt.schuljahr }}:</strong> {{ nta_kurzfassung(alt) }}</div>
+                        {% endfor %}
+                    </div>
                     {% if kurs_teilnahmen %}
                     <div class="border rounded-3 p-3 mb-3">
                         <strong class="d-block mb-2">Förderkurse</strong>
@@ -562,7 +593,10 @@
                             <input type="hidden" name="schuljahr" value="{{ foerder_schuljahr }}">
                             <input type="hidden" name="next" value="{{ request.full_path if request.query_string else request.path }}#akte-diagnostik">
                             <div class="d-flex flex-wrap gap-4 mb-2">
-                                <div class="form-check"><input class="form-check-input" type="checkbox" name="nachteilsausgleich" value="1" id="fa-nta" {% if f and f.nachteilsausgleich %}checked{% endif %}><label class="form-check-label" for="fa-nta">Nachteilsausgleich</label></div>
+                                <div class="small" id="fa-nta">Nachteilsausgleich:
+                                    {% if nta_aktuell %}<span class="badge text-bg-secondary">eingetragen</span>{% else %}<span class="text-muted">keiner</span>{% endif %}
+                                    <a href="{{ url_for('nachteilsausgleich.bearbeiten', schueler_id=selected_student.id, schuljahr=foerder_schuljahr, next=request.full_path if request.query_string else request.path) }}" class="text-decoration-none">bearbeiten</a>
+                                </div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="foerderkurs" value="1" id="fa-fk" {% if f and f.foerderkurs %}checked{% endif %}><label class="form-check-label" for="fa-fk">Förderkurs</label></div>
                                 <div class="form-check"><input class="form-check-input" type="checkbox" name="externe_foerderung" value="1" id="fa-ef" {% if f and f.externe_foerderung %}checked{% endif %}><label class="form-check-label" for="fa-ef">externe Förderung</label></div>
                             </div>

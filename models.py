@@ -831,6 +831,73 @@ class Foerderangaben(db.Model):
 
 
 # ----------------------------------------------------------------------
+# Nachteilsausgleich
+#
+# Die Klassenkonferenz beschliesst je Schuljahr, wie ein Kind ausgeglichen
+# wird: zeitliche Anpassung, Hilfsmittel, didaktische oder raeumliche
+# Anpassung. Dazu kann sie die Note in den Teilbereichen Lesen und
+# Rechtschreiben aussetzen. Die Typen und ihre Beispiele stehen in
+# nachteilsausgleich.py; hier steht nur, was gespeichert wird.
+# ----------------------------------------------------------------------
+
+
+class Nachteilsausgleich(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    schueler_id = db.Column(db.Integer, db.ForeignKey('schueler.id'), nullable=False, index=True)
+    schuljahr = db.Column(db.String(20), nullable=False, index=True)
+    # Beschluss der Klassenkonferenz - Datum und Anlass (etwa "LRS, HSP 09/2026").
+    beschluss_am = db.Column(db.Date, nullable=True)
+    grundlage = db.Column(db.Text, nullable=True)
+    eltern_informiert_am = db.Column(db.Date, nullable=True)
+    # Notenschutz: die Note im Teilbereich wird ausgesetzt.
+    notenschutz_lesen = db.Column(db.Boolean, nullable=False, default=False)
+    notenschutz_rechtschreiben = db.Column(db.Boolean, nullable=False, default=False)
+    notenschutz_beschluss_am = db.Column(db.Date, nullable=True)
+    beendet_am = db.Column(db.Date, nullable=True)
+    notiz = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+    created_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    updated_at = db.Column(db.DateTime, nullable=False, default=utc_now, onupdate=utc_now)
+    updated_by_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('schueler_id', 'schuljahr', name='uq_nachteilsausgleich_schuljahr'),
+    )
+
+    schueler = db.relationship(
+        'Schueler', backref=db.backref('nachteilsausgleiche', cascade='all, delete-orphan'),
+    )
+    creator = db.relationship('User', foreign_keys=[created_by_user_id])
+    massnahmen = db.relationship(
+        'NachteilsausgleichMassnahme', backref='ausgleich', cascade='all, delete-orphan',
+        order_by='NachteilsausgleichMassnahme.sort_order, NachteilsausgleichMassnahme.id',
+    )
+
+    @property
+    def laeuft(self):
+        return self.beendet_am is None
+
+    @property
+    def notenschutz(self):
+        return self.notenschutz_lesen or self.notenschutz_rechtschreiben
+
+    @property
+    def leer(self):
+        return not (self.massnahmen or self.notenschutz or (self.grundlage or '').strip()
+                    or (self.notiz or '').strip())
+
+
+class NachteilsausgleichMassnahme(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nachteilsausgleich_id = db.Column(
+        db.Integer, db.ForeignKey('nachteilsausgleich.id'), nullable=False, index=True)
+    # Typ laut nachteilsausgleich.TYPEN: zeit, hilfsmittel, didaktisch, raum.
+    typ = db.Column(db.String(20), nullable=False)
+    beschreibung = db.Column(db.Text, nullable=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+
+
+# ----------------------------------------------------------------------
 # Förderkonferenz
 #
 # Zweimal im Schuljahr wird jeder Jahrgang durchgesprochen. Jedes Kind

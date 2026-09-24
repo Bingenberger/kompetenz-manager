@@ -137,14 +137,15 @@ Die Schülerakte bündelt alles zu einem Kind:
   Arbeitsplan, Elternkontakt, Ereignis, Diagnostik) und Export der Gesamtakte
 - **Reiter:**
   - *Bögen:* ausgefüllte Beobachtungsbögen mit Anzahl und letztem Eintrag, jüngste Beobachtungen
-  - *Förderung:* Grundlagenblatt, Förderpläne, Förderangaben des Schuljahres
+  - *Förderung:* Grundlagenblatt, Förderpläne, Nachteilsausgleich, Förderkurse,
+    Förderangaben des Schuljahres
   - *Arbeitspläne*
   - *Eltern:* Notizen, Protokolle, Beratungen
   - *Diagnostik:* Testverlauf je Lernbereich mit Diagramm und Risikostufen
   - *Ereignisse*
 - **Gesamtakte als ODT/PDF:** alle gespeicherten Inhalte des Kindes ohne
   Schuljahresfilter – Grunddaten, Grundlagenblatt, alle Beobachtungen je Bogen,
-  Förderpläne, Arbeitspläne, Elternkontakte, Beratungen, Ereignisse. Gedacht für
+  Förderpläne, Arbeitspläne, Nachteilsausgleich, Elternkontakte, Beratungen, Ereignisse. Gedacht für
   Schulwechsel und Auskunftsersuchen nach Art. 15 DSGVO. Enthält nur, was die
   exportierende Lehrkraft sehen darf.
 
@@ -191,7 +192,8 @@ Alle Elternkontakte führen ein **Änderungsprotokoll** (wer hat wann was geänd
   Schwelle eine halbe Stufe).
 - **Zeugnismaterial:** je Kind die Beobachtungen des Schuljahres nach Bogen und
   Bereich, im Vordergrund die Kommentare in zeitlicher Folge, dazu Mittelwerte,
-  Entwicklungsverlauf, besondere Stärken und Förderziele des Schuljahres. Export als
+  Entwicklungsverlauf, besondere Stärken, Nachteilsausgleich samt Notenschutz und
+  Förderziele des Schuljahres. Export als
   ODT/PDF, einzeln oder als Klassensatz. Bewusst Material, kein fertiger Zeugnistext.
 
 ### 4.5 Förderung
@@ -294,6 +296,26 @@ Alle Elternkontakte führen ein **Änderungsprotokoll** (wer hat wann was geänd
 - **Förderkonferenz:** Bei der Maßnahme „Förderkurs“ wählt die Schulleitung einen echten Kurs.
   Das Kind wird damit gleich in den Kurs eingetragen.
 
+**Nachteilsausgleich** (Bereich Förderung → Nachteilsausgleich):
+
+- **Je Kind und Schuljahr ein Eintrag** mit Beschlussdatum der Klassenkonferenz, Grundlage
+  (etwa „LRS laut HSP 09/2026“) und dem Datum, an dem die Eltern informiert wurden.
+- **Vier Typen**, jeder mit eigenem Text: **zeitliche Anpassung** (mehr Zeit, Pausen),
+  **Hilfsmittel** (Lesepfeil, Anlauttabelle, Vorlesen), **didaktische Anpassung**
+  (größere Schrift, mündlich statt schriftlich) und **räumliche Anpassung**
+  (Einzelplatz, Nebenraum). Leer gelassene Typen erscheinen nirgends.
+- **Notenschutz:** In den Teilbereichen **Lesen** und **Rechtschreiben** kann die Note
+  ausgesetzt werden – mit eigenem Beschlussdatum, weil das mehr ist als ein Ausgleich.
+- **Laufzeit:** Ein Eintrag gilt für ein Schuljahr. Er lässt sich **beenden** (bleibt als
+  Beleg stehen) und **ins nächste Schuljahr übernehmen**; Maßnahmen und Notenschutz werden
+  kopiert, das Beschlussdatum bleibt leer, weil die Klassenkonferenz neu entscheidet.
+- **Rechte:** Eintragen und bearbeiten darf, wer das Kind sehen darf. Löschen darf, wer den
+  Eintrag angelegt hat, dazu Schulleitung und Administration.
+- **Wo er auftaucht:** Übersicht des Schuljahres mit Maßnahmen und Notenschutz, Schülerakte
+  (Reiter Förderung), Förderkonferenz (Kontext und Maßnahme „Nachteilsausgleich“),
+  Zeugnismaterial und Gesamtakte. Der Haken „NTA“ in den Förderangaben wird nicht mehr von
+  Hand gesetzt, sondern folgt diesem Eintrag.
+
 **Hospitationen der Schulleitung** (Bereich Förderung → Hospitationen, nur Schulleitung):
 
 - Anlassbezogen, meist im Vorfeld der Förderkonferenz – auch vor der Einschätzung der
@@ -372,7 +394,8 @@ Hinterlegte Verfahren (von der Verwaltung als Katalog pflegbar, erweiterbar):
   Tendenz zum vorigen Test derselben Skala (ab 10 Punkten Unterschied).
 - **Förderangaben je Kind und Schuljahr:** Nachteilsausgleich (NTA), Förderkurs (FK),
   externe Förderung (EF), Förderschwerpunkt, Anmerkungen. Ob ein aktiver Förderplan
-  besteht, ergänzt die App selbst.
+  besteht, ergänzt die App selbst; der Haken „NTA“ folgt dem eingetragenen
+  Nachteilsausgleich (Bereich Förderung).
 - **Schulübersicht** (Schulleitung und Verwaltung):
   - **Erfassungsstand aller Klassen** über alle Schuljahre auf einen Blick: Zeilen sind
     die heutigen Klassen, Spalten alle Testzeitpunkte (Mitte/Ende je Schuljahr). Je Zelle
@@ -458,8 +481,9 @@ Diese Grenzen sind wichtig, wenn Abläufe um die App herum geplant werden:
 - **Keine Normberechnung** für Tests: Normwerte werden vom Auswertungsbogen übernommen.
 - **Keine automatischen Formulierungen** für Zeugnisse oder Förderpläne; die App
   sammelt und schlägt vor, formulieren muss die Lehrkraft.
-- **Förderangaben** sind einfache Merkmale je Schuljahr (NTA, Förderkurs, externe
-  Förderung, Schwerpunkt, Anmerkungen), keine eigenen Verfahren mit Fristen.
+- **Förderangaben** sind einfache Merkmale je Schuljahr (Förderkurs, externe
+  Förderung, Schwerpunkt, Anmerkungen), keine eigenen Verfahren mit Fristen. Der
+  Nachteilsausgleich dagegen wird strukturiert erfasst (Bereich Förderung).
 
 ---
 
@@ -475,8 +499,8 @@ Informationen, die zur Vorbereitung einer Förderkonferenz bereits in der App li
   Klassenübersicht, Zeugnismaterial.
 - **Testergebnisse:** Diagnostik-Verlauf je Kind, Stufenauswertung je Jahrgang.
 - **Bisherige Förderung:** Grundlagenblatt, aktueller und frühere Förderpläne mit
-  Evaluation, Förderangaben (NTA, Förderkurs, externe Förderung), Arbeitspläne mit
-  Evaluation.
+  Evaluation, Nachteilsausgleich mit Notenschutz, Förderangaben (Förderkurs, externe
+  Förderung), Arbeitspläne mit Evaluation.
 - **Elternperspektive:** Elternkontakte, Gesprächsprotokolle mit Vereinbarungen,
   Elternberatungen.
 - **Verhalten und soziale Situation:** erzieherische Ereignisse mit Konsequenzen.

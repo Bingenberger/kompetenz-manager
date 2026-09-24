@@ -15,6 +15,12 @@ from extensions import db
 from klassenzugriff import darf_ereignis_sehen, sichtbare_elternkontakte, sichtbare_ereignisse
 from konferenz import beschluss_label, eintraege_fuer_kind, offene_beschluesse
 from foerderkurs import aktiver_plan_im_fach, laufende_teilnahmen, offene_plaene as foerderkurse_ohne_plan
+from nachteilsausgleich import (
+    TYP_LABEL as NTA_TYP_LABEL,
+    fuer_kind as nta_fuer_kind,
+    kurzfassung as nta_kurzfassung,
+    notenschutz_von as nta_notenschutz,
+)
 from hospitation import sichtbare_eintraege as hospitation_eintraege
 from models import KONFERENZ_STUFEN, Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, ErziehungsEreignisAnhang, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan, WorkPlanTaskAttachment
 from odt_export import build_odt_document, convert_odt_bytes_to_pdf
@@ -594,6 +600,8 @@ def schuelerakte():
     foerder_schuljahr = None
     foerderangaben = []
     foerderangaben_aktuell = None
+    nta_aktuell = None
+    nta_frueher = []
     konferenz_eintraege = []
     hospitationen = []
     kurs_teilnahmen = []
@@ -628,6 +636,9 @@ def schuelerakte():
         )
         konferenz_eintraege = eintraege_fuer_kind(selected_student, current_user)
         kurs_teilnahmen = laufende_teilnahmen(schueler=selected_student)
+        nta_alle = nta_fuer_kind(selected_student.id)
+        nta_aktuell = next((e for e in nta_alle if e.schuljahr == foerder_schuljahr and e.laeuft), None)
+        nta_frueher = [e for e in nta_alle if e.schuljahr != foerder_schuljahr or not e.laeuft]
         hospitationen = hospitation_eintraege(selected_student, current_user)
         erziehungsereignisse = (
             sichtbare_ereignisse(ErziehungsEreignis.query, current_user)
@@ -701,6 +712,11 @@ def schuelerakte():
         hospitationen=hospitationen,
         kurs_teilnahmen=kurs_teilnahmen,
         plan_im_fach=aktiver_plan_im_fach,
+        nta_aktuell=nta_aktuell,
+        nta_frueher=nta_frueher,
+        nta_typ_label=NTA_TYP_LABEL,
+        nta_kurzfassung=nta_kurzfassung,
+        nta_notenschutz=nta_notenschutz,
         konferenz_stufen=KONFERENZ_STUFEN,
     )
 

@@ -20,6 +20,11 @@ from extensions import db
 from klassenzugriff import sichtbare_elternkontakte, sichtbare_ereignisse
 from konferenz import MASSNAHMEN as KONFERENZ_MASSNAHMEN, eintraege_fuer_kind
 from hospitation import sichtbare_eintraege as hospitation_eintraege
+from nachteilsausgleich import (
+    TYP_LABEL as NTA_TYP_LABEL,
+    fuer_kind as nta_fuer_kind,
+    notenschutz_von as nta_notenschutz,
+)
 from models import KONFERENZ_STUFEN
 from models import (
     Beobachtung,
@@ -164,6 +169,7 @@ def collect_record(schueler, user=None):
             .order_by(Elternberatung.datum.asc())
             .all()
         ),
+        'nachteilsausgleich': nta_fuer_kind(schueler.id),
         'konferenzen': list(reversed(eintraege_fuer_kind(schueler, user))),
         'hospitationen': list(reversed(
             hospitation_eintraege(schueler, user) if user is not None else list(schueler.hospitationen)
@@ -279,6 +285,35 @@ def _block_foerderplaene(record):
                 continue
             blocks.append({'type': 'paragraph', 'style': 'Klein', 'text': f'Förderbereich {nummer}'})
             blocks.append({'type': 'fields', 'rows': zeilen})
+    return blocks
+
+
+def _block_nachteilsausgleich(record):
+    eintraege = record.get('nachteilsausgleich') or []
+    if not eintraege:
+        return []
+    blocks = [{'type': 'heading', 'level': 1, 'text': 'Nachteilsausgleich'}]
+    for eintrag in eintraege:
+        blocks.append({'type': 'heading', 'level': 2, 'text': eintrag.schuljahr})
+        zeilen = []
+        if eintrag.beschluss_am:
+            zeilen.append(('Beschluss der Klassenkonferenz', _datum(eintrag.beschluss_am)))
+        if eintrag.grundlage:
+            zeilen.append(('Grundlage', _text(eintrag.grundlage)))
+        if eintrag.eltern_informiert_am:
+            zeilen.append(('Eltern informiert am', _datum(eintrag.eltern_informiert_am)))
+        for massnahme in eintrag.massnahmen:
+            zeilen.append((NTA_TYP_LABEL.get(massnahme.typ, massnahme.typ), _text(massnahme.beschreibung)))
+        faecher = nta_notenschutz(eintrag)
+        if faecher:
+            zeilen.append(('Note ausgesetzt', ', '.join(faecher)))
+        if eintrag.notenschutz_beschluss_am:
+            zeilen.append(('Beschluss zum Notenschutz', _datum(eintrag.notenschutz_beschluss_am)))
+        if eintrag.notiz:
+            zeilen.append(('Notiz', _text(eintrag.notiz)))
+        if eintrag.beendet_am:
+            zeilen.append(('Beendet am', _datum(eintrag.beendet_am)))
+        blocks.append({'type': 'fields', 'rows': zeilen})
     return blocks
 
 
@@ -480,6 +515,7 @@ def record_blocks(record, erzeugt_am):
     blocks.extend(_block_beobachtungen(record))
     blocks.extend(_block_foerderplaene(record))
     blocks.extend(_block_arbeitsplaene(record))
+    blocks.extend(_block_nachteilsausgleich(record))
     blocks.extend(_block_hospitationen(record))
     blocks.extend(_block_konferenzen(record))
     blocks.extend(_block_elternkontakte(record))

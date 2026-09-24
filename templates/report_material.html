@@ -237,6 +237,26 @@
         </div>
         {% endfor %}
 
+        {% if material.nachteilsausgleich %}
+        {% set nta = material.nachteilsausgleich %}
+        <div class="bogen-card">
+            <header><h2>Nachteilsausgleich</h2></header>
+            <div class="bereich-block">
+                <div class="kompetenz">
+                    {% for massnahme in nta.massnahmen %}
+                    <div><strong>{{ nta_typ_label[massnahme.typ] }}:</strong> {{ massnahme.beschreibung }}</div>
+                    {% endfor %}
+                    {% if nta.notenschutz %}
+                    <div><strong>Note ausgesetzt:</strong> {{ nta_notenschutz(nta)|join(', ') }}</div>
+                    {% endif %}
+                    {% if nta.beschluss_am %}
+                    <div class="meta">Beschluss der Klassenkonferenz am {{ nta.beschluss_am.strftime('%d.%m.%Y') }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         {% if material.foerderplaene %}
         <div class="bogen-card">
             <header><h2>Förderziele dieses Schuljahres</h2></header>

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Förderung</span>
+        <h2 class="h4 mt-2 mb-1">Nachteilsausgleich {{ schuljahr or '' }}</h2>
+        <p class="text-muted mb-0">Was die Klassenkonferenz beschlossen hat: zeitliche Anpassung, Hilfsmittel,
+            didaktische und räumliche Anpassung – dazu der Notenschutz in Lesen und Rechtschreiben.</p>
+    </div>
+    <div class="toolbar-actions">
+        <a href="{{ url_for('nachteilsausgleich.liste', schuljahr=schuljahr, alle='0' if alle else '1') }}" class="btn btn-outline-secondary icon-btn">
+            {{ bi('clock-history', 'bi-icon-sm') }} <span>{{ 'Nur laufende' if alle else 'Auch beendete' }}</span>
+        </a>
+    </div>
+</div>
+
+<div class="table-panel">
+    <div class="table-toolbar"><div class="table-toolbar-title">Einträge ({{ eintraege|length }})</div></div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr><th>Kind</th><th>Klasse</th><th>Maßnahmen</th><th>Notenschutz</th><th>Beschluss</th><th class="text-end"></th></tr>
+            </thead>
+            <tbody>
+                {% for eintrag in eintraege %}
+                <tr class="{% if not eintrag.laeuft %}text-muted{% endif %}">
+                    <td><a href="{{ url_for('system.schuelerakte', schueler_id=eintrag.schueler_id) }}" class="fw-semibold text-decoration-none">{{ eintrag.schueler.nachname }}, {{ eintrag.schueler.vorname }}</a></td>
+                    <td>{{ eintrag.schueler.klasse or '–' }}</td>
+                    <td class="small">{{ kurzfassung(eintrag) }}</td>
+                    <td>
+                        {% if eintrag.notenschutz_lesen %}<span class="badge text-bg-warning">Lesen</span> {% endif %}
+                        {% if eintrag.notenschutz_rechtschreiben %}<span class="badge text-bg-warning">Rechtschreiben</span>{% endif %}
+                        {% if not eintrag.notenschutz %}<span class="text-muted">–</span>{% endif %}
+                    </td>
+                    <td class="text-nowrap small">{{ eintrag.beschluss_am.strftime('%d.%m.%Y') if eintrag.beschluss_am else '–' }}</td>
+                    <td class="text-end">
+                        <a href="{{ url_for('nachteilsausgleich.bearbeiten', schueler_id=eintrag.schueler_id, schuljahr=eintrag.schuljahr, next=request.full_path if request.query_string else request.path) }}"
+                           class="btn btn-sm btn-outline-primary icon-btn">{{ bi('pencil-square', 'bi-icon-sm') }} <span>Bearbeiten</span></a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-4">Für {{ schuljahr or 'dieses Schuljahr' }} ist kein Nachteilsausgleich eingetragen.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% if ohne_eintrag %}
+<div class="surface-panel p-4 mt-3">
+    <h3 class="h5 mb-2">Nachteilsausgleich eintragen</h3>
+    <p class="text-muted small">Kinder, die Sie sehen dürfen und für die {{ schuljahr }} noch nichts eingetragen ist.</p>
+    <div class="d-flex flex-wrap gap-2">
+        {% for kind in ohne_eintrag %}
+        <a href="{{ url_for('nachteilsausgleich.bearbeiten', schueler_id=kind.id, schuljahr=schuljahr, next=request.full_path if request.query_string else request.path) }}"
+           class="btn btn-sm btn-outline-secondary">{{ kind.vorname }} {{ kind.nachname }} <span class="text-muted">{{ kind.klasse or '' }}</span></a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="hint-panel mt-3">
+    <small>{{ bi('info-circle', 'bi-icon-sm') }} Ein Eintrag gilt für ein Schuljahr. Im neuen Schuljahr lässt er sich
+        übernehmen – die Klassenkonferenz beschließt dann neu, das Beschlussdatum bleibt deshalb zunächst leer.</small>
+</div>
+{% endblock %}
