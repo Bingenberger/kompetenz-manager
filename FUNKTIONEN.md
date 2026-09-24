@@ -271,6 +271,22 @@ Alle Elternkontakte führen ein **Änderungsprotokoll** (wer hat wann was geänd
   Konferenz mit umgesetzt (ja/nein), Wirkung (wirksam/teilweise/nicht), neuer Stufe und
   Notiz – ebenfalls mit sofortigem Speichern.
 
+**Förderkurse** (Bereich Förderung → Förderkurse):
+
+- **Katalog in der Verwaltung:** Zuerst die **Fächer** (Deutsch, Mathematik …), dann je Fach
+  die **Förderkurse** mit Name, Jahrgängen, Zeit, Leitung und Schuljahr (leer = läuft immer).
+- **Teilnahme:** Kinder werden einem Kurs zugewiesen; angeboten werden die Kinder der
+  passenden Jahrgänge. Eintragen darf, wer das Kind ohnehin sehen darf. Eine Teilnahme
+  lässt sich beenden und bleibt dann als frühere Teilnahme stehen.
+- **Regel:** Wer in einem Förderkurs ist, braucht im **selben Fach** einen aktiven Förderplan.
+  Der Förderplan hat dafür ein Feld „Fach“.
+- **Erinnerung:** Fehlt der Plan, steht das als Aufgabe auf der Startseite der Klassenleitung
+  und der Kursleitung, in der Liste „Förderkurs ohne Förderplan“ und in der Schülerakte.
+  Zusätzlich erinnert die App alle 14 Tage per Benachrichtigung, bis der Plan da ist oder
+  die Teilnahme endet. Jeder Hinweis führt direkt zum Anlegen des Plans, mit passendem Fach.
+- **Förderkonferenz:** Bei der Maßnahme „Förderkurs“ wählt die Schulleitung einen echten Kurs.
+  Das Kind wird damit gleich in den Kurs eingetragen.
+
 **Hospitationen der Schulleitung** (Bereich Förderung → Hospitationen, nur Schulleitung):
 
 - Anlassbezogen, meist im Vorfeld der Förderkonferenz – auch vor der Einschätzung der

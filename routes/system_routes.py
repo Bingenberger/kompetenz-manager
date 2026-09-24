@@ -14,6 +14,7 @@ from diagnostik import STUFEN as DIAGNOSTIK_STUFEN, diagramme as diagnostik_diag
 from extensions import db
 from klassenzugriff import darf_ereignis_sehen, sichtbare_elternkontakte, sichtbare_ereignisse
 from konferenz import beschluss_label, eintraege_fuer_kind, offene_beschluesse
+from foerderkurs import laufende_teilnahmen, offene_plaene as foerderkurse_ohne_plan
 from hospitation import sichtbare_eintraege as hospitation_eintraege
 from models import KONFERENZ_STUFEN, Bogen, Beobachtung, Elternkontakt, ErziehungsEreignis, ErziehungsEreignisAnhang, Foerderplan, Item, Notification, Schueler, SystemKonfiguration, User, WorkPlan, WorkPlanTaskAttachment
 from odt_export import build_odt_document, convert_odt_bytes_to_pdf
@@ -504,6 +505,17 @@ def index():
             'priority': 5,
         })
 
+    # Förderkurse ohne Förderplan im selben Fach.
+    for teilnahme in foerderkurse_ohne_plan(current_user, nur_eigene_klasse=True)[:3]:
+        kind_name = f'{teilnahme.schueler.vorname} {teilnahme.schueler.nachname}'.strip()
+        todos.append({
+            'title': f'Förderplan fehlt: {kind_name}',
+            'detail': f'{teilnahme.kurs.name} ({teilnahme.kurs.fach.name}) – Förderkurs ohne aktiven Förderplan im Fach.',
+            'variant': 'warning',
+            'url': url_for('foerderkurs.ohne_plan'),
+            'priority': 18,
+        })
+
     # Beschlüsse und Wiedervorlagen aus abgeschlossenen Förderkonferenzen.
     for eintrag in offene_beschluesse(current_user)[:4]:
         kind_name = f'{eintrag.schueler.vorname} {eintrag.schueler.nachname}'.strip()
@@ -584,6 +596,7 @@ def schuelerakte():
     foerderangaben_aktuell = None
     konferenz_eintraege = []
     hospitationen = []
+    kurs_teilnahmen = []
 
     if selected_student:
         # Diagnostik: je Lernbereich Verlauf, Diagramm und Ergebnisliste.
@@ -614,6 +627,7 @@ def schuelerakte():
             .all()
         )
         konferenz_eintraege = eintraege_fuer_kind(selected_student, current_user)
+        kurs_teilnahmen = laufende_teilnahmen(schueler=selected_student)
         hospitationen = hospitation_eintraege(selected_student, current_user)
         erziehungsereignisse = (
             sichtbare_ereignisse(ErziehungsEreignis.query, current_user)
@@ -685,6 +699,7 @@ def schuelerakte():
         foerderangaben_aktuell=foerderangaben_aktuell,
         konferenz_eintraege=konferenz_eintraege,
         hospitationen=hospitationen,
+        kurs_teilnahmen=kurs_teilnahmen,
         konferenz_stufen=KONFERENZ_STUFEN,
     )
 

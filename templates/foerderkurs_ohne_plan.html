@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Förderkurse</span>
+        <h2 class="h4 mt-2 mb-1">Förderkurs ohne Förderplan</h2>
+        <p class="text-muted mb-0">Kinder in einem Förderkurs brauchen im selben Fach einen aktiven Förderplan. Alle {{ abstand }} Tage erinnert die App daran.</p>
+    </div>
+    <div class="toolbar-actions">
+        <a href="{{ url_for('foerderkurs.liste') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Alle Kurse</span></a>
+    </div>
+</div>
+
+<div class="table-panel">
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light"><tr><th>Kind</th><th>Klasse</th><th>Kurs</th><th>Fach</th><th>seit</th><th class="text-end"></th></tr></thead>
+            <tbody>
+                {% for t in eintraege %}
+                <tr>
+                    <td><a href="{{ url_for('system.schuelerakte', schueler_id=t.schueler_id) }}" class="fw-semibold text-decoration-none">{{ t.schueler.vorname }} {{ t.schueler.nachname }}</a></td>
+                    <td>{{ t.schueler.klasse or '–' }}</td>
+                    <td><a href="{{ url_for('foerderkurs.kurs', kurs_id=t.kurs_id) }}" class="text-decoration-none">{{ t.kurs.name }}</a></td>
+                    <td>{{ t.kurs.fach.name }}</td>
+                    <td class="text-nowrap">{{ t.seit.strftime('%d.%m.%Y') }}</td>
+                    <td class="text-end">
+                        <a href="{{ url_for('foerderplan.foerderplan_neu', s_id=t.schueler_id, fach_id=t.kurs.fach_id, titel='Förderplan ' ~ t.kurs.fach.name) }}" class="btn btn-sm btn-primary icon-btn">
+                            {{ bi('plus-circle', 'bi-icon-sm') }} <span>Förderplan anlegen</span></a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" class="text-center text-muted py-4">Für alle Kinder in Förderkursen gibt es einen aktiven Förderplan im passenden Fach.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

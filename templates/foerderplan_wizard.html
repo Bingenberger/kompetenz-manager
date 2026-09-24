@@ -59,10 +59,20 @@
 
     <div class="surface-panel p-4 mb-4">
         <div class="row g-3">
-            <div class="col-md-8">
+            <div class="col-md-5">
                 <label class="form-label fw-bold" for="fp-titel">Titel des Förderplans</label>
                 <input type="text" name="titel" id="fp-titel" class="form-control"
                     value="{% if is_edit_mode and plan is defined %}{{ plan.titel }}{% elif vorgabe is defined and vorgabe.titel %}{{ vorgabe.titel }}{% else %}Förderplan {{ schueler.vorname }} - {{ now.strftime('%m/%Y') }}{% endif %}" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label fw-bold" for="fp-fach">Fach</label>
+                <select class="form-select" id="fp-fach" name="fach_id">
+                    <option value="">– kein Fach –</option>
+                    {% for fach in faecher %}
+                    <option value="{{ fach.id }}" {% if (is_edit_mode and plan is defined and plan.fach_id == fach.id) or (not is_edit_mode and vorgabe is defined and vorgabe.fach_id == fach.id) %}selected{% endif %}>{{ fach.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Nötig, wenn das Kind im Förderkurs dieses Fachs ist.</div>
             </div>
             {% if not is_edit_mode %}
             <div class="col-md-4">

@@ -103,6 +103,7 @@ KIND_FELDER_KONFERENZ = {
     'bisherige_massnahmen': 'text', 'wirkung': 'text', 'beschluss': 'text',
     'verantwortlich_user_id': 'user', 'ueberpruefung_am': 'datum',
     'foerderkurs_name': 'text', 'foerderkurs_bestaetigt': 'bool', 'massnahmen_notiz': 'text',
+    'foerderkurs_id': 'kurs',
     **{feld: 'bool' for feld, _ in MASSNAHMEN},
 }
 KIND_FELDER_EVALUATION = {
@@ -190,6 +191,13 @@ def wert_aus(typ, roh):
         except ValueError:
             return None
         return nummer if db.session.get(User, nummer) else None
+    if typ == 'kurs':
+        from models import Foerderkurs
+        try:
+            nummer = int(text)
+        except ValueError:
+            return None
+        return nummer if db.session.get(Foerderkurs, nummer) else None
     if typ == 'kind':
         try:
             nummer = int(text)
@@ -212,6 +220,16 @@ def schreibe_feld(objekt, feld, roh, user):
     typ = felder[feld]
     wert = wert_aus(typ, roh)
     setattr(objekt, feld, wert)
+    if feld == 'foerderkurs_id' and wert:
+        # Der gewählte Kurs wird gleich eingetragen - keine Doppeleingabe.
+        from foerderkurs import trage_ein
+        from models import Foerderkurs
+
+        kurs = db.session.get(Foerderkurs, wert)
+        if kurs:
+            trage_ein(kurs, objekt.schueler, user)
+            objekt.massnahme_foerderkurs = True
+            objekt.foerderkurs_name = kurs.name
     jetzt = utc_now()
     if isinstance(objekt, FoerderkonferenzKind):
         objekt.bearbeitet_am = jetzt

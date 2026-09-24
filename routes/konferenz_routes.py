@@ -52,6 +52,7 @@ from konferenz import (
     teilnehmende,
     zaehle_stufen,
 )
+from foerderkurs import kurse_fuer_kind
 from hospitation import sichtbare_eintraege as hospitation_eintraege
 from models import Foerderkonferenz, FoerderkonferenzKind, SystemKonfiguration, User
 from odt_export import build_odt_document, convert_odt_bytes_to_pdf
@@ -86,6 +87,15 @@ def _aktuelles_schuljahr():
 
 def _lehrkraefte():
     return User.query.order_by(User.nachname, User.vorname, User.username).all()
+
+
+def _kursauswahl(konferenz, kinder, aktuelles=None):
+    """Eintrag-ID -> Förderkurse, die für dieses Kind in Frage kommen."""
+    eintraege = list(kinder or [])
+    if aktuelles is not None and aktuelles not in eintraege:
+        eintraege.append(aktuelles)
+    eintraege.extend(e for e in konferenz.kinder if e.massnahme_foerderkurs and e not in eintraege)
+    return {eintrag.id: kurse_fuer_kind(eintrag.schueler, konferenz.schuljahr) for eintrag in eintraege}
 
 
 def _hospitationen_je_eintrag(eintraege, konferenz):
@@ -321,6 +331,7 @@ def phase(konferenz_id, phase):
         zaehler=zaehle_stufen(konferenz),
         hinweise=pruefe_vollstaendigkeit(konferenz),
         kurse=[e for e in sortiere(konferenz.kinder) if e.massnahme_foerderkurs],
+        kursauswahl=_kursauswahl(konferenz, kinder, aktuelles),
         beschluesse=[e for e in sortiere(konferenz.kinder) if e.stufe in ('B', 'C')],
         schreibbar=not konferenz.abgeschlossen,
         letzte_phase=LETZTE_PHASE,

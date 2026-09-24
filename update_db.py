@@ -508,7 +508,8 @@ def _add_new_columns():
             }
         tabellen = {"user": '"user"', "notification": "notification", "elternkontakt": "elternkontakt",
                     "system_konfiguration": "system_konfiguration", "diagnostik_kennwert": "diagnostik_kennwert",
-                    "diagnostik_ergebnis": "diagnostik_ergebnis"}
+                    "diagnostik_ergebnis": "diagnostik_ergebnis", "foerderplan": "foerderplan",
+                    "foerderkonferenz_kind": "foerderkonferenz_kind"}
     elif backend in {"postgresql", "postgres"}:
         def spalten(conn, tabelle):
             return {
@@ -520,7 +521,8 @@ def _add_new_columns():
             }
         tabellen = {"user": 'public."user"', "notification": "public.notification", "elternkontakt": "public.elternkontakt",
                     "system_konfiguration": "public.system_konfiguration", "diagnostik_kennwert": "public.diagnostik_kennwert",
-                    "diagnostik_ergebnis": "public.diagnostik_ergebnis"}
+                    "diagnostik_ergebnis": "public.diagnostik_ergebnis", "foerderplan": "public.foerderplan",
+                    "foerderkonferenz_kind": "public.foerderkonferenz_kind"}
     else:
         return
 
@@ -537,6 +539,8 @@ def _add_new_columns():
         ("system_konfiguration", "diagnostik_pr_beobachten", "INTEGER DEFAULT 25", None),
         ("system_konfiguration", "diagnostik_pr_auffaellig", "INTEGER DEFAULT 16", None),
         ("system_konfiguration", "diagnostik_pr_deutlich", "INTEGER DEFAULT 10", None),
+        ("foerderplan", "fach_id", "INTEGER", None),
+        ("foerderkonferenz_kind", "foerderkurs_id", "INTEGER", None),
         ("system_konfiguration", "diagnostik_lq_beobachten", "INTEGER DEFAULT 89", None),
         ("system_konfiguration", "diagnostik_lq_auffaellig", "INTEGER DEFAULT 79", None),
         ("system_konfiguration", "diagnostik_lq_deutlich", "INTEGER DEFAULT 69", None),

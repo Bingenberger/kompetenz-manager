@@ -37,6 +37,7 @@ ELTERNKONTAKT_NEU = 'elternkontakt_neu'
 ELTERNTERMIN = 'elterntermin'
 KIND_NEU_IN_KLASSE = 'kind_neu_in_klasse'
 KLASSE_ZUGEORDNET = 'klasse_zugeordnet'
+FOERDERKURS_OHNE_PLAN = 'foerderkurs_ohne_plan'
 
 # Reihenfolge = Anzeige in den Kontoeinstellungen.
 ARTEN = {
@@ -79,6 +80,11 @@ ARTEN = {
     KLASSE_ZUGEORDNET: (
         'Neue Klassenzuordnung',
         'Sie werden einer Klasse als Klassenleitung oder Fachlehrkraft zugeordnet.',
+    ),
+    FOERDERKURS_OHNE_PLAN: (
+        'Förderkurs ohne Förderplan',
+        'Ein Kind Ihrer Klasse oder Ihres Kurses besucht einen Förderkurs, hat aber '
+        'keinen aktiven Förderplan im selben Fach. Die Erinnerung wiederholt sich.',
     ),
 }
 
@@ -191,6 +197,31 @@ def von_wem():
 # ----------------------------------------------------------------------
 # Zeitgesteuerte Erinnerungen (laufen im taeglichen Versandlauf)
 # ----------------------------------------------------------------------
+
+def erinnere_an_foerderkurse(heute=None):
+    """Erinnert an Förderkurskinder ohne aktiven Förderplan im selben Fach.
+
+    Wiederholt sich alle paar Tage (foerderkurs.ERINNERUNG_ABSTAND_TAGE), bis der
+    Plan da ist oder die Teilnahme endet. Empfänger sind die Klassenleitung des
+    Kindes und die Leitung des Kurses.
+    """
+    from foerderkurs import faellige_erinnerungen, zustaendige_user_ids
+
+    heute = heute or utc_now().date()
+    anzahl = 0
+    for teilnahme in faellige_erinnerungen(heute):
+        kurs = teilnahme.kurs
+        anzahl += len(benachrichtige(
+            FOERDERKURS_OHNE_PLAN,
+            zustaendige_user_ids(teilnahme),
+            f'Förderkurs ohne Förderplan: {kind_name(teilnahme.schueler)}',
+            text=f'{kurs.name} ({kurs.fach.name}) – es fehlt ein aktiver Förderplan im Fach {kurs.fach.name}.',
+            ziel=url_for('foerderkurs.ohne_plan') if has_request_context() else '/foerderkurse/ohne-plan',
+            ausloeser_id=0,
+        ))
+        teilnahme.erinnert_am = heute
+    return anzahl
+
 
 def erinnere_an_elterntermine(heute=None):
     """Erinnert an vereinbarte Folgetermine aus Elterngesprächen.

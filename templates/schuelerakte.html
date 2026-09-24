@@ -317,6 +317,24 @@
                 </div>
 
                 <div class="tab-pane fade" id="akte-foerder-pane" role="tabpanel" aria-labelledby="akte-foerder-tab" tabindex="0">
+                    {% if kurs_teilnahmen %}
+                    <div class="border rounded-3 p-3 mb-3">
+                        <strong class="d-block mb-2">Förderkurse</strong>
+                        <ul class="list-unstyled mb-0 small">
+                            {% for t in kurs_teilnahmen %}
+                            <li>
+                                <a href="{{ url_for('foerderkurs.kurs', kurs_id=t.kurs_id) }}" class="text-decoration-none">{{ t.kurs.name }}</a>
+                                · {{ t.kurs.fach.name }} · seit {{ t.seit.strftime('%d.%m.%Y') }}
+                                {% if foerderplaene|selectattr('status', 'equalto', 'aktiv')|selectattr('fach_id', 'equalto', t.kurs.fach_id)|list %}
+                                <span class="badge text-bg-success">Förderplan vorhanden</span>
+                                {% else %}
+                                <span class="badge text-bg-warning">Förderplan fehlt</span>
+                                {% endif %}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
                     {% if hospitationen %}
                     <div class="border rounded-3 p-3 mb-3">
                         <strong class="d-block mb-2">Hospitationen der Schulleitung</strong>

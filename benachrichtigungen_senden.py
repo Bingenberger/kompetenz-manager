@@ -14,7 +14,7 @@ import argparse
 import sys
 
 from app import app
-from benachrichtigungen import erinnere_an_elterntermine
+from benachrichtigungen import erinnere_an_elterntermine, erinnere_an_foerderkurse
 from extensions import db
 from mail_versand import MailNichtKonfiguriert, versende
 from time_utils import utc_now
@@ -32,6 +32,7 @@ def main(argv=None):
         zeit = utc_now().strftime('%Y-%m-%d %H:%M')
         if args.takt == 'taeglich':
             erinnerungen = erinnere_an_elterntermine()
+            erinnerungen += erinnere_an_foerderkurse()
             db.session.commit()
             print(f'{zeit} Erinnerungen angelegt: {erinnerungen}')
         try:

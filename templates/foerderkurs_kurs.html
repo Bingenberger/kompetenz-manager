@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Förderkurs · {{ kurs.fach.name }}</span>
+        <h2 class="h4 mt-2 mb-1">{{ kurs.name }}</h2>
+        <p class="text-muted mb-0">
+            {% if kurs.jahrgaenge %}Jahrgang {{ kurs.jahrgaenge|join(', ') }}{% else %}alle Jahrgänge{% endif %}
+            {% if kurs.zeit %} · {{ kurs.zeit }}{% endif %}{% if kurs.leitung %} · Leitung {{ kurs.leitung.display_name }}{% endif %}
+            {% if kurs.schuljahr %} · {{ kurs.schuljahr }}{% endif %}{% if not kurs.is_active %} · inaktiv{% endif %}
+        </p>
+    </div>
+    <div class="toolbar-actions">
+        <a href="{{ url_for('foerderkurs.liste') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Alle Kurse</span></a>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="table-panel">
+            <div class="table-toolbar"><div class="table-toolbar-title">Teilnehmende ({{ teilnahmen|length }})</div></div>
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light"><tr><th>Kind</th><th>Klasse</th><th>seit</th><th>Förderplan {{ kurs.fach.name }}</th><th class="text-end"></th></tr></thead>
+                    <tbody>
+                        {% for t in teilnahmen %}
+                        {% set plan = plan_im_fach(t.schueler_id, kurs.fach_id) %}
+                        <tr class="{% if not plan %}table-warning{% endif %}">
+                            <td><a href="{{ url_for('system.schuelerakte', schueler_id=t.schueler_id) }}" class="fw-semibold text-decoration-none">{{ t.schueler.nachname }}, {{ t.schueler.vorname }}</a></td>
+                            <td>{{ t.schueler.klasse or '–' }}</td>
+                            <td class="text-nowrap">{{ t.seit.strftime('%d.%m.%Y') }}</td>
+                            <td>
+                                {% if plan %}
+                                <a href="{{ url_for('foerderplan.foerderplan_view', p_id=plan.id) }}" class="text-decoration-none">„{{ plan.titel }}“</a>
+                                {% else %}
+                                <a href="{{ url_for('foerderplan.foerderplan_neu', s_id=t.schueler_id, fach_id=kurs.fach_id, titel='Förderplan ' ~ kurs.fach.name) }}" class="btn btn-sm btn-warning icon-btn">{{ bi('plus-circle', 'bi-icon-sm') }} <span>Förderplan anlegen</span></a>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <form method="POST" action="{{ url_for('foerderkurs.teilnahme', kurs_id=kurs.id) }}" class="d-inline"
+                                      data-confirm-title="Teilnahme beenden" data-confirm-message="{{ t.schueler.vorname }} verlässt den Kurs zum heutigen Tag." data-confirm-button="Beenden">
+                                    {{ csrf_input() }}<input type="hidden" name="beenden" value="{{ t.id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon-sm') }} <span>Beenden</span></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center text-muted py-4">Noch niemand im Kurs.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if frueher %}
+        <div class="surface-panel p-3 mt-3">
+            <strong class="d-block mb-2">Frühere Teilnahmen</strong>
+            <ul class="list-unstyled mb-0 small">
+                {% for t in frueher %}
+                <li>{{ t.schueler.vorname }} {{ t.schueler.nachname }} · {{ t.seit.strftime('%d.%m.%Y') }} bis {{ t.bis.strftime('%d.%m.%Y') }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="col-lg-5">
+        <div class="surface-panel p-4 h-100">
+            <h3 class="h5 mb-3">Kinder aufnehmen</h3>
+            {% if moegliche %}
+            <form method="POST" action="{{ url_for('foerderkurs.teilnahme', kurs_id=kurs.id) }}">
+                {{ csrf_input() }}
+                <div class="d-flex flex-wrap gap-2 mb-3" style="max-height: 20rem; overflow: auto;">
+                    {% for kind in moegliche %}
+                    <label class="btn btn-sm btn-outline-secondary">
+                        <input type="checkbox" class="form-check-input me-1" name="schueler_id" value="{{ kind.id }}">
+                        {{ kind.vorname }} {{ kind.nachname }} <span class="text-muted">{{ kind.klasse or '' }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+                <button type="submit" class="btn btn-primary icon-btn">{{ bi('plus-circle', 'bi-icon-sm') }} <span>Aufnehmen</span></button>
+            </form>
+            <p class="small text-muted mt-2 mb-0">Zur Auswahl stehen die Kinder der passenden Jahrgänge, die Sie sehen dürfen.</p>
+            {% else %}
+            <p class="text-muted mb-0">Es gibt kein weiteres Kind, das Sie hier aufnehmen können.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

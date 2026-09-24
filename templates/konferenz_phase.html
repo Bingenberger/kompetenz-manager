@@ -235,8 +235,16 @@
             </div>
             <div class="row g-2 mb-3">
                 <div class="col-sm-8">
-                    <label class="form-label mb-1 small">Förderkurs (Bezeichnung)</label>
-                    {{ zeilenfeld(aktuelles, 'foerderkurs_name', url, schreibbar, 'z. B. Lesekurs Mo/Do') }}
+                    <label class="form-label mb-1 small">Förderkurs</label>
+                    <select class="form-select" data-feld="foerderkurs_id" data-url="{{ url }}"
+                            data-bearbeitet-am="{{ aktuelles.bearbeitet_am.isoformat() if aktuelles.bearbeitet_am else '' }}"
+                            {% if not schreibbar %}disabled{% endif %}>
+                        <option value="">– kein Kurs –</option>
+                        {% for kurs in kursauswahl.get(aktuelles.id, []) %}
+                        <option value="{{ kurs.id }}" {% if aktuelles.foerderkurs_id == kurs.id %}selected{% endif %}>{{ kurs.name }} ({{ kurs.fach.name }})</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-text">Die Wahl trägt das Kind gleich in den Kurs ein.</div>
                 </div>
                 <div class="col-sm-4 d-flex align-items-end">
                     {{ schalter(aktuelles, 'foerderkurs_bestaetigt', url, 'bestätigt', schreibbar) }}
@@ -280,7 +288,16 @@
                     <tr>
                         <td>{{ e.schueler.vorname }} {{ e.schueler.nachname }}</td>
                         <td>{{ e.klasse or '–' }}</td>
-                        <td>{{ zeilenfeld(e, 'foerderkurs_name', url, schreibbar) }}</td>
+                        <td>
+                            <select class="form-select form-select-sm" data-feld="foerderkurs_id" data-url="{{ url }}"
+                                    data-bearbeitet-am="{{ e.bearbeitet_am.isoformat() if e.bearbeitet_am else '' }}"
+                                    {% if not schreibbar %}disabled{% endif %}>
+                                <option value="">{{ e.foerderkurs_name or '– kein Kurs –' }}</option>
+                                {% for kurs in kursauswahl.get(e.id, []) %}
+                                <option value="{{ kurs.id }}" {% if e.foerderkurs_id == kurs.id %}selected{% endif %}>{{ kurs.name }} ({{ kurs.fach.name }})</option>
+                                {% endfor %}
+                            </select>
+                        </td>
                         <td>{{ schalter(e, 'foerderkurs_bestaetigt', url, 'ja', schreibbar) }}</td>
                     </tr>
                     {% endfor %}

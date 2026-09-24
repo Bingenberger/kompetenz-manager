@@ -32,6 +32,7 @@ from student_selection import (
     get_tabbed_student_selection_for_user,
     get_user_klassenkontext,
 )
+from foerderkurs import faecher
 from school_year import observation_period_start
 from time_utils import utc_now
 
@@ -326,6 +327,7 @@ def foerderplan_neu(s_id):
             titel=titel,
             datum_erstellung=utc_now(),
             datum_evaluation=datum_evaluation,
+            fach_id=request.form.get('fach_id', type=int) or None,
             status='aktiv'
         )
         db.session.add(neuer_plan)
@@ -439,6 +441,7 @@ def foerderplan_neu(s_id):
 
     # Vorbelegung aus einer Förderkonferenz: Ziel, Ist, Soll, Maßnahmen, Frist.
     vorgabe = {feld: (request.args.get(feld) or '').strip() for feld in ('ziel', 'ist', 'soll', 'massnahme', 'titel', 'evaluation')}
+    vorgabe['fach_id'] = request.args.get('fach_id', type=int)
     if any(vorgabe[feld] for feld in ('ziel', 'ist', 'soll', 'massnahme')):
         vorschlaege.insert(0, {
             'bereich': vorgabe['ziel'] or 'Förderziel aus der Konferenz',
@@ -456,6 +459,7 @@ def foerderplan_neu(s_id):
         grundlage=schueler.foerdergrundlage,
         vorschlaege=vorschlaege,
         vorgabe=vorgabe,
+        faecher=faecher(),
         all_boegen=all_boegen,
         now=utc_now(),
         is_edit_mode=False,
@@ -664,6 +668,7 @@ def foerderplan_edit(p_id):
         vorher_inhalte = _inhalte_beschreibung(plan)
 
         plan.titel = request.form.get('titel')
+        plan.fach_id = request.form.get('fach_id', type=int) or None
 
         Foerderinhalt.query.filter_by(plan_id=plan.id).delete()
 
@@ -714,6 +719,7 @@ def foerderplan_edit(p_id):
         schueler=schueler,
         grundlage=schueler.foerdergrundlage,
         vorschlaege=vorschlaege,
+        faecher=faecher(),
         all_boegen=Bogen.query.all(),
         now=utc_now(),
         is_edit_mode=True,

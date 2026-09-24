@@ -30,6 +30,7 @@ BEREICHE = [
     ('foerderung', 'Förderung', 'heart-pulse', 'foerderplan.foerderplan_list', [
         ('Förderpläne', 'foerderplan.foerderplan_list', ('foerderplan.',)),
         ('Arbeitspläne', 'workplan.workplan_list_page', ('workplan.',)),
+        ('Förderkurse', 'foerderkurs.liste', ('foerderkurs.liste', 'foerderkurs.kurs', 'foerderkurs.teilnahme', 'foerderkurs.ohne_plan')),
         ('Förderkonferenz', 'konferenz.liste', ('konferenz.',)),
         ('Hospitationen', 'hospitation.liste', ('hospitation.',), 'ist_schulleitung'),
     ]),
@@ -60,6 +61,7 @@ _BLUEPRINTS = {
     'foerderplan': 'foerderung',
     'workplan': 'foerderung',
     'konferenz': 'foerderung',
+    'foerderkurs': 'foerderung',
     'hospitation': 'foerderung',
     'erziehung': 'ereignisse',
     'diagnostik': 'diagnostik',
@@ -72,7 +74,7 @@ def aktiver_bereich(endpoint):
         return None
     if endpoint in _AUSNAHMEN:
         return _AUSNAHMEN[endpoint]
-    if endpoint.startswith('diagnostik.admin_') or endpoint.startswith('admin.'):
+    if endpoint.startswith('diagnostik.admin_') or endpoint.startswith('admin.') or endpoint.startswith('foerderkurs.admin_'):
         return None
     return _BLUEPRINTS.get(endpoint.split('.', 1)[0])
 

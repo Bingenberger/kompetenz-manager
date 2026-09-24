@@ -192,8 +192,12 @@ class Foerderplan(db.Model):
     datum_erstellung = db.Column(db.Date, default=lambda: utc_now().date())
     datum_evaluation = db.Column(db.Date, nullable=True)
     status = db.Column(db.String(20), default='aktiv')
+    # Fach des Plans - noetig fuer die Regel "wer im Foerderkurs Deutsch ist,
+    # braucht einen aktiven Foerderplan im Fach Deutsch" (foerderkurs.py).
+    fach_id = db.Column(db.Integer, db.ForeignKey('fach.id'), nullable=True, index=True)
 
     inhalte = db.relationship('Foerderinhalt', backref='plan', lazy=True, cascade="all, delete-orphan")
+    fach = db.relationship('Fach')
     schueler = db.relationship('Schueler', backref=db.backref('foerderplaene', cascade='all, delete-orphan'))
     creator = db.relationship('User', backref='erstellte_foerderplaene', foreign_keys=[creator_user_id])
 
@@ -890,6 +894,7 @@ class FoerderkonferenzKind(db.Model):
     # Geplante Maßnahmen
     massnahme_foerderkurs = db.Column(db.Boolean, nullable=False, default=False)
     foerderkurs_name = db.Column(db.String(120), nullable=True)
+    foerderkurs_id = db.Column(db.Integer, db.ForeignKey('foerderkurs.id'), nullable=True)
     foerderkurs_bestaetigt = db.Column(db.Boolean, nullable=False, default=False)
     massnahme_nachteilsausgleich = db.Column(db.Boolean, nullable=False, default=False)
     massnahme_externe_foerderung = db.Column(db.Boolean, nullable=False, default=False)
@@ -980,3 +985,73 @@ class HospitationKind(db.Model):
     __table_args__ = (
         db.UniqueConstraint('hospitation_id', 'schueler_id', name='uq_hospitation_kind'),
     )
+
+
+# ----------------------------------------------------------------------
+# Faecher und Foerderkurse
+#
+# Die Verwaltung pflegt die Faecher und dazu die Foerderkurse je Jahrgang.
+# Kinder werden einem Kurs zugewiesen; wer in einem Kurs ist, braucht im
+# selben Fach einen aktiven Foerderplan - sonst erinnert die Anwendung
+# regelmaessig daran (siehe foerderkurs.py).
+# ----------------------------------------------------------------------
+
+class Fach(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), nullable=False, unique=True)
+    sort_order = db.Column(db.Integer, nullable=False, default=0)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+
+
+class Foerderkurs(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False)
+    fach_id = db.Column(db.Integer, db.ForeignKey('fach.id'), nullable=False, index=True)
+    # Leer: der Kurs laeuft unabhaengig vom Schuljahr weiter.
+    schuljahr = db.Column(db.String(20), nullable=True, index=True)
+    zeit = db.Column(db.String(120), nullable=True)
+    leitung_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    notiz = db.Column(db.Text, nullable=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=utc_now)
+
+    fach = db.relationship('Fach')
+    leitung = db.relationship('User')
+    jahrgang_zuordnungen = db.relationship(
+        'FoerderkursJahrgang', backref='kurs', cascade='all, delete-orphan', lazy=True,
+    )
+
+    @property
+    def jahrgaenge(self):
+        return sorted(zuordnung.jahrgang for zuordnung in self.jahrgang_zuordnungen)
+
+    def gilt_fuer(self, jahrgang):
+        stufen = self.jahrgaenge
+        return not stufen or jahrgang in stufen
+
+
+class FoerderkursJahrgang(db.Model):
+    kurs_id = db.Column(db.Integer, db.ForeignKey('foerderkurs.id'), primary_key=True)
+    jahrgang = db.Column(db.Integer, primary_key=True)
+
+
+class FoerderkursTeilnahme(db.Model):
+    """Ein Kind in einem Kurs. Ohne Enddatum laeuft die Teilnahme."""
+    id = db.Column(db.Integer, primary_key=True)
+    kurs_id = db.Column(db.Integer, db.ForeignKey('foerderkurs.id'), nullable=False, index=True)
+    schueler_id = db.Column(db.Integer, db.ForeignKey('schueler.id'), nullable=False, index=True)
+    seit = db.Column(db.Date, nullable=False, default=lambda: utc_now().date())
+    bis = db.Column(db.Date, nullable=True)
+    notiz = db.Column(db.Text, nullable=True)
+    eingetragen_von_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    # Wann zuletzt an den fehlenden Foerderplan erinnert wurde.
+    erinnert_am = db.Column(db.Date, nullable=True)
+
+    kurs = db.relationship('Foerderkurs', backref=db.backref('teilnahmen', cascade='all, delete-orphan'))
+    schueler = db.relationship(
+        'Schueler', backref=db.backref('foerderkurs_teilnahmen', cascade='all, delete-orphan'),
+    )
+
+    @property
+    def laeuft(self):
+        return self.bis is None

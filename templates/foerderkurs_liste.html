@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Förderung</span>
+        <h2 class="h4 mt-2 mb-1">Förderkurse</h2>
+        <p class="text-muted mb-0">Wer in welchem Kurs ist{% if schuljahr %} – Schuljahr {{ schuljahr }}{% endif %}. Ein Kurs setzt einen aktiven Förderplan im selben Fach voraus.</p>
+    </div>
+    <div class="toolbar-actions">
+        {% if offen %}
+        <a href="{{ url_for('foerderkurs.ohne_plan') }}" class="btn btn-warning icon-btn">{{ bi('exclamation-triangle', 'bi-icon-sm') }} <span>{{ offen|length }} ohne Förderplan</span></a>
+        {% endif %}
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('foerderkurs.admin_katalog') }}" class="btn btn-outline-secondary icon-btn">{{ bi('gear', 'bi-icon-sm') }} <span>Kurse verwalten</span></a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-3">
+    {% for kurs in kurse %}
+    <div class="col-lg-6">
+        <div class="surface-panel p-4 h-100">
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <div>
+                    <h3 class="h5 mb-0"><a href="{{ url_for('foerderkurs.kurs', kurs_id=kurs.id) }}" class="text-decoration-none">{{ kurs.name }}</a></h3>
+                    <div class="small text-muted">
+                        {{ kurs.fach.name }}{% if kurs.jahrgaenge %} · Jahrgang {{ kurs.jahrgaenge|join(', ') }}{% endif %}{% if kurs.zeit %} · {{ kurs.zeit }}{% endif %}
+                        {% if kurs.leitung %} · {{ kurs.leitung.display_name }}{% endif %}
+                    </div>
+                </div>
+                <span class="badge text-bg-light">{{ teilnahmen[kurs.id]|length }} Kinder</span>
+            </div>
+            <ul class="list-unstyled mb-0 small">
+                {% for t in teilnahmen[kurs.id] %}
+                <li class="d-flex flex-wrap justify-content-between gap-2 border-top py-1">
+                    <a href="{{ url_for('system.schuelerakte', schueler_id=t.schueler_id) }}" class="text-decoration-none">{{ t.schueler.vorname }} {{ t.schueler.nachname }}</a>
+                    <span>
+                        <span class="text-muted">{{ t.schueler.klasse or '' }}</span>
+                        {% if plan_im_fach(t.schueler_id, kurs.fach_id) %}
+                        <span class="badge text-bg-success">Förderplan</span>
+                        {% else %}
+                        <a href="{{ url_for('foerderplan.foerderplan_neu', s_id=t.schueler_id, fach_id=kurs.fach_id, titel='Förderplan ' ~ kurs.fach.name) }}" class="badge text-bg-warning text-decoration-none">Förderplan fehlt</a>
+                        {% endif %}
+                    </span>
+                </li>
+                {% else %}
+                <li class="text-muted">Noch niemand eingetragen.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% else %}
+    <div class="col-12"><div class="alert alert-info">Es sind keine Förderkurse angelegt.{% if current_user.is_admin %} Die Verwaltung legt sie unter „Kurse verwalten“ an.{% endif %}</div></div>
+    {% endfor %}
+</div>
+{% endblock %}

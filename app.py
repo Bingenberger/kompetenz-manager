@@ -26,6 +26,7 @@ from routes.erfassung_routes import register_erfassung_routes
 from routes.foerderplan_routes import register_foerderplan_routes
 from routes.konferenz_routes import register_konferenz_routes
 from routes.hospitation_routes import register_hospitation_routes
+from routes.foerderkurs_routes import register_foerderkurs_routes
 from routes.report_routes import register_report_routes
 from routes.system_routes import register_system_routes
 from routes.workplan_routes import register_workplan_routes
@@ -186,6 +187,7 @@ def create_app(config_overrides=None):
     register_foerderplan_routes(app)
     register_konferenz_routes(app)
     register_hospitation_routes(app)
+    register_foerderkurs_routes(app)
     register_workplan_routes(app)
     register_diagnostik_routes(app)
     register_system_routes(app)
