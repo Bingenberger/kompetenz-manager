@@ -56,3 +56,8 @@ Thumbs.db
 
 # Lokale Import-Vorlagen und Schuldaten (nie ins Repository)
 /import/
+
+# Editor-Hilfsdateien
+*.kate-swp
+*.swp
+*~
