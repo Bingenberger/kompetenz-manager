@@ -309,7 +309,7 @@ Alle Elternkontakte führen ein **Änderungsprotokoll** (wer hat wann was geänd
 - Verknüpfung mit Elternkontakten des Kindes
 - Dateianhänge
 - **Journal** aller Änderungen
-- Übersicht mit Filter nach Kind und Status
+- Übersicht mit Filter nach Kind, Klasse und Status; ohne Auswahl alle sichtbaren Ereignisse
 
 Kategorien, Ereignisarten, Orte und Konsequenzen pflegt die Verwaltung.
 

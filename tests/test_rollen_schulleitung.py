@@ -179,6 +179,41 @@ class RollenTestCase(unittest.TestCase):
         self.assertIn('Förderpädagogik</span>', html)
         self.assertIn('Schulleitung</span>', html)
 
+    def test_leadership_sees_all_events_in_the_list(self):
+        with self.app.app_context():
+            vorlage_id = ErziehungsEreignisVorlage.query.one().id
+            ort_id = ErziehungsOrt.query.one().id
+            db.session.add(ErziehungsEreignis(
+                student_id=self.ids['Cem'], event_template_id=vorlage_id, ort_id=ort_id,
+                beschreibung='Vorfall in der 3b', status='offen',
+                created_by_user_id=self._user('leitung').id,
+            ))
+            db.session.commit()
+
+        # Die Liste nennt Kind und Ereignisart; die Klassenleitung der 3a sieht nur ihr Kind.
+        self._login('klara')
+        zeilen = self.client.get('/erziehung?schueler_id=').get_data(as_text=True)
+        zeilen = zeilen[zeilen.index('Dokumentierte Ereignisse'):]
+        self.assertIn('Anna Test', zeilen)
+        self.assertNotIn('Cem Test', zeilen)
+
+        for name in ('leitung', 'admin'):
+            self._login(name)
+            html = self.client.get('/erziehung').get_data(as_text=True)
+            zeilen = html[html.index('Dokumentierte Ereignisse'):]
+            self.assertIn('Anna Test', zeilen, name)
+            self.assertIn('Cem Test', zeilen, name)
+            self.assertIn('alle Kinder', html)
+            # Nach Klasse und nach Kind filtern bleibt möglich.
+            html = self.client.get('/erziehung?klasse=3b').get_data(as_text=True)
+            zeilen = html[html.index('Dokumentierte Ereignisse'):]
+            self.assertIn('Cem Test', zeilen)
+            self.assertNotIn('Anna Test', zeilen)
+            html = self.client.get(f'/erziehung?schueler_id={self.ids["Cem"]}').get_data(as_text=True)
+            zeilen = html[html.index('Dokumentierte Ereignisse'):]
+            self.assertIn('Cem Test', zeilen)
+            self.assertNotIn('Anna Test', zeilen)
+
     # ------------------------------------------------------------------ Schulübersicht
 
     def test_school_overview_only_for_leadership(self):

@@ -16,7 +16,25 @@
     </div>
 
     <div class="surface-panel p-3 mb-4">
-        <label class="form-label">Kind auswählen</label>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <label class="form-label mb-0">Kind auswählen <span class="text-muted small">– ohne Auswahl erscheinen alle Ereignisse, die Sie sehen dürfen</span></label>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                {% if klassen|length > 1 %}
+                <form method="GET" class="d-flex align-items-center gap-2">
+                    <input type="hidden" name="schueler_id" value="">
+                    {% if status_filter %}<input type="hidden" name="status" value="{{ status_filter }}">{% endif %}
+                    <label class="small text-muted" for="ereignis-klasse">Klasse</label>
+                    <select class="form-select form-select-sm" style="width: auto;" id="ereignis-klasse" name="klasse" onchange="this.form.submit()">
+                        <option value="">alle Klassen</option>
+                        {% for k in klassen %}<option value="{{ k }}" {% if k == klasse_filter %}selected{% endif %}>{{ k }}</option>{% endfor %}
+                    </select>
+                </form>
+                {% endif %}
+                {% if selected_student or klasse_filter %}
+                <a href="{{ url_for('erziehung.erziehung_list', schueler_id='', status=status_filter if status_filter else None) }}" class="btn btn-sm btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon-sm') }} <span>Alle Ereignisse</span></a>
+                {% endif %}
+            </div>
+        </div>
         <ul class="nav nav-tabs" role="tablist">
             {% for tab in tab_definitions %}
             <li class="nav-item" role="presentation">
@@ -75,6 +93,10 @@
             <div class="d-flex flex-wrap align-items-center gap-2">
                 {% if selected_student %}
                 <span class="badge bg-primary">{{ selected_student.vorname }} {{ selected_student.nachname }}</span>
+                {% elif klasse_filter %}
+                <span class="badge bg-primary">Klasse {{ klasse_filter }}</span>
+                {% else %}
+                <span class="text-muted small">alle Kinder</span>
                 {% endif %}
                 {% if not current_user.sieht_alle_kinder %}<span class="text-muted small">Eigene, zugewiesene und die Ihrer Klassen</span>{% endif %}
                 <span class="badge bg-info">{{ events|length }} Einträge</span>

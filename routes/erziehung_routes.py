@@ -1,11 +1,12 @@
 from datetime import datetime
 
 from flask import Blueprint, abort, flash, redirect, render_template, request, url_for
+from sqlalchemy import func
 from flask_login import current_user, login_required
 
 import benachrichtigungen as bn
 from extensions import db
-from klassenzugriff import darf_elternkontakt_sehen, darf_ereignis_sehen, sichtbare_elternkontakte, sichtbare_ereignisse
+from klassenzugriff import darf_elternkontakt_sehen, darf_ereignis_sehen, sichtbare_elternkontakte, sichtbare_ereignisse, zugaengliche_klassen
 from models import (
     Elternkontakt,
     ErziehungsEreignis,
@@ -514,15 +515,19 @@ def erziehung_parent_contacts_fragment():
 @login_required
 def erziehung_list():
     next_url = (request.args.get('next') or '').strip()
+    # Ohne ausgewaehltes Kind zeigt die Liste alles, was diese Person sehen darf -
+    # die Schulleitung damit alle Ereignisse der Schule.
     selection = get_tabbed_student_selection_for_user(
         current_user,
         selected_s_id=(request.args.get('schueler_id') or '').strip(),
         requested_tab=(request.args.get('tab') or '').strip(),
-        auto_select_first=True,
+        auto_select_first=False,
         include_archived=True,
     )
     selected_student = selection['selected_student']
     status_filter = (request.args.get('status') or '').strip()
+    klassen = zugaengliche_klassen(current_user)
+    klasse_filter = (request.args.get('klasse') or '').strip()
 
     query = (
         ErziehungsEreignis.query
@@ -532,6 +537,8 @@ def erziehung_list():
     query = sichtbare_ereignisse(query, current_user)
     if selected_student:
         query = query.filter(ErziehungsEreignis.student_id == selected_student.id)
+    elif klasse_filter in klassen:
+        query = query.filter(func.trim(Schueler.klasse) == klasse_filter)
     if status_filter in {'offen', 'abgeschlossen'}:
         query = query.filter(ErziehungsEreignis.status == status_filter)
     events = query.all()
@@ -540,6 +547,8 @@ def erziehung_list():
         'erziehung_list.html',
         events=events,
         status_filter=status_filter,
+        klassen=klassen,
+        klasse_filter=klasse_filter if klasse_filter in klassen else '',
         next_url=next_url,
         schueler_groups=selection['groups'],
         **selection,
