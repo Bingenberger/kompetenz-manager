@@ -561,7 +561,11 @@ def _grundlagen_und_plaene(demo):
 
     anzahl = 0
     for kind in demo.kinder.values():
-        if not demo.hat(kind, 'plan'):
+        # Auch Kinder im Förderkurs bekommen ein Grundlagenblatt: Sie brauchen
+        # einen Plan, der Assistent lässt sich also an ihnen zeigen.
+        braucht_grundlage = (demo.hat(kind, 'plan') or demo.hat(kind, 'lesekurs')
+                             or demo.hat(kind, 'rechenkurs'))
+        if not braucht_grundlage:
             continue
         db.session.add(Foerdergrundlage(
             schueler_id=kind.id,
@@ -571,6 +575,8 @@ def _grundlagen_und_plaene(demo):
             absprachen_mit_eltern='Eltern üben dreimal pro Woche 10 Minuten Lesen.' if ZUFALL.random() < 0.5 else None,
         ))
         db.session.flush()
+        if not demo.hat(kind, 'plan'):
+            continue
 
         schluessel = ['Lesen', 'Rechtschreiben'] if kind.id % 2 else ['Mathematik', 'Arbeitsverhalten']
         plan = Foerderplan(
@@ -972,7 +978,11 @@ def _konferenzen(demo):
         'Reicht der Lesekurs oder brauchen wir mehr?',
         'Wie kommt das Kind mit der neuen Sitzordnung zurecht?',
         'Sollten wir die Diagnostik wiederholen?',
+        'Wer kann die Elternarbeit übernehmen?',
+        'Wäre ein Arbeitsplan die bessere Struktur?',
+        'Brauchen wir einen Nachteilsausgleich?',
     ]
+    naechste_frage = 0
     for eintrag in aktuell.kinder:
         kind = eintrag.schueler
         if demo.hat(kind, 'konferenz_c'):
@@ -984,7 +994,11 @@ def _konferenzen(demo):
         eintrag.vorschlag_stufe = stufe
         eintrag.vorschlag_stern = demo.hat(kind, 'stern')
         eintrag.vorschlag_beratung = stufe == 'C'
-        eintrag.vorschlag_frage = ZUFALL.choice(fragen) if stufe in ('B', 'C') else None
+        if stufe in ('B', 'C'):
+            eintrag.vorschlag_frage = fragen[naechste_frage % len(fragen)]
+            naechste_frage += 1
+        else:
+            eintrag.vorschlag_frage = None
         eintrag.vorschlag_von_user_id = (
             demo.user['sommer'].id if kind.klasse == '3a' else demo.user['weber'].id)
         eintrag.vorschlag_am = datetime.combine(demo.heute - timedelta(days=3), time(16, 20))
