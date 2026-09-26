@@ -247,7 +247,8 @@ def index():
             .filter(
                 Schueler.klasse == fokus_klasse,
                     Schueler.is_active.is_(True),
-                WorkPlan.status.in_(['draft', 'active']),
+                # 'draft'/'active' sind der Altbestand vor der deutschen Benennung.
+                WorkPlan.status.in_(['in_planung', 'aktiv', 'draft', 'active']),
             )
             .count()
         )
