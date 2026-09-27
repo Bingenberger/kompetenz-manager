@@ -57,6 +57,9 @@ Thumbs.db
 # Lokale Import-Vorlagen und Schuldaten (nie ins Repository)
 /import/
 
+# Erzeugte Screenshots der Demoinstanz (jederzeit neu erzeugbar, 14 MB)
+demo/screenshots/
+
 # Editor-Hilfsdateien
 *.kate-swp
 *.swp
