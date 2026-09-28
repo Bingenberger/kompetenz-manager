@@ -34,7 +34,7 @@ export SESSION_COOKIE_SECURE=0
 export REMEMBER_COOKIE_SECURE=0
 export PREFERRED_URL_SCHEME=http
 export PROTECTED_UPLOAD_FOLDER="${PROTECTED_UPLOAD_FOLDER:-$PROJEKT/instance/demo_protected_uploads}"
-export FLASK_HOST="${FLASK_HOST:-127.0.0.1}"
+export FLASK_HOST="${FLASK_HOST:-0.0.0.0}"
 export PORT="${PORT:-5055}"
 # Kein Mailversand aus der Demo.
 unset MAIL_SERVER MAIL_USERNAME MAIL_PASSWORD MAIL_FROM 2>/dev/null || true
