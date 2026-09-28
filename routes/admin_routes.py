@@ -64,6 +64,7 @@ from jahrgang import (
     sync_klassen,
 )
 from retention import archived_students, overdue_ids, retention_years, summarize
+from schueler_abgleich import datenumfang, dubletten_gruppen, fuehre_zusammen
 from student_selection import get_distinct_klassen
 from time_utils import utc_now
 from uploads import loesche_upload_datei
@@ -939,6 +940,70 @@ def admin_student_delete(s_id):
     flash(message)
 
     return redirect(url_for('admin.admin_students'))
+
+
+@admin_bp.route('/admin/dubletten', methods=['GET', 'POST'])
+@admin_required(
+    redirect_endpoint='admin.admin_students',
+    message='Zugriff verweigert. Nur der Administrator darf Dubletten bereinigen.'
+)
+def admin_dubletten():
+    """Gleichnamige Kinder zusammenführen - der ältere Eintrag bleibt.
+
+    Entstanden sind die Dubletten durch mehrfaches Einlesen derselben
+    Klassenliste. Weil auf beiden Einträgen inzwischen gearbeitet worden sein
+    kann, wird zusammengeführt statt gelöscht: Erst wandern die Daten zum
+    älteren Kind, dann verschwindet das jüngere.
+    """
+    if request.method == 'POST':
+        aktion = (request.form.get('aktion') or '').strip()
+        if aktion == 'gruppe':
+            original = get_or_404_session(Schueler, request.form.get('original_id', type=int))
+            gruppe = next((g for g in dubletten_gruppen() if g['original'].id == original.id), None)
+            if gruppe is None:
+                flash('Zu diesem Kind gibt es keine Dublette mehr.')
+            else:
+                flash(_bereinige_gruppen([gruppe]))
+        elif aktion == 'alle':
+            gruppen = dubletten_gruppen()
+            if not gruppen:
+                flash('Es gibt keine Dubletten.')
+            else:
+                flash(_bereinige_gruppen(gruppen))
+        return redirect(url_for('admin.admin_dubletten'))
+
+    gruppen = dubletten_gruppen()
+    return render_template(
+        'admin_dubletten.html',
+        gruppen=gruppen,
+        anzahl_dubletten=sum(len(gruppe['dubletten']) for gruppe in gruppen),
+    )
+
+
+def _bereinige_gruppen(gruppen):
+    """Führt Gruppen zusammen und meldet in einem Satz, was passiert ist."""
+    zusammengefuehrt = 0
+    verschoben = {}
+    verworfen = {}
+    for gruppe in gruppen:
+        original = gruppe['original']
+        for dublette in gruppe['dubletten']:
+            bericht = fuehre_zusammen(original, dublette)
+            for bezeichnung, anzahl in bericht['verschoben'].items():
+                verschoben[bezeichnung] = verschoben.get(bezeichnung, 0) + anzahl
+            for bezeichnung, anzahl in bericht['verworfen'].items():
+                verworfen[bezeichnung] = verworfen.get(bezeichnung, 0) + anzahl
+            _delete_student_completely(dublette)
+            zusammengefuehrt += 1
+
+    meldung = f'{zusammengefuehrt} Dublette(n) zusammengeführt.'
+    if verschoben:
+        meldung += ' Übernommen: ' + ', '.join(
+            f'{anzahl} {bezeichnung}' for bezeichnung, anzahl in sorted(verschoben.items())) + '.'
+    if verworfen:
+        meldung += ' Als Doppelung verworfen: ' + ', '.join(
+            f'{anzahl} {bezeichnung}' for bezeichnung, anzahl in sorted(verworfen.items())) + '.'
+    return meldung
 
 
 @admin_bp.route('/admin/benachrichtigungen', methods=['GET', 'POST'])

@@ -251,9 +251,24 @@ class JahrgangAdminTestCase(unittest.TestCase):
         puffer = BytesIO()
         workbook.save(puffer)
         puffer.seek(0)
-        return self.client.post('/import/schueler', data={
+        vorschau = self.client.post('/import/schueler', data={
             'file': (puffer, 'liste.xlsx'), '_csrf_token': self._token('/import/schueler'),
         }, content_type='multipart/form-data', follow_redirects=True)
+        return self._uebernimm_abgleich(vorschau)
+
+    def _uebernimm_abgleich(self, vorschau):
+        """Zweiter Schritt des Schüler-Imports: den Plan aus der Vorschau senden."""
+        import html as html_modul
+        text = vorschau.get_data(as_text=True)
+        treffer = re.search(r'name="plan" value="([^"]*)"', text)
+        if not treffer:
+            return vorschau
+        marke = CSRF_RE.search(text).group(1)
+        return self.client.post('/import/schueler', data={
+            '_csrf_token': marke, 'aktion': 'uebernehmen', 'aktualisieren': '1',
+            'plan': html_modul.unescape(treffer.group(1)),
+        }, follow_redirects=True)
+
 
     def test_import_takes_grade_from_class_name(self):
         self._login()

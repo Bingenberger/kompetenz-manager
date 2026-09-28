@@ -2,6 +2,7 @@ import os
 import secrets
 import mimetypes
 import re
+from collections import Counter
 from datetime import date, datetime, timedelta
 
 from openpyxl import load_workbook
@@ -10,6 +11,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import func
 from werkzeug.security import generate_password_hash
 
+from authz import admin_required
 from diagnostik import STUFEN as DIAGNOSTIK_STUFEN, diagramme as diagnostik_diagramme, risikogrenzen, verlauf as diagnostik_verlauf, werte_zeilen
 from extensions import db
 from klassenzugriff import darf_ereignis_sehen, sichtbare_elternkontakte, sichtbare_ereignisse
@@ -27,6 +29,13 @@ from odt_export import build_odt_document, convert_odt_bytes_to_pdf
 from school_year import observation_period_start
 from search import search as run_search
 from jahrgang import ensure_klasse, resolve_student_jahrgang
+from schueler_abgleich import (
+    STATUS_LABEL,
+    fuehre_import_aus,
+    plan_als_json,
+    plan_aus_json,
+    plane_import,
+)
 from student_record import collect_record, filename_stem, record_blocks
 from student_selection import (
     vergiss_kind,
@@ -46,6 +55,12 @@ system_bp = Blueprint('system', __name__)
 # vertauscht in einem der Faelle Tag und Monat.
 _DATE_FORMATS_YEAR_FIRST = ('%Y-%m-%d', '%Y/%m/%d', '%Y.%m.%d')
 _DATE_FORMATS_DAY_FIRST = ('%d.%m.%Y', '%d.%m.%y', '%d/%m/%Y', '%d-%m-%Y')
+
+
+def _safe_next_url(kandidat, ersatz):
+    """Nur Ziele innerhalb der Anwendung - keine Weiterleitung nach draußen."""
+    wert = (kandidat or '').strip()
+    return wert if wert.startswith('/') and not wert.startswith('//') else ersatz
 
 
 def _parse_import_date(value):
@@ -984,9 +999,42 @@ def todo_beobachtungsboegen_fehlend():
     )
 
 @system_bp.route('/import/<typ>', methods=['GET', 'POST'])
-@login_required
+@admin_required(
+    redirect_endpoint='system.index',
+    message='Zugriff verweigert. Nur der Administrator darf Daten importieren.',
+)
 def data_import(typ):
     next_url = (request.args.get('next') or request.form.get('next') or '').strip()
+
+    # Zweiter Schritt des Schüler-Imports: Der Plan aus der Vorschau kommt
+    # zurück und wird jetzt ausgeführt.
+    if request.method == 'POST' and request.form.get('aktion') == 'uebernehmen':
+        plan = plan_aus_json(request.form.get('plan'))
+        if not plan:
+            flash('Der Abgleich ließ sich nicht übernehmen. Bitte die Datei erneut hochladen.')
+            return redirect(url_for('system.data_import', typ=typ, next=next_url)
+                            if next_url else url_for('system.data_import', typ=typ))
+        zahlen = fuehre_import_aus(
+            plan,
+            aktualisieren=request.form.get('aktualisieren') == '1',
+            archivierte_reaktivieren=request.form.get('archivierte') == '1',
+        )
+        db.session.commit()
+        teile = [f"{zahlen['angelegt']} neu angelegt"]
+        if zahlen['aktualisiert']:
+            teile.append(f"{zahlen['aktualisiert']} aktualisiert")
+        if zahlen['reaktiviert']:
+            teile.append(f"{zahlen['reaktiviert']} reaktiviert")
+        if zahlen['unveraendert']:
+            teile.append(f"{zahlen['unveraendert']} unverändert")
+        if zahlen['uebersprungen']:
+            teile.append(f"{zahlen['uebersprungen']} übersprungen")
+        flash('Import abgeschlossen: ' + ', '.join(teile) + '.')
+        if zahlen['ohne_jahrgang']:
+            flash(f"{zahlen['ohne_jahrgang']} Kind(er) ohne Jahrgang importiert - "
+                  'bitte unter Verwaltung → Klassen und Jahrgänge nachtragen.')
+        return redirect(_safe_next_url(next_url, url_for('admin.admin_students')))
+
     if request.method == 'POST':
         file = request.files['file']
         if file.filename.endswith('.xlsx'):
@@ -1000,29 +1048,27 @@ def data_import(typ):
                 flash('Fehlende Spalten in Excel-Datei: ' + ', '.join(missing_columns))
                 return redirect(url_for('system.data_import', typ=typ, next=next_url) if next_url else url_for('system.data_import', typ=typ))
             if typ == 'schueler':
-                ohne_jahrgang = 0
-                for row in zeilen:
-                    klasse = _import_text(row.get('Klasse'))
-                    ensure_klasse(klasse)
-                    # Die Spalte "Jahrgang" ist optional. Hat die Klasse genau
-                    # einen Jahrgang, gilt ohnehin dieser.
-                    jahrgang, _fehler = resolve_student_jahrgang(
-                        klasse, _import_text(row.get('Jahrgang')),
-                    )
-                    if jahrgang is None:
-                        ohne_jahrgang += 1
-                    db.session.add(Schueler(
-                        vorname=_import_text(row.get('Vorname')),
-                        nachname=_import_text(row.get('Nachname')),
-                        klasse=klasse,
-                        jahrgang=jahrgang,
-                        geburtsdatum=_parse_import_date(row.get('Geburtsdatum')),
-                    ))
-                if ohne_jahrgang:
-                    flash(
-                        f'{ohne_jahrgang} Kind(er) ohne Jahrgang importiert - '
-                        'bitte unter Verwaltung → Klassen und Jahrgänge nachtragen.'
-                    )
+                # Erst vergleichen, dann anlegen: Ohne Abgleich steht jedes Kind
+                # nach dem zweiten Einlesen derselben Liste zweimal da.
+                plan = plane_import([
+                    {
+                        'vorname': _import_text(row.get('Vorname')),
+                        'nachname': _import_text(row.get('Nachname')),
+                        'klasse': _import_text(row.get('Klasse')),
+                        'jahrgang': _import_text(row.get('Jahrgang')),
+                        'geburtsdatum': _parse_import_date(row.get('Geburtsdatum')),
+                    }
+                    for row in zeilen
+                ])
+                return render_template(
+                    'import_schueler_vorschau.html',
+                    plan=plan,
+                    plan_json=plan_als_json(plan),
+                    zusammenfassung=Counter(eintrag['status'] for eintrag in plan),
+                    status_label=STATUS_LABEL,
+                    next_url=next_url,
+                    dateiname=file.filename,
+                )
             elif typ == 'bogen':
                 for row in zeilen:
                     bogen_titel = _import_text(row.get('Bogen'))

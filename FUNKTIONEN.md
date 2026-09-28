@@ -438,6 +438,19 @@ Arten abbestellen. Wer etwas selbst tut, wird darüber nicht benachrichtigt.
   (Klassenleitung / Fach)
 - **Kinder und Klassen:** bearbeiten, Jahrgänge der Klassen, Import von Kindern und
   Bögen aus Tabellen
+- **Import mit Abgleich:** Der Schüler-Import legt nicht sofort an, sondern zeigt erst eine
+  Vorschau: je Zeile *neu*, *bereits vorhanden*, *wird aktualisiert*, *doppelt in der Datei*,
+  *mehrere Treffer* oder *archiviert*. Verglichen wird über Vor- und Nachname; das
+  Geburtsdatum entscheidet, sobald es auf beiden Seiten steht (gleiche Namen mit
+  verschiedenen Geburtstagen sind zwei Kinder). Beim Übernehmen lassen sich vorhandene
+  Kinder aktualisieren (Klasse, Jahrgang, Geburtsdatum) und archivierte Namensgleiche
+  wieder aktivieren. Dieselbe Klassenliste zweimal einzulesen legt niemanden doppelt an.
+- **Dubletten bereinigen:** Gleichnamige Kinder werden gruppiert; der älteste Eintrag bleibt,
+  alles vom jüngeren wandert zu ihm – Beobachtungen, Förderpläne, Elternkontakte, Ereignisse,
+  Arbeitspläne, Diagnostik, Kursteilnahmen. Was es je Kind nur einmal geben darf
+  (Grundlagenblatt, Diagnostik-Ergebnis desselben Termins, Förderangaben, Nachteilsausgleich,
+  Konferenz- und Hospitationszeile), bleibt in der Fassung des älteren Eintrags; leere Felder
+  des Grundlagenblatts werden ergänzt. Einzeln je Kind oder für alle Gruppen auf einmal.
 - **Beobachtungsbögen:** Bögen, Bereiche, Items, Jahrgangszuordnung, Pflicht/optional
 - **Grundeinstellungen:** Schuljahr und Beginn, zwei **Elternsprechtage** (steuern
   Hinweise auf der Startseite), Zeitfenster für Arbeitsplan-Vorschläge,

@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Datenimport</span>
+        <h2 class="h4 mt-2 mb-1">Abgleich vor dem Import</h2>
+        <p class="text-muted mb-0">{{ dateiname }} · {{ plan|length }} Zeile(n). Es ist noch nichts gespeichert.</p>
+    </div>
+    <div class="toolbar-actions">
+        <a href="{{ url_for('system.data_import', typ='schueler', next=next_url) }}" class="btn btn-outline-secondary icon-btn">
+            {{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Andere Datei</span></a>
+    </div>
+</div>
+
+<div class="surface-panel p-3 mb-3">
+    <div class="d-flex flex-wrap gap-2">
+        {% for status, anzahl in zusammenfassung.items() %}
+        <span class="badge {% if status == 'neu' %}text-bg-success{% elif status == 'aktualisiert' %}text-bg-primary
+              {% elif status in ('mehrdeutig', 'doppelt_in_datei', 'unvollstaendig') %}text-bg-warning
+              {% elif status == 'archiviert' %}text-bg-secondary{% else %}text-bg-light{% endif %} px-3 py-2">
+            {{ anzahl }} {{ status_label[status] }}
+        </span>
+        {% endfor %}
+    </div>
+</div>
+
+<form method="POST">
+    {{ csrf_input() }}
+    <input type="hidden" name="aktion" value="uebernehmen">
+    <input type="hidden" name="plan" value="{{ plan_json }}">
+    {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
+
+    <div class="table-panel mb-3">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead class="table-light">
+                    <tr><th>#</th><th>Kind</th><th>Klasse</th><th>Geburtsdatum</th><th>Ergebnis des Abgleichs</th></tr>
+                </thead>
+                <tbody>
+                    {% for eintrag in plan %}
+                    <tr class="{% if eintrag.status in ('mehrdeutig', 'unvollstaendig') %}table-warning
+                               {% elif eintrag.status == 'doppelt_in_datei' %}table-light{% endif %}">
+                        <td class="text-muted small">{{ eintrag.zeile }}</td>
+                        <td class="fw-semibold">{{ eintrag.vorname }} {{ eintrag.nachname }}</td>
+                        <td>{{ eintrag.klasse or '–' }}</td>
+                        <td class="text-nowrap">{{ eintrag.geburtsdatum.strftime('%d.%m.%Y') if eintrag.geburtsdatum else '–' }}</td>
+                        <td class="small">
+                            <span class="badge {% if eintrag.status == 'neu' %}text-bg-success{% elif eintrag.status == 'aktualisiert' %}text-bg-primary{% elif eintrag.status == 'vorhanden' %}text-bg-light{% else %}text-bg-warning{% endif %}">
+                                {{ status_label[eintrag.status] }}</span>
+                            {% if eintrag.aenderungen %} {{ eintrag.aenderungen|join(', ') }}{% endif %}
+                            {% if eintrag.hinweis %} <span class="text-muted">{{ eintrag.hinweis }}</span>{% endif %}
+                            {% if eintrag.kind_id %}
+                            <a href="{{ url_for('system.schuelerakte', schueler_id=eintrag.kind_id) }}" class="text-decoration-none">Akte</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="surface-panel p-4">
+        <h3 class="h5 mb-3">Was beim Übernehmen passiert</h3>
+        <div class="form-check mb-2">
+            <input class="form-check-input" type="checkbox" name="aktualisieren" value="1" id="opt-akt" checked>
+            <label class="form-check-label" for="opt-akt">
+                Vorhandene Kinder aktualisieren <span class="text-muted">(Klasse, Jahrgang, Geburtsdatum aus der Datei)</span>
+            </label>
+        </div>
+        <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" name="archivierte" value="1" id="opt-arch">
+            <label class="form-check-label" for="opt-arch">
+                Archivierte Namensgleiche wieder aktivieren <span class="text-muted">(sonst werden diese Zeilen übersprungen)</span>
+            </label>
+        </div>
+        <p class="small text-muted">
+            Zeilen mit mehreren Treffern werden immer übersprungen – dort steht das Kind schon doppelt im Bestand.
+            Diese Dubletten lassen sich in der Verwaltung unter
+            <a href="{{ url_for('admin.admin_dubletten') }}">Dubletten bereinigen</a> zusammenführen.
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-primary icon-btn">{{ bi('check-circle', 'bi-icon') }} <span>Import übernehmen</span></button>
+            <a href="{{ next_url if next_url else url_for('admin.admin_students') }}" class="btn btn-outline-secondary icon-btn">{{ bi('x-circle', 'bi-icon') }} <span>Abbrechen</span></a>
+        </div>
+    </div>
+</form>
+{% endblock %}

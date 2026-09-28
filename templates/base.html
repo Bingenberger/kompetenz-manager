@@ -980,13 +980,11 @@
             {% endfor %}
         </nav>
         {% endif %}
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            <div class="alert alert-success shadow-sm border-0">
-                {{ messages[0] }}
-            </div>
-          {% endif %}
-        {% endwith %}
+        {# Alle Meldungen zeigen: Wer zwei Dinge zu sagen hat - etwa "importiert"
+           und "ohne Jahrgang" -, darf nicht die zweite verlieren. #}
+        {% for message in get_flashed_messages() %}
+        <div class="alert alert-success shadow-sm border-0">{{ message }}</div>
+        {% endfor %}
         {% if session.get('report_last_deleted_beobachtung') %}
             <div class="alert alert-warning shadow-sm border-0 d-flex flex-wrap align-items-center justify-content-between gap-2">
                 <span>Letzten gelöschten Beobachtungseintrag wiederherstellen?</span>

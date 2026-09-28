@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% from "includes/icons.html" import bi %}
+{% block content %}
+<div class="toolbar-shell">
+    <div>
+        <span class="section-label">Administration</span>
+        <h2 class="h4 mt-2 mb-1">Dubletten bereinigen</h2>
+        <p class="text-muted mb-0">Gleichnamige Kinder, die durch mehrfachen Import entstanden sind.
+            Der ältere Eintrag bleibt, alles vom jüngeren wandert zu ihm.</p>
+    </div>
+    <div class="toolbar-actions">
+        <a href="{{ url_for('admin.admin_students') }}" class="btn btn-outline-secondary icon-btn">
+            {{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Schülerverwaltung</span></a>
+    </div>
+</div>
+
+{% if gruppen %}
+<div class="surface-panel p-3 mb-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+    <div>
+        <strong>{{ gruppen|length }} Kind(er) doppelt</strong>
+        <span class="text-muted">· {{ anzahl_dubletten }} jüngere Einträge verschwinden nach dem Zusammenführen</span>
+    </div>
+    <form method="POST" data-confirm-title="Alle Dubletten zusammenführen"
+          data-confirm-message="Bei {{ gruppen|length }} Kind(ern) wandern die Daten der jüngeren Einträge zum ältesten; die jüngeren werden anschließend gelöscht. Das lässt sich nicht rückgängig machen."
+          data-confirm-button="Zusammenführen">
+        {{ csrf_input() }}<input type="hidden" name="aktion" value="alle">
+        <button type="submit" class="btn btn-primary icon-btn">{{ bi('arrow-left-right', 'bi-icon-sm') }} <span>Alle zusammenführen</span></button>
+    </form>
+</div>
+
+{% for gruppe in gruppen %}
+{% set original = gruppe.original %}
+<div class="table-panel mb-3">
+    <div class="table-toolbar">
+        <div class="table-toolbar-title">{{ original.nachname }}, {{ original.vorname }}
+            {% if original.geburtsdatum %}<span class="text-muted">· geb. {{ original.geburtsdatum.strftime('%d.%m.%Y') }}</span>{% endif %}
+        </div>
+        <form method="POST" data-confirm-title="Zusammenführen"
+              data-confirm-message="{{ original.vorname }} {{ original.nachname }}: {{ gruppe.dubletten|length }} jüngere(r) Eintrag/Einträge werden übernommen und gelöscht."
+              data-confirm-button="Zusammenführen">
+            {{ csrf_input() }}<input type="hidden" name="aktion" value="gruppe">
+            <input type="hidden" name="original_id" value="{{ original.id }}">
+            <button type="submit" class="btn btn-sm btn-outline-primary icon-btn">
+                {{ bi('arrow-left-right', 'bi-icon-sm') }} <span>Zusammenführen</span></button>
+        </form>
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle mb-0">
+            <thead class="table-light">
+                <tr><th>Eintrag</th><th>Klasse</th><th>Status</th><th>Daten daran</th><th class="text-end"></th></tr>
+            </thead>
+            <tbody>
+                {% for kind in [original] + gruppe.dubletten %}
+                {% set umfang = gruppe.umfang[kind.id] %}
+                <tr class="{% if kind.id == original.id %}table-success{% endif %}">
+                    <td>
+                        <a href="{{ url_for('system.schuelerakte', schueler_id=kind.id) }}" class="fw-semibold text-decoration-none">
+                            {{ kind.vorname }} {{ kind.nachname }}</a>
+                        <span class="text-muted small">ID {{ kind.id }}</span>
+                    </td>
+                    <td>{{ kind.klasse or '–' }}</td>
+                    <td>
+                        {% if kind.id == original.id %}<span class="badge text-bg-success">bleibt</span>
+                        {% else %}<span class="badge text-bg-secondary">wird übernommen</span>{% endif %}
+                        {% if not kind.is_active %}<span class="badge text-bg-light">archiviert</span>{% endif %}
+                    </td>
+                    <td class="small">
+                        {% set gefuellt = umfang.items()|selectattr('1')|list %}
+                        {% if gefuellt %}{% for bezeichnung, anzahl in gefuellt %}{{ anzahl }} {{ bezeichnung }}{% if not loop.last %} · {% endif %}{% endfor %}
+                        {% else %}<span class="text-muted">keine Einträge</span>{% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{{ url_for('admin.admin_student_edit', s_id=kind.id, next=request.path) }}"
+                           class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endfor %}
+
+<div class="hint-panel">
+    <small>{{ bi('info-circle', 'bi-icon-sm') }} Beim Zusammenführen wandern Beobachtungen, Förderpläne, Elternkontakte,
+        Ereignisse, Arbeitspläne, Diagnostik und Kursteilnahmen zum ältesten Eintrag. Was dort nur einmal stehen darf –
+        Grundlagenblatt, Diagnostik-Ergebnis desselben Termins, Förderangaben, Nachteilsausgleich, Konferenz- und
+        Hospitationszeile – bleibt in der Fassung des älteren Eintrags; leere Felder des Grundlagenblatts werden ergänzt.</small>
+</div>
+{% else %}
+<div class="surface-panel p-4 text-center">
+    <p class="mb-1"><strong>Keine Dubletten gefunden.</strong></p>
+    <p class="text-muted mb-0">Gleiche Namen mit unterschiedlichem Geburtsdatum gelten als verschiedene Kinder.</p>
+</div>
+{% endif %}
+{% endblock %}

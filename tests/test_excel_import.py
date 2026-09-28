@@ -77,12 +77,31 @@ class ExcelImportTestCase(unittest.TestCase):
     def _upload(self, typ, rows, filename='liste.xlsx'):
         page = self.client.get(f'/import/{typ}')
         token = CSRF_RE.search(page.get_data(as_text=True)).group(1)
-        return self.client.post(
+        antwort = self.client.post(
             f'/import/{typ}',
             data={'file': (xlsx_bytes(rows), filename), '_csrf_token': token},
             content_type='multipart/form-data',
             follow_redirects=True,
         )
+        # Der Schuelerimport zeigt erst den Abgleich; die Tests pruefen das
+        # Ergebnis danach, also wird hier gleich uebernommen.
+        if typ == 'schueler':
+            return self._uebernimm_abgleich(antwort)
+        return antwort
+
+    def _uebernimm_abgleich(self, vorschau):
+        """Zweiter Schritt des Schüler-Imports: den Plan aus der Vorschau senden."""
+        import html as html_modul
+        text = vorschau.get_data(as_text=True)
+        treffer = re.search(r'name="plan" value="([^"]*)"', text)
+        if not treffer:
+            return vorschau
+        marke = CSRF_RE.search(text).group(1)
+        return self.client.post('/import/schueler', data={
+            '_csrf_token': marke, 'aktion': 'uebernehmen', 'aktualisieren': '1',
+            'plan': html_modul.unescape(treffer.group(1)),
+        }, follow_redirects=True)
+
 
     # ------------------------------------------------------------------
     # Schueler

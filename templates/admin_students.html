@@ -12,6 +12,7 @@
             <a href="{{ url_for('admin.admin_students', show='archived') }}" class="btn btn-sm {% if show_archived %}btn-primary{% else %}btn-outline-primary{% endif %}">Archiv</a>
         </div>
         <a href="{{ url_for('system.data_import', typ='schueler') }}" class="btn btn-outline-primary icon-btn">{{ bi('file-earmark-excel', 'bi-icon-sm') }} <span>Import Excel</span></a>
+        <a href="{{ url_for('admin.admin_dubletten') }}" class="btn btn-outline-primary icon-btn">{{ bi('people', 'bi-icon-sm') }} <span>Dubletten</span></a>
         <a href="{{ url_for('admin.admin_dashboard') }}" class="btn btn-outline-secondary icon-btn">{{ bi('arrow-left-circle', 'bi-icon-sm') }} <span>Zurück</span></a>
     </div>
 </div>
