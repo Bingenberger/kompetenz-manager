@@ -24,10 +24,12 @@ def private_value(name):
 def version(user):
     return hashlib.sha256((str(user.id)+'\0'+str(user.role)+'\0'+str(user.password_hash)).encode()).hexdigest()
 
-def issue(user):
+def issue(user,expected_version):
     if current_app.testing:return
     if db.engine.dialect.name=='sqlite':db.session.execute(text('BEGIN IMMEDIATE'))
     else:db.session.execute(db.select(User).where(User.id==user.id).with_for_update()).scalar_one()
+    db.session.refresh(user)
+    if version(user)!=expected_version:abort(401)
     RuntimeSession.query.filter(RuntimeSession.expires_at<=utc_now()).delete()
     if RuntimeSession.query.filter_by(user_id=user.id).count()>=20:abort(429)
     token=secrets.token_urlsafe(32)

@@ -90,3 +90,34 @@ except TooManyRequests:pass
 """],capture_output=True,text=True,timeout=10)
         assert result.returncode==0,result.stderr
     with export_slot():pass
+
+
+def test_password_reset_between_check_and_session_creation_denies_login(tmp_path):
+    env=environment(tmp_path)
+    program="""from app import app
+from extensions import db
+from models import User
+from km_migrate import migrate
+from km_runtime import RuntimeSession
+from werkzeug.security import generate_password_hash
+import re
+import routes.auth_routes as auth
+with app.app_context():
+ migrate()
+ db.session.add(User(username='race-personal',password_hash=generate_password_hash('old-password-123'),role='teacher'))
+ db.session.commit()
+original=auth._clear_login_failures
+def reset(username):
+ original(username)
+ user=User.query.filter_by(username=username).one()
+ user.password_hash=generate_password_hash('new-password-456')
+ db.session.commit()
+auth._clear_login_failures=reset
+client=app.test_client()
+html=client.get('/login').data.decode()
+token=re.search(r'name="_csrf_token"\s+value="([^"]+)"',html)[1]
+response=client.post('/login',data={'username':'race-personal','password':'old-password-123','_csrf_token':token})
+assert response.status_code==401
+with app.app_context():assert RuntimeSession.query.count()==0
+"""
+    result=execute(env,program);assert result.returncode==0,result.stderr

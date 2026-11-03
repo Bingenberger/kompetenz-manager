@@ -65,7 +65,9 @@ Lokale Anmeldung bleibt erhalten. Das signierte HttpOnly-/SameSite-Lax-Cookie
 enthält eine zufällige Sitzungskennung; die DB speichert nur deren Hash mit
 Acht-Stunden-Ablauf und Credential-Fingerabdruck. Logout, Passwort-/Rollenwechsel
 und Kontolöschung entziehen damit bestehende Sitzungen. Alte Cookies ohne neue
-Kennung erfordern erneute Anmeldung. Keine zentrale Sperrung oder SSO.
+Kennung erfordern erneute Anmeldung. Ein unter DB-Lock erneut geprüfter
+Credential-Fingerabdruck schließt Passwortwechsel zwischen Prüfung und
+Sitzungsanlage aus. Keine zentrale Sperrung oder SSO.
 
 Bestehendes CSRF bleibt aktiv; vorhandene Origin-Header müssen zusätzlich zur
 konfigurierten APP_BASE_URL passen. Direkte statische Uploadpfade sind gesperrt.

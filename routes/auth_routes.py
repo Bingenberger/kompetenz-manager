@@ -13,7 +13,7 @@ from mail_versand import mail_konfiguration
 from models import AuthRateLimit, BenachrichtigungAbbestellt, User, UserKlassenzuordnung
 from student_selection import vergiss_kind
 from time_utils import utc_now
-from km_runtime import issue,revoke
+from km_runtime import issue,revoke,version
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -143,8 +143,9 @@ def login():
         user = User.query.filter_by(username=username).first()
 
         if user and check_password_hash(user.password_hash, password):
+            verified_version=version(user)
             _clear_login_failures(username)
-            issue(user)
+            issue(user,verified_version)
             login_user(user)
             rotate_csrf_token()
             return redirect(url_for('system.index'))
