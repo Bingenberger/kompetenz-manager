@@ -94,7 +94,7 @@ except TooManyRequests:pass
 
 def test_password_reset_between_check_and_session_creation_denies_login(tmp_path):
     env=environment(tmp_path)
-    program="""from app import app
+    program=r"""from app import app
 from extensions import db
 from models import User
 from km_migrate import migrate
