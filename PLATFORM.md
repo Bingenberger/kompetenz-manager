@@ -96,7 +96,9 @@ Fehlgeschlagene Zustellungen bleiben offen. Versand ist mindestens einmal:
 ein Absturz nach SMTP-Annahme vor DB-Commit kann Duplikate erzeugen.
 Native Cronjobs nicht parallel zum Containerworker betreiben; für manuelle
 Versandjobs den Worker zuerst anhalten. Keine vollständige Queue-/Alarmoberfläche
-oder Zustellgarantie. Mailausfall blockiert keine normalen Webanfragen.
+oder Zustellgarantie. Mailausfall blockiert keine normalen Webanfragen. Der
+Healthstatus prüft derzeit DB/Schema; eine persistente SMTP-degraded-Projektion
+ist noch offen.
 
 UID 10001 besitzt /app/instance (DB, private Uploads, Schullogo, Workerzustand)
 und /app/odt_templates. Rootdateisystem schreibgeschützt, begrenztes tmpfs und
