@@ -572,69 +572,8 @@ def _add_new_columns():
         conn.commit()
 
 
-# Wir aktivieren den "App Context", damit wir Zugriff auf die DB-Konfiguration haben
-with app.app_context():
-    print("--- Starte Datenbank-Update ---")
-    print("Prüfe auf neue Tabellen...")
-    
-    # Dieser Befehl ist sicher: Er erstellt nur Tabellen, die FEHLEN.
-    # Bestehende Tabellen (User, Schueler, Beobachtungen) bleiben unberührt!
-    db.create_all()
-    _sqlite_add_missing_user_name_columns()
-    _postgres_add_missing_user_role_column()
-    _sqlite_add_missing_foerderplan_creator_column()
-    _sqlite_add_missing_schueler_geburtsdatum_column()
-    _sqlite_add_missing_workplan_weeks_column()
-    _sqlite_add_missing_workplan_task_columns()
-    _sqlite_add_missing_library_template_columns()
-    _sqlite_add_missing_erziehung_event_columns()
-    _postgres_add_missing_workplan_weeks_column()
-    _postgres_add_missing_workplan_task_columns()
-    _postgres_add_missing_library_template_columns()
-    _postgres_add_missing_erziehung_event_columns()
-    _sqlite_add_school_year_columns()
-    _postgres_add_school_year_columns()
-    _add_new_columns()
-
-    # Frueher hatte ein Foerderplan genau ein Fach; jetzt kann er mehrere haben.
-    from foerderplan_fach import uebernimm_altbestand
-    uebernommene = uebernimm_altbestand()
-    if uebernommene:
-        print(f"Fachzuordnung von {uebernommene} Förderplan/Förderplänen übernommen.")
-
-    # Jahrgaenge aus den Bestandsdaten ableiten. Idempotent: legt nur fehlende
-    # Klassen an und fuellt nur leere Jahrgaenge, ueberschreibt nichts.
-    from jahrgang import backfill_student_jahrgaenge, bereinige_klassennamen, sync_klassen
-    bereinigt = bereinige_klassennamen()
-    if bereinigt:
-        print(f"Leerzeichen am Rand von Klassennamen entfernt ({bereinigt} Datensatz/Datensätze).")
-    neue_klassen = sync_klassen()
-    if neue_klassen:
-        print(f"Klassen angelegt: {', '.join(neue_klassen)}")
-    gesetzte_jahrgaenge = backfill_student_jahrgaenge()
-    if gesetzte_jahrgaenge:
-        print(f"Jahrgang bei {gesetzte_jahrgaenge} Kind(ern) aus der Klasse übernommen.")
-    db.session.commit()
-
-    # Diagnostik-Katalog mit HSP, SLS 1-4 und ELFE II vorbelegen - nur, wenn
-    # noch keiner existiert; danach pflegt ihn die Verwaltung.
-    from diagnostik import lege_vorbelegung_an, schaerfe_vorbelegung_nach
-    if lege_vorbelegung_an():
-        print("Diagnostik-Katalog mit HSP, SLS 1-4 und ELFE II vorbelegt.")
-    from diagnostik import ergaenze_klassen_der_ergebnisse
-    ergaenzt = ergaenze_klassen_der_ergebnisse()
-    if ergaenzt:
-        print(f"Klasse zum Testzeitpunkt bei {ergaenzt} Diagnostik-Ergebnis(sen) ergänzt.")
-    nachgeschaerft = schaerfe_vorbelegung_nach()
-    if nachgeschaerft:
-        print(f"HSP-Vorbelegung an die Auswertungsmappen angepasst ({nachgeschaerft} Testform(en)).")
-    from diagnostik import ergaenze_sls_testplan, sls_ohne_prozentrang
-    if ergaenze_sls_testplan():
-        print("SLS-Testplan um die Mitte von Klasse 2 ergänzt.")
-    ohne_pr = sls_ohne_prozentrang()
-    if ohne_pr:
-        print(f"SLS: Prozentrang aus {ohne_pr} Kennwert(en) entfernt - das SLS liefert nur Rohwert und LQ.")
-    db.session.commit()
-    
-    print("--- FERTIG! Die Datenbank wurde erweitert. ---")
-    print("Ihre alten Daten sind sicher.")
+# Historical helpers remain available for a separately reviewed legacy migration.
+# Normal operation never imports or runs the historical backfills automatically.
+if __name__ == '__main__':
+    from km_migrate import main
+    main()

@@ -13,6 +13,7 @@ from mail_versand import mail_konfiguration
 from models import AuthRateLimit, BenachrichtigungAbbestellt, User, UserKlassenzuordnung
 from student_selection import vergiss_kind
 from time_utils import utc_now
+from km_runtime import issue,revoke
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -132,6 +133,7 @@ def login():
     if request.method == 'POST':
         username = (request.form.get('username') or '').strip()
         password = request.form.get('password') or ''
+        if len(username)>100 or len(password)>128:return 'Ungültige Anmeldung',400
 
         locked_until = _active_lock(username)
         if locked_until:
@@ -142,6 +144,7 @@ def login():
 
         if user and check_password_hash(user.password_hash, password):
             _clear_login_failures(username)
+            issue(user)
             login_user(user)
             rotate_csrf_token()
             return redirect(url_for('system.index'))
@@ -155,6 +158,7 @@ def login():
 @auth_bp.route('/logout', methods=['POST'])
 @login_required
 def logout():
+    revoke()
     logout_user()
     clear_csrf_token()
     vergiss_kind()

@@ -3,6 +3,8 @@ from io import BytesIO
 from pathlib import Path
 import re
 import subprocess
+from werkzeug.exceptions import HTTPException
+from km_export import bounded_export
 import tempfile
 import zipfile
 from xml.sax.saxutils import escape as xml_escape
@@ -255,6 +257,7 @@ def _build_workplan_odt(plan):
     return buffer
 
 
+@bounded_export
 def _merge_pdf_buffers(pdf_buffers):
     normalized = []
     for payload in (pdf_buffers or []):
@@ -281,6 +284,7 @@ def _merge_pdf_buffers(pdf_buffers):
         output_path = tmp_path / "merged.pdf"
         proc = subprocess.run(
             ["pdfunite", *[str(p) for p in input_paths], str(output_path)],
+            timeout=20,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -1946,6 +1950,8 @@ def workplan_export_pdf(plan_id):
     except RuntimeError as exc:
         flash(f'PDF-Export nicht möglich: {exc}')
         return redirect(request.referrer or url_for('workplan.workplan_edit_page', plan_id=plan.id))
+    except HTTPException:
+        raise
     except Exception:
         flash('PDF-Export fehlgeschlagen.')
         return redirect(request.referrer or url_for('workplan.workplan_edit_page', plan_id=plan.id))
@@ -2016,6 +2022,8 @@ def workplan_export_class_pdf():
     except RuntimeError as exc:
         flash(f'PDF-Export nicht möglich: {exc}')
         return redirect(url_for('workplan.workplan_list_page', tab=tab_id or 'dropdown', klasse_von=from_raw or None, klasse_bis=to_raw or None))
+    except HTTPException:
+        raise
     except Exception:
         flash('PDF-Export fehlgeschlagen.')
         return redirect(url_for('workplan.workplan_list_page', tab=tab_id or 'dropdown', klasse_von=from_raw or None, klasse_bis=to_raw or None))

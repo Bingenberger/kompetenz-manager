@@ -124,47 +124,13 @@ Bereits umgesetzt:
 - Service-Deployment mit `gunicorn`, Logging und Backups
 - Oberflaeche ohne externe Ressourcen: Bootstrap und Schriften werden lokal ausgeliefert, es gehen keine Daten an Dritte und die Anwendung funktioniert ohne Internetverbindung
 
-## Schnellstart fuer Entwicklung
+## Installation und Betrieb
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-SECRET_KEY="bitte-setzen" FLASK_DEBUG=1 python app.py
-```
-
-Alternativ:
-
-```bash
-./start.sh
-```
-
-Wenn `DATABASE_URL` nicht gesetzt ist, verwendet die App automatisch SQLite.
-
-## Installation
-
-Die ausfuehrliche Installationsanleitung steht in:
-
-- [INSTALL.md](INSTALL.md)
-
-Dort enthalten:
-
-- Entwicklungsbetrieb
-- SQLite und PostgreSQL
-- Setup und Erstinitialisierung
-- Serverbetrieb als Service
-- Reverse Proxy und Sicherheitsvariablen
-- Migration bestehender Uploads
-
-## Produktion als Service
-
-Fuer Linux-Server liegt ein Installationsskript bei:
-
-- [deploy/install_service.sh](deploy/install_service.sh)
-
-Die zugehoerige Betriebsdokumentation steht in:
-
-- [deploy/README_SERVICE.md](deploy/README_SERVICE.md)
+Der isolierte Standalone-Stack, die explizite Migration, persönliche lokale
+Erstadministration und Sicherung sind in [PLATFORM.md](PLATFORM.md) beschrieben.
+Der HTTP-Setup und alte Passwort-Reparaturweg sind geschlossen. Es gibt keine
+Standardkonten. Bestehende Service-/Updatewerkzeuge sind historische Ausgangspunkte;
+ein produktiver Wechsel benötigt den dort beschriebenen Adoptionstest.
 
 ## Migration bestehender Uploads
 

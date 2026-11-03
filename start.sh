@@ -20,6 +20,6 @@ if [[ -z "${SECRET_KEY:-}" ]]; then
 fi
 
 # Vor App-Start fehlende Tabellen/Spalten nachziehen (SQLite + PostgreSQL).
-python3 update_db.py
+python3 -c 'from app import app; from km_migrate import ready; app.app_context().push(); assert ready(), "Explicit migration required"'
 
 exec python3 app.py

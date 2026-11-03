@@ -6,6 +6,8 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
+import signal
+from km_export import bounded_export
 import tempfile
 import xml.etree.ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
@@ -232,6 +234,7 @@ def merge_odt_documents(primary_odt_bytes, secondary_odt_bytes):
     return output
 
 
+@bounded_export
 def convert_odt_bytes_to_pdf(odt_bytes, soffice_cmd="soffice", timeout_seconds=20):
     """Convert ODT bytes to PDF bytes using LibreOffice headless."""
     if isinstance(odt_bytes, BytesIO):
@@ -239,6 +242,7 @@ def convert_odt_bytes_to_pdf(odt_bytes, soffice_cmd="soffice", timeout_seconds=2
     else:
         odt_payload = bytes(odt_bytes)
 
+    if len(odt_payload)>16*1024*1024:raise ValueError('Dokument zu groß')
     if not shutil.which(soffice_cmd):
         raise RuntimeError("LibreOffice (soffice) ist nicht installiert.")
 
@@ -256,34 +260,21 @@ def convert_odt_bytes_to_pdf(odt_bytes, soffice_cmd="soffice", timeout_seconds=2
         env["HOME"] = str(tmp_path)
         env["XDG_RUNTIME_DIR"] = str(runtime_dir)
 
-        proc = subprocess.run(
-            [
-                soffice_cmd,
-                "--headless",
-                "--nologo",
-                "--nodefault",
-                "--nolockcheck",
-                "--nofirststartwizard",
-                f"-env:UserInstallation=file://{profile_dir}",
-                "--convert-to",
-                "pdf",
-                "--outdir",
-                str(tmp_path),
-                str(odt_path),
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            timeout=timeout_seconds,
-            check=False,
-            env=env,
-        )
+        process=subprocess.Popen([
+            soffice_cmd,'--headless','--nologo','--nodefault','--nolockcheck',
+            '--nofirststartwizard',f'-env:UserInstallation=file://{profile_dir}',
+            '--convert-to','pdf','--outdir',str(tmp_path),str(odt_path)],
+            stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,env=env,start_new_session=True)
+        try:
+            process.wait(timeout=min(20,max(1,timeout_seconds)))
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid,signal.SIGKILL);process.wait()
+            raise RuntimeError('PDF-Konvertierung hat das Zeitlimit erreicht.')
+        if pdf_path.exists() and pdf_path.stat().st_size>64*1024*1024:
+            raise RuntimeError('PDF-Ausgabe zu groß.')
         if pdf_path.exists():
             return BytesIO(pdf_path.read_bytes())
 
-        if proc.returncode != 0 or not pdf_path.exists():
-            details = (proc.stderr or proc.stdout or "").strip()
-            raise RuntimeError(f"PDF-Konvertierung fehlgeschlagen. {details}".strip())
         raise RuntimeError("PDF-Konvertierung fehlgeschlagen.")
 
 

@@ -1094,47 +1094,7 @@ def data_import(typ):
 
 @system_bp.route('/setup')
 def setup():
-    if os.environ.get('ALLOW_SETUP_ROUTE') != '1':
-        return "Setup-Route ist deaktiviert.", 403
-
-    setup_token = (os.environ.get('SETUP_ROUTE_TOKEN') or '').strip()
-    if not setup_token:
-        return "Setup-Token fehlt. Route bleibt deaktiviert.", 403
-
-    request_token = (request.args.get('token') or '').strip()
-    if not request_token or not secrets.compare_digest(request_token, setup_token):
-        return "Ungueltiger Setup-Token.", 403
-
-    if request.remote_addr not in {'127.0.0.1', '::1'}:
-        return "Setup ist nur lokal auf dem Server erlaubt.", 403
-
-    db.create_all()
-    if not User.query.filter_by(role='admin').first():
-        setup_password = os.environ.get('SETUP_ADMIN_PASSWORD') or secrets.token_urlsafe(12)
-        hashed_pw = generate_password_hash(setup_password)
-        admin = User(username='admin', password_hash=hashed_pw, role='admin')
-        db.session.add(admin)
-        db.session.commit()
-        return (
-            "Datenbank & Admin-User angelegt! Temporäres Passwort: "
-            f"<strong>{setup_password}</strong> "
-            f"<a href='{url_for('auth.login')}'>Zum Login</a>"
-        )
-
-    if not Schueler.query.first():
-        db.session.add(Schueler(vorname="Max", nachname="Muster", klasse="4a"))
-        db.session.add(Schueler(vorname="Lisa", nachname="Lustig", klasse="4a"))
-
-        b = Bogen(titel="Sozialverhalten")
-        db.session.add(b)
-        db.session.flush()
-        db.session.add(Item(bogen_id=b.id, bereich="Konflikt", text="Löst Streit friedlich"))
-        db.session.add(Item(bogen_id=b.id, bereich="Arbeit", text="Arbeitet konzentriert"))
-
-        db.session.commit()
-        return f"Datenbank erstellt und Testdaten angelegt! <a href='{url_for('system.index')}'>Zum Start</a>"
-
-    return f"Datenbank existiert schon. <a href='{url_for('system.index')}'>Zum Start</a>"
+    return 'Persönlicher Erstzugang wird lokal am Terminal eingerichtet.',403
 
 
 @system_bp.route('/media/beobachtung/<int:beobachtung_id>')

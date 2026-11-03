@@ -5,7 +5,7 @@ from flask import Flask, render_template
 from flask_login import current_user
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
-from werkzeug.middleware.proxy_fix import ProxyFix
+from km_runtime import private_value,install,valid
 
 from csrf_protection import register_csrf
 from db_health_checks import (
@@ -74,14 +74,14 @@ def _default_sqlite_uri():
 
 
 def create_app(config_overrides=None):
-    app = Flask(__name__)
+    app = Flask(__name__,instance_path=os.environ.get('KM_INSTANCE_PATH') or str(BASE_DIR/'instance'))
     # Falls kein SECRET_KEY gesetzt ist, wird ein temporärer Key erzeugt (Sessions werden nach Neustart ungültig)
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or os.urandom(32).hex()
+    app.config['SECRET_KEY'] = private_value('SECRET_KEY')
     # Cookies sind domainbasiert (nicht portbasiert). Eigene Namen vermeiden Kollisionen mit anderen Flask-Apps auf localhost.
     app.config['SESSION_COOKIE_NAME'] = os.environ.get('SESSION_COOKIE_NAME', 'kompetenz_manager_session')
     app.config['REMEMBER_COOKIE_NAME'] = os.environ.get('REMEMBER_COOKIE_NAME', 'kompetenz_manager_remember')
-    app.config['SQLALCHEMY_DATABASE_URI'] = _normalized_database_url(os.environ.get('DATABASE_URL')) or _default_sqlite_uri()
-    app.config['UPLOAD_FOLDER'] = 'static/uploads'
+    app.config['SQLALCHEMY_DATABASE_URI'] = _normalized_database_url(private_value('DATABASE_URL')) or _default_sqlite_uri()
+    app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER') or str(Path(app.instance_path)/'legacy_uploads')
     # Obergrenze je Anfrage. Die einzelnen Uploads pruefen ihre eigenen, kleineren
     # Grenzen; dies faengt ab, was gar nicht erst gelesen werden soll.
     app.config['MAX_CONTENT_LENGTH'] = int(os.environ.get('MAX_CONTENT_LENGTH') or 32 * 1024 * 1024)
@@ -102,15 +102,9 @@ def create_app(config_overrides=None):
     if config_overrides:
         app.config.update(config_overrides)
 
-    if os.environ.get('TRUST_REVERSE_PROXY', '0') == '1':
-        app.wsgi_app = ProxyFix(
-            app.wsgi_app,
-            x_for=int(os.environ.get('PROXY_FIX_X_FOR', '1')),
-            x_proto=int(os.environ.get('PROXY_FIX_X_PROTO', '1')),
-            x_host=int(os.environ.get('PROXY_FIX_X_HOST', '1')),
-            x_port=int(os.environ.get('PROXY_FIX_X_PORT', '1')),
-            x_prefix=int(os.environ.get('PROXY_FIX_X_PREFIX', '0')),
-        )
+    if not app.config.get('TESTING') and len(app.config.get('SECRET_KEY') or '')<32:
+        raise RuntimeError('Persistent SECRET_KEY or SECRET_KEY_FILE (32+ characters) required')
+    install(app)
 
     engine_options = {'pool_pre_ping': True}
     if str(app.config.get('SQLALCHEMY_DATABASE_URI', '')).startswith('sqlite:'):
@@ -129,7 +123,9 @@ def create_app(config_overrides=None):
 
     @login_manager.user_loader
     def load_user(user_id):
-        return db.session.get(User, int(user_id))
+        try:user=db.session.get(User,int(user_id))
+        except (ValueError,TypeError):return None
+        return user if user and valid(user) else None
 
     @app.context_processor
     def inject_navigation():
@@ -200,12 +196,6 @@ def create_app(config_overrides=None):
 app = create_app()
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
-        warn_if_elternkontakt_migration_needed()
-        warn_if_user_name_columns_missing()
-        warn_if_foerderplan_creator_column_missing()
-        warn_if_workplan_setting_column_missing()
     app.run(
         debug=os.environ.get('FLASK_DEBUG') == '1',
         host=os.environ.get('FLASK_HOST', '127.0.0.1'),

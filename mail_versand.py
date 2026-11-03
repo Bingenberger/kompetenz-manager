@@ -184,8 +184,10 @@ def versende(takt, jetzt=None):
 
     lehrkraefte = (
         User.query
-        .filter(User.mail_takt == takt, User.email.isnot(None), User.email != '')
+        .filter(User.mail_takt == takt, User.email.isnot(None), User.email != '',
+                User.id.in_(db.session.query(Notification.user_id).filter(Notification.mailed_at.is_(None))))
         .order_by(User.id)
+        .limit(20)
         .all()
     )
     for user in lehrkraefte:
@@ -193,6 +195,7 @@ def versende(takt, jetzt=None):
             Notification.query
             .filter(Notification.user_id == user.id, Notification.mailed_at.is_(None))
             .order_by(Notification.created_at.asc(), Notification.id.asc())
+            .limit(500)
             .all()
         )
         if not offen:
@@ -201,7 +204,7 @@ def versende(takt, jetzt=None):
         try:
             sende_mail(user.email, betreff, text, konfiguration)
         except Exception:  # noqa: BLE001 - jeder Fehler: spaeter erneut versuchen
-            log.exception('Benachrichtigungsmail an Benutzer %s fehlgeschlagen', user.id)
+            log.error('Benachrichtigungsmail fehlgeschlagen; erneuter Versuch bleibt offen.')
             db.session.rollback()
             ergebnis['fehler'] += 1
             continue

@@ -1,0 +1,63 @@
+services:
+  app:
+    image: kompetenz-manager:0.1.0-dev
+    build:
+      context: .
+      target: runtime
+    user: "10001:10001"
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:size=256m,mode=1777"]
+    mem_limit: 1536m
+    cpus: 2
+    pids_limit: 192
+    stop_grace_period: 35s
+    ports: ["127.0.0.1:${KM_PORT:-8008}:8000"]
+    environment: &runtime
+      SECRET_KEY_FILE: /run/secrets/session_key
+      DATABASE_URL: "${DATABASE_URL:-sqlite:////app/instance/schule.db}"
+      SESSION_COOKIE_SECURE: "${SESSION_COOKIE_SECURE:-0}"
+      REMEMBER_COOKIE_SECURE: "${SESSION_COOKIE_SECURE:-0}"
+      APP_BASE_URL: "${APP_BASE_URL:-http://localhost:8008}"
+      TRUSTED_PROXY_IPS: "${TRUSTED_PROXY_IPS:-}"
+      MAIL_SERVER: "${MAIL_SERVER:-}"
+      MAIL_PORT: "${MAIL_PORT:-1025}"
+      MAIL_SECURITY: "${MAIL_SECURITY:-none}"
+      MAIL_FROM: "${MAIL_FROM:-kompetenz@example.invalid}"
+    secrets: [session_key]
+    volumes:
+      - instance:/app/instance
+      - templates:/app/odt_templates
+    logging: &logging
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  worker:
+    image: kompetenz-manager:0.1.0-dev
+    command: [python, km_worker.py]
+    user: "10001:10001"
+    read_only: true
+    init: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs: ["/tmp:size=32m,mode=1777"]
+    mem_limit: 384m
+    cpus: 0.5
+    pids_limit: 64
+    stop_grace_period: 45s
+    environment: *runtime
+    secrets: [session_key]
+    volumes: [instance:/app/instance]
+    logging: *logging
+    healthcheck:
+      test: [CMD, python, -c, "from app import app;from km_migrate import ready;app.app_context().push();raise SystemExit(0 if ready() else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+volumes:
+  instance:
+  templates:
+secrets:
+  session_key:
+    file: ${KM_SECRET_FILE:?Run prepare_secret.py and set KM_SECRET_FILE}
